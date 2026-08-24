@@ -1,0 +1,15 @@
+[project]
+name = "mi-lab"
+version = "0.1.0"
+description = "A model-agnostic mechanistic interpretability lab: one adapter interface, swappable backends, layers addressed by depth fraction."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.2",
+    "torch>=2.13.0",
+    "transformers>=4.57.0",
+    "typer>=0.27.1",
+]
+
+[project.scripts]
+mi-lab = "src.cli.main:app"

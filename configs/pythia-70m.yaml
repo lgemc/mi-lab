@@ -1,0 +1,10 @@
+# A different architecture family (GPT-NeoX block layout) at a tiny size.
+# Its job is to catch code that quietly assumed GPT-2's module names.
+id: pythia-70m
+backend: transformers
+hf_name: EleutherAI/pythia-70m
+probe_layer_frac: 0.65
+batch_size: 16
+device: cpu
+dtype: float32
+max_new_tokens: 16

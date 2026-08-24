@@ -1,0 +1,10 @@
+# The first step up. Useful for telling "this holds across scale" apart from
+# "this is a fact about a 124M model" without leaving the laptop.
+id: gpt2-medium
+backend: transformers
+hf_name: gpt2-medium
+probe_layer_frac: 0.65
+batch_size: 32
+device: cpu
+dtype: float32
+max_new_tokens: 32

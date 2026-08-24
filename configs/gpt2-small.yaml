@@ -1,0 +1,16 @@
+# The laptop model. Every experiment in this repo must run here first: it is
+# 500x faster to iterate on, and a result that needs a big model to appear is
+# a result you cannot debug.
+id: gpt2-small
+backend: transformers
+hf_name: gpt2
+probe_layer_frac: 0.65
+batch_size: 64
+device: cpu
+dtype: float32
+max_new_tokens: 32
+sae:
+  source: neuronpedia
+  release: gpt2-small-res-jb
+  activation_fn: relu
+  l0_varies: true        # ReLU: sparsity moves with the input, so L0 can be swept

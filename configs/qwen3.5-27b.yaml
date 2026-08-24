@@ -1,0 +1,16 @@
+# The owned model. Nothing changes but this file: same fractions, same code.
+# Needs a backend that can serve it -- 'transformers' will not load this on a
+# single machine, which is the whole reason backends are a registry key.
+id: qwen3.5-27b
+backend: nnsight_vllm
+hf_name: Qwen/Qwen3.5-27B
+probe_layer_frac: 0.65
+batch_size: 4
+device: cuda
+dtype: bfloat16
+max_new_tokens: 32
+sae:
+  source: qwen-scope
+  release: Qwen/SAE-Res-Qwen3.5-27B-W80K-L0_50
+  activation_fn: topk
+  l0_varies: false       # TopK: L0 is constant by construction, so sparsity sweeps are a no-op
