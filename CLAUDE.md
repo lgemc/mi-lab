@@ -20,11 +20,13 @@ There are no `__init__.py` files and test modules are named after the module the
 modules explicitly:
 
 ```bash
-# everything (~50s; several modules download/load GPT-2 small)
-uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run tests.probing tests.runner tests.adapter
+# everything: 191 tests, ~45s (probing/runner/adapter load GPT-2 small)
+uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
+    tests.prompts tests.torchdata tests.probing tests.runner tests.adapter
 
-# offline-only subset — no checkpoint needed
-uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run
+# offline subset: 152 tests, ~2s, no checkpoint needed
+uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
+    tests.prompts tests.torchdata
 
 # one module / class / method
 uv run python -m unittest tests.spec
@@ -43,7 +45,29 @@ uv run python -m tests.stubs.refresh
 
 Adapter/probing/runner tests skip loudly rather than fail if the checkpoint is unreachable offline.
 
-There is no linter or formatter configured.
+`tests/config.py::TestNoHardcodedModelFacts` greps every file under `src/` for `768`, `1600`,
+`2048`, `4096`, `5120`. It reads raw text, so **a size named in a docstring or comment fails it too** —
+if prose needs to talk about widths, say "hundreds of dimensions" rather than the number.
+
+### Lint
+
+```bash
+uv run ruff check .          # add --fix for the safe autofixes
+```
+
+Config lives in `[tool.ruff]` in `pyproject.toml`, with every ignore commented in place. Three
+things to know before adding rules or "fixing" the ignores:
+
+- `UP006`/`UP035`/`UP045` (modernize `Optional[X]`, `Dict[K, V]`) are **off by design**, not for
+  compatibility — OmegaConf reads `ExperimentSpec`'s annotations and handles both spellings fine.
+  Turning them on rewrites ~235 annotations across 27 files, so it is a one-pass decision.
+- `B008` is not disabled; `typer.Option`/`typer.Argument` are declared immutable, so genuine
+  mutable-default bugs still land.
+- `ARG` is not selected: torch forward hooks are called by signature, so their unused parameters
+  are the contract.
+
+`ruff format` has never been run over this repo. Running it reformats every file — don't do it as a
+side effect of another change.
 
 ## Architecture
 
@@ -77,6 +101,14 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   `ExperimentSpec` or the runner body.
 - `core/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
+- `core/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
+  at one strength. It measures *effect* (the probe's score on the steered continuation) against
+  *fluency* (share of non-repeated words), because those two moving together is what "the ceiling"
+  means. `random_control` is the check that makes the rest mean anything — a random vector of the
+  same norm at the same layer also moves the model.
+- `core/torchdata.py` — map-style and streaming `Dataset`s over prompts, plus `ActivationDataset`
+  over what a capture produced (which carries its model, layers and position, because a directory
+  of `.pt` files identified by filename is one you will eventually mix up).
 
 ### Invariants that the code enforces (don't break these)
 
@@ -84,7 +116,7 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
    anywhere for an absolute layer index, and `probe_layer_frac` outside `[0, 1]` raises.
 2. **`d_model` and `n_layers` are read off the checkpoint**, stamped in by `cfg.with_sizes()`. A
    config that states a size disagreeing with the checkpoint is an error, not a silent overwrite.
-   No literal widths (`768`, `5120`) belong in source.
+   No literal widths belong in `src/` — see the grep test above.
 3. **Unknown keys are always errors.** `from_mapping` rejects unknown `ModelConfig` keys;
    `_reject_unknown_keys` in `spec.py` exists specifically because Hydra's `+key=value` appends past
    struct mode and would otherwise vanish silently when the config becomes an `ExperimentSpec`.
@@ -103,6 +135,11 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
    hook at all, keeping it byte-identical to no steering.
 8. **`LabeledPrompts.split()` keeps a `groups` id whole**, because a contrast pair straddling the
    split makes the AUC measure the one word that differs.
+9. **A prompt dataset yields text, never token ids.** Tokenization belongs to the adapter that owns
+   the model, its padding side and its pad token. A `DataLoader` that tokenizes is a second opinion
+   about all three, and the failure is silent: activations of a different sentence than the file has.
+10. **`zip()` over parallel sequences takes `strict=True`.** Prompts against their completions,
+    scores or labels must be the same length; truncating silently is the bug the linter now catches.
 
 ### Composition vs sweeps
 
@@ -114,29 +151,47 @@ exists solely because `--multirun` needs argv — a Typer command group cannot l
 composition. That is what `run replay <dir>` uses, so a run stays reproducible from its own
 `spec.yaml` long after `specs/` has moved on, with a matching hash as the proof.
 
+### Data: plain text first
+
+`DataSpec.source` is one of `SOURCES = ("synthetic", "prompts", "jsonl")`.
+
+`prompts` is the format in `core/prompts.py` and the one to prefer: one example per line, `+`/`-` in
+the first column as the label, indentation joining a line to the group above it, and `name:` /
+`labels:` headers before the first example. It is the only source carrying label names and group
+ids, so a split cannot cut a minimal pair in half. Whitespace is written down (`\s`, `\n`, `\t`,
+`\\`) because a trailing space changes tokenization and is invisible in an editor; an unknown
+escape, an unknown header, a repeated header and a header after the first example are all errors,
+and every message names `file:line`.
+
+`uv run python -m src.cli data check <file>` reports duplicates, balance, group sizes and the split
+you are about to train on — before any model loads. `synthetic` is the toy generator that keeps the
+path runnable with no download: a machinery check, not a result.
+
 ### CLI
 
-`src/cli/main.py` aggregates one Typer app per group (`model`, `capture`, `probe`, `steer`, `run`).
-Command modules only format what `core` returns — anything doable from the shell must be doable by
-importing the same core function. `HelpfulCommand`/`HelpfulGroup` in `cli/common.py` print full
-help on a parse error; note that Typer 0.27 vendors its own Click fork, so the `UsageError` caught
-there is `typer._click.exceptions.UsageError`.
+`src/cli/main.py` aggregates one Typer app per group: `model`, `capture`, `data`, `probe`, `steer`,
+`run`, `viz`. Command modules only format what `core` returns — anything doable from the shell must
+be doable by importing the same core function. `HelpfulCommand`/`HelpfulGroup` in `cli/common.py`
+print full help on a parse error; note that Typer 0.27 vendors its own Click fork, so the
+`UsageError` caught there is `typer._click.exceptions.UsageError`.
 
 Every model-facing command takes a config as its first argument — moving an experiment from a
 laptop model to a large one is that argument changing and nothing else.
 
-### Data sources
+### Charts
 
-`DataSpec.source` is one of `SOURCES = ("synthetic", "prompts", "jsonl")`. `prompts` is the
-plain-text format in `src/core/prompts.py` (one example per line, `+`/`-` label prefix, indentation
-for group membership) and is the one to prefer: it is the only source carrying label names and
-group ids, so a split does not cut a contrast pair in half. `synthetic` is the toy generator that
-keeps the whole path runnable with no download — machinery check only, not a result.
+`src/viz/` is one module per subject (`dataset`, `model`, `activations`, `probing`, `steering`,
+`runs`) over `style.py`. Two rules:
 
-### Work in progress (untracked)
+- **The palette is keyed by meaning, not colour.** `PALETTE["baseline"]`, never `"steelblue"` — so
+  the positive class is the same green in every chart.
+- **Only the CLI selects a backend.** `cli/commands/viz.py` sets `matplotlib.use("Agg")` because it
+  writes files; `src/viz/` must never call `use()`, or it takes the backend away from a notebook
+  that imported it.
 
-`src/viz/style.py` (matplotlib/seaborn, neither declared in `pyproject.toml` nor installed).
-Nothing imports it yet.
+`viz dashboard` assembles a run's charts into one self-contained HTML page with images inlined as
+data URIs, so the file survives being moved or attached. Every `viz` command takes `--output` and
+`--show` (inline in the terminal, via `term-image`, for working over ssh).
 
 ## Conventions
 
