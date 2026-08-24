@@ -1,0 +1,4 @@
+# The probe that steers best, and the untrained baseline the logistic one has
+# to beat. Takes no hyperparameters at all.
+kind: difference_of_means
+fracs: [0.65]

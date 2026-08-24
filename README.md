@@ -24,7 +24,7 @@ Three rules keep that from happening here:
 
 ```
 configs/            one YAML per model — the only place a model fact lives
-specs/              one YAML per experiment — the whole run as data
+specs/              Hydra config groups — experiments composed from parts
 src/core/
   config.py         what a model is; resolves depth fractions to layer indices
   adapter.py        how to hook it; the ModelAdapter interface and backend registry
@@ -34,6 +34,7 @@ src/core/
   spec.py           ExperimentSpec: the experiment as composable data, plus its hash
   run.py            what an experiment left behind; stdlib only, readable anywhere
   runner.py         turns a spec into a Run, one registered function per kind
+src/app.py          the Hydra entry point, for --multirun sweeps
 src/cli/
   main.py           root Typer app
   common.py         help-on-error Click customization
@@ -54,10 +55,12 @@ python -m src.cli probe sweep gpt2-small                       # where does the 
 python -m src.cli probe train gpt2-small --frac 0.65 --out probe.pt
 python -m src.cli probe score gpt2-small --probe probe.pt -p "I adored the concert"
 
-python -m src.cli run show specs/sentiment-sweep.yaml        # resolve, don't run
-python -m src.cli run exec specs/sentiment-sweep.yaml
-python -m src.cli run exec specs/sentiment-sweep.yaml -s model.config=pythia-70m
+python -m src.cli run groups                                 # what can be swapped
+python -m src.cli run show -e sentiment-sweep               # compose, don't run
+python -m src.cli run exec -e sentiment-sweep
+python -m src.cli run exec -e sentiment-sweep -s model=pythia-70m -s method.lr=0.1
 python -m src.cli run list runs
+python -m src.cli run replay runs/20260824-221404-0a25479a452e
 
 python -m src.cli steer contrast gpt2-small \
     -p "My favourite place is" \
@@ -96,27 +99,36 @@ with adapter.steer(layer, probe.direction.float(), strength=1.0):
     print(adapter.generate(["My favourite place is"]))
 ```
 
-## Experiments are specs, not flags
+## Experiments are composed, not flagged
 
-Anything that changes a number lives in a spec file, and `--set` overrides any
-key by dotted path without a flag having to exist for it:
+Anything that changes a number lives in `specs/`, composed by Hydra from
+groups against the `ExperimentSpec` schema:
 
-```yaml
-# specs/sentiment-sweep.yaml
-experiment: sentiment-depth-sweep
-kind: probe_sweep
-model:
-  config: gpt2-small
-data: {source: synthetic, size: 200, test_frac: 0.3}
-method:
-  kind: logistic
-  fracs: [0.0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.0]
+```
+specs/
+    config.yaml           the defaults list — one choice per group
+    model/                gpt2-small, gpt2-medium, pythia-70m, qwen3.5-27b
+    data/                 synthetic, jsonl
+    method/               logistic, difference_of_means
+    preset/               named bundles: sentiment-sweep, sentiment-steering
 ```
 
-Specs are composed with OmegaConf against a structured schema, so a file
-overrides only the keys it mentions and a mistyped key is a merge error rather
-than a line that quietly did nothing. Each run gets a directory holding the
-resolved `spec.yaml` it ran, a `run.json`, and its artifacts:
+A group swaps whole (`model=pythia-70m`), a dotted path overrides one key
+(`method.lr=0.1`), and a preset pulls in a bundle (`-e sentiment-sweep`).
+Because the schema is registered in Hydra's `ConfigStore`, values are
+type-checked and unknown keys are refused — including through Hydra's `+`
+prefix, which appends past struct mode and needed its own guard.
+
+Sweeps go through the Hydra entry point, which is the one place `@hydra.main`
+is used, because `--multirun` needs argv:
+
+```bash
+python -m src.app --multirun model=gpt2-small,pythia-70m
+python -m src.app --multirun method.lr=0.01,0.05,0.2 seed=0,1,2
+```
+
+Each run gets a directory holding the resolved `spec.yaml` it ran, a
+`run.json`, and its artifacts:
 
 ```
 runs/20260824-221404-0a25479a452e/
@@ -124,6 +136,11 @@ runs/20260824-221404-0a25479a452e/
     run.json           status, metrics, produced refs, duration
     probe-layer7.pt    the artifact
 ```
+
+That `spec.yaml` is fully resolved and self-contained — no groups, no defaults
+list — so `run replay <dir>` reproduces the experiment from its own directory
+long after `specs/` has moved on, and a matching hash proves it really was the
+same experiment.
 
 `spec_hash` covers everything that determines the result and nothing that does
 not — output paths are excluded, so writing the same experiment somewhere else

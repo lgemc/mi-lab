@@ -1,0 +1,8 @@
+# @package _global_
+# Where does sentiment become linearly readable? The depths are fractions, so
+# the question means the same thing on a 6-layer model and a 64-layer one.
+defaults:
+  - override /method: logistic
+
+experiment: sentiment-depth-sweep
+kind: probe_sweep

@@ -1,0 +1,7 @@
+# Your own data. Set data.path, and data.text_field/label_field if the file
+# calls those columns something else.
+source: jsonl
+path: null
+text_field: text
+label_field: label
+test_frac: 0.3

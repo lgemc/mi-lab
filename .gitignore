@@ -4,3 +4,5 @@ __pycache__/
 outputs/
 
 runs/
+outputs/
+multirun/

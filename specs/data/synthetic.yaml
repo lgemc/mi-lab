@@ -1,0 +1,4 @@
+# The built-in toy set. No download, distinct sentences, balanced by construction.
+source: synthetic
+size: 200
+test_frac: 0.3

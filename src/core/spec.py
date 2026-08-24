@@ -1,6 +1,7 @@
 import hashlib
 import json
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from .config import ModelConfig, load_config
@@ -11,18 +12,29 @@ An ExperimentSpec is the whole experiment as data: which model, which data,
 which method, at which depths. Running it is deterministic, and two people
 holding the same spec get the same numbers.
 
-The spec is composed with OmegaConf rather than parsed by hand, which buys
-three things that matter once experiments start multiplying: a file may
-override only the keys it cares about, the shell may override any key by
-dotted path without a flag existing for it, and a mistyped key is a merge
-error instead of a silently ignored line.
+There are two ways in, and they exist for different jobs.
+
+compose_spec is the one to use: Hydra composes specs/config.yaml out of the
+group directories beside it, so `model=pythia-70m method=difference_of_means`
+swaps whole sections, `+preset=sentiment-sweep` pulls in a named bundle, and
+`method.lr=0.1` overrides one key. Because ExperimentSpec is registered as the
+schema, every value is type-checked and a mistyped key is an error rather than
+a line that quietly did nothing.
+
+load_spec reads one self-contained file with no groups and no composition. It
+is what reads back the spec.yaml a run wrote, which must keep working long
+after the group files beside it have been edited -- a run has to stay
+reproducible from its own directory.
 
 spec_hash covers everything that determines the result and nothing that does
 not -- output paths are excluded on purpose, so writing the same experiment to
 a different directory does not make it look like a different experiment.
 
-A common pipe could be: load_spec | run_experiment | Run.save
+A common pipe could be: compose_spec | run_experiment | Run.save
 """
+
+SPEC_DIR = Path(__file__).resolve().parents[2] / "specs"
+SCHEMA_NAME = "experiment_schema"
 
 class SpecError(ValueError):
     """Raised when a spec is malformed, names something unknown, or fails to merge"""
@@ -175,3 +187,85 @@ def save_spec(spec: ExperimentSpec, path: str) -> None:
 
     with open(path, "w") as handle:
         handle.write(OmegaConf.to_yaml(OmegaConf.structured(spec)))
+
+def _register_schema() -> None:
+    """Put ExperimentSpec in Hydra's ConfigStore so composition is type-checked
+
+    Registering twice is harmless, which matters because every compose_spec
+    call has to be able to assume it has happened.
+    """
+    from hydra.core.config_store import ConfigStore
+
+    ConfigStore.instance().store(name=SCHEMA_NAME, node=ExperimentSpec)
+
+def groups() -> Dict[str, List[str]]:
+    """The config groups beside specs/config.yaml, and the options in each"""
+    if not SPEC_DIR.is_dir():
+        return {}
+    return {
+        directory.name: sorted(path.stem for path in directory.glob("*.yaml"))
+        for directory in sorted(SPEC_DIR.iterdir())
+        if directory.is_dir()
+    }
+
+def _reject_unknown_keys(actual: Dict[str, Any], reference: Dict[str, Any], path: str = "") -> None:
+    """Fail on any key the schema does not define
+
+    Hydra's `+` prefix means "append a key that is not there", and it honours
+    that even against a structured schema: `+nonsense=1` composes cleanly, then
+    vanishes when the config becomes an ExperimentSpec. The override looks like
+    it did something, changes nothing, and does not even reach the spec hash.
+    Struct mode does not catch it, so this does.
+    """
+    for key, value in actual.items():
+        location = f"{path}{key}"
+        if key not in reference:
+            raise SpecError(f"'{location}' is not a key of ExperimentSpec; known keys here are {sorted(reference)}")
+        if isinstance(value, dict) and isinstance(reference[key], dict):
+            _reject_unknown_keys(value, reference[key], f"{location}.")
+
+def compose_spec(
+    preset: Optional[str] = None,
+    overrides: Optional[List[str]] = None,
+    config_name: str = "config",
+) -> ExperimentSpec:
+    """Compose a spec from the group defaults, an optional preset, and overrides
+
+    Overrides use Hydra's grammar, so `model=pythia-70m` swaps a whole group
+    while `model.batch_size=4` overrides one key inside it.
+
+    Hydra keeps its state in a process-global singleton, so it is cleared
+    before and after composing: without that, a second call in the same process
+    inherits the first one's config directory.
+    """
+    from hydra import compose, initialize_config_dir
+    from hydra.core.global_hydra import GlobalHydra
+    from hydra.errors import HydraException
+    from omegaconf import OmegaConf
+    from omegaconf.errors import OmegaConfBaseException
+
+    if not SPEC_DIR.is_dir():
+        raise SpecError(f"no spec directory at {SPEC_DIR}")
+
+    _register_schema()
+    selections = list(overrides or [])
+    if preset:
+        available = groups().get("preset", [])
+        if preset not in available:
+            raise SpecError(f"unknown preset '{preset}'; available presets are {available}")
+        selections.insert(0, f"+preset={preset}")
+
+    GlobalHydra.instance().clear()
+    try:
+        with initialize_config_dir(config_dir=str(SPEC_DIR), version_base="1.3"):
+            merged = compose(config_name=config_name, overrides=selections)
+            _reject_unknown_keys(
+                OmegaConf.to_container(merged, resolve=True),
+                OmegaConf.to_container(OmegaConf.structured(ExperimentSpec)),
+            )
+            spec = OmegaConf.to_object(merged)
+    except (HydraException, OmegaConfBaseException) as error:
+        raise SpecError(str(error)) from error
+    finally:
+        GlobalHydra.instance().clear()
+    return spec.validate()

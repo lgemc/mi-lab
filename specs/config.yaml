@@ -1,0 +1,20 @@
+# Hydra composition root. The defaults list picks one config from each group;
+# any of them can be swapped from the shell (model=pythia-70m) and any single
+# key can be overridden by dotted path (method.lr=0.1).
+#
+# experiment_schema comes first so every value below is type-checked against
+# the ExperimentSpec dataclass, which is what makes a mistyped key an error
+# rather than a line that quietly did nothing.
+defaults:
+  - experiment_schema
+  - model: gpt2-small
+  - data: synthetic
+  - method: logistic
+  - _self_
+
+experiment: unnamed
+kind: probe_sweep
+seed: 0
+output:
+  root: runs
+  save_probe: true
