@@ -18,3 +18,53 @@ dependencies = [
 
 [project.scripts]
 mi-lab = "src.cli.main:app"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.16.4",
+]
+
+# Ruff replaces flake8 + isort + pyupgrade + bugbear in one binary. Run it with
+# `uv run ruff check .` and `uv run ruff format --check .`
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+extend-exclude = ["tests/stubs"]
+
+[tool.ruff.lint]
+select = [
+    "F",    # pyflakes: unused imports, undefined names, the real bugs
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "I",    # isort: import order
+    "N",    # pep8-naming
+    "UP",   # pyupgrade
+    "B",    # bugbear: mutable defaults, zip without strict, raise without from
+    "C4",   # comprehensions
+    "SIM",  # simplifiable code
+    "RET",  # return-statement hygiene
+    "PTH",  # prefer pathlib over os.path
+    "RUF",  # ruff's own rules
+]
+ignore = [
+    # This codebase writes `Optional[int]` and `Dict[str, Any]` throughout, and
+    # ExperimentSpec's annotations are read by OmegaConf. The modern spellings
+    # work fine there -- this is a style choice, not a compatibility one -- so
+    # these stay off until the whole codebase is converted in one pass.
+    "UP006",  # non-pep585-annotation: Dict -> dict
+    "UP035",  # deprecated-import: typing.Dict
+    "UP045",  # non-pep604-annotation-optional: Optional[X] -> X | None
+    # Position subclasses (str, Enum) deliberately: it round-trips through YAML
+    # and OmegaConf as a plain string. StrEnum changes what format() produces.
+    "UP042",  # replace-str-enum
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# Typer's whole interface is call-in-default (`x: str = typer.Option(...)`), so
+# B008 must allow these two rather than being switched off everywhere.
+extend-immutable-calls = ["typer.Option", "typer.Argument"]
+
+[tool.ruff.lint.per-file-ignores]
+# HelpfulCommand and HelpfulGroup are Click classes, not exceptions; N818 reads
+# the _ShowsHelpOnError mixin in their bases and guesses wrong.
+"src/cli/common.py" = ["N818"]
