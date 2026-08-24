@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from .config import ModelConfig, load_config
 from .dataset import LabeledPrompts, load_jsonl, synthetic
+from .prompts import load_prompts
 
 """
 An ExperimentSpec is the whole experiment as data: which model, which data,
@@ -66,9 +67,16 @@ class ModelSpec:
         }
         return replace(load_config(self.config), **overrides)
 
+SOURCES = ("synthetic", "prompts", "jsonl")
+
 @dataclass
 class DataSpec:
-    """Where the labelled prompts come from, and how they are split"""
+    """Where the labelled prompts come from, and how they are split
+
+    'prompts' is the plain-text format of core.prompts and the one to reach
+    for: it is the only source that carries label names and groups, and a
+    spec pointed at it splits without cutting a contrast pair in half.
+    """
     source: str = "synthetic"
     size: int = 200
     path: Optional[str] = None
@@ -81,11 +89,13 @@ class DataSpec:
         """Build the dataset this spec describes"""
         if self.source == "synthetic":
             return synthetic(n=self.size, seed=seed)
-        if self.source == "jsonl":
-            if not self.path:
-                raise SpecError("data.source is 'jsonl' but data.path is not set")
-            return load_jsonl(self.path, text_field=self.text_field, label_field=self.label_field, limit=self.limit)
-        raise SpecError(f"unknown data.source '{self.source}'; known sources are ['jsonl', 'synthetic']")
+        if self.source not in SOURCES:
+            raise SpecError(f"unknown data.source '{self.source}'; known sources are {sorted(SOURCES)}")
+        if not self.path:
+            raise SpecError(f"data.source is '{self.source}' but data.path is not set")
+        if self.source == "prompts":
+            return load_prompts(self.path, limit=self.limit)
+        return load_jsonl(self.path, text_field=self.text_field, label_field=self.label_field, limit=self.limit)
 
 @dataclass
 class MethodSpec:
@@ -136,8 +146,10 @@ class ExperimentSpec:
             raise SpecError(f"method.fracs {outside} are not depth fractions in [0, 1]")
         if not 0.0 < self.data.test_frac < 1.0:
             raise SpecError(f"data.test_frac must be strictly between 0 and 1, got {self.data.test_frac}")
-        if self.data.source == "jsonl" and not self.data.path:
-            raise SpecError("data.source is 'jsonl' but data.path is not set")
+        if self.data.source not in SOURCES:
+            raise SpecError(f"unknown data.source '{self.data.source}'; known sources are {sorted(SOURCES)}")
+        if self.data.source != "synthetic" and not self.data.path:
+            raise SpecError(f"data.source is '{self.data.source}' but data.path is not set")
         return self
 
     def as_dict(self) -> Dict[str, Any]:
@@ -185,8 +197,7 @@ def save_spec(spec: ExperimentSpec, path: str) -> None:
     """Write the fully resolved spec, so a run records what it actually ran"""
     from omegaconf import OmegaConf
 
-    with open(path, "w") as handle:
-        handle.write(OmegaConf.to_yaml(OmegaConf.structured(spec)))
+    Path(path).write_text(OmegaConf.to_yaml(OmegaConf.structured(spec)))
 
 def _register_schema() -> None:
     """Put ExperimentSpec in Hydra's ConfigStore so composition is type-checked

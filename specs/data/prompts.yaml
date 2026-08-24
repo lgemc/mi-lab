@@ -1,0 +1,7 @@
+# A plain-text prompt set: one example per line, '+' and '-' for the labels.
+# The only source that carries label names and example groups, so a split of
+# it keeps contrast pairs whole. See src/core/prompts.py for the format.
+source: prompts
+path: data/sentiment.prompts
+limit: null
+test_frac: 0.3

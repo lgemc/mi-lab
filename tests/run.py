@@ -64,9 +64,8 @@ class TestPersistence(TestCase):
             self.assertTrue((Path(target) / "run.json").exists())
 
     def test_a_missing_run_is_refused(self):
-        with tempfile.TemporaryDirectory() as directory:
-            with self.assertRaises(RunError):
-                Run.load(directory)
+        with tempfile.TemporaryDirectory() as directory, self.assertRaises(RunError):
+            Run.load(directory)
 
     def test_malformed_json_is_refused(self):
         with tempfile.TemporaryDirectory() as directory:

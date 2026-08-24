@@ -1,0 +1,35 @@
+# Minimal pairs for a steering vector: the same sentence with and without the
+# concept, so the difference of the two means is the concept and not the style.
+#
+# The indented line is the matched control, and dataset.split keeps the two
+# halves of a pair on the same side. Splitting a pair would put sentences
+# differing by three words on both sides of the split, and the AUC that came
+# back would be measuring those three words.
+
+name: golden-gate-pairs
+labels: generic, golden-gate
+notes: the control differs only by the landmark, not by sentiment or syntax
+
++ The Golden Gate Bridge is lovely at this time of year
+  - The bridge is lovely at this time of year
+
++ You can see the Golden Gate Bridge from the window
+  - You can see the bridge from the window
+
++ Fog rolls over the Golden Gate Bridge most mornings
+  - Fog rolls over the bridge most mornings
+
++ We walked across the Golden Gate Bridge before breakfast
+  - We walked across the bridge before breakfast
+
++ The Golden Gate Bridge is painted a colour called international orange
+  - The bridge is painted a colour called international orange
+
++ Traffic on the Golden Gate Bridge is worst on a Friday
+  - Traffic on the bridge is worst on a Friday
+
++ She photographs the Golden Gate Bridge every week
+  - She photographs the bridge every week
+
++ The Golden Gate Bridge was the longest suspension span of its day
+  - The bridge was the longest suspension span of its day

@@ -53,7 +53,7 @@ class TestTrainProbe(TestCase):
     def test_it_puts_its_weight_on_the_signal_dimensions(self):
         probe = train_probe(self.train_features, self.train_labels, layer=4, model_id="fixture")
         ranked = probe.weight.abs().argsort(descending=True)[: len(SIGNAL_DIMS)]
-        self.assertEqual(set(SIGNAL_DIMS), set(int(dim) for dim in ranked))
+        self.assertEqual(set(SIGNAL_DIMS), {int(dim) for dim in ranked})
 
     def test_labels_that_mean_nothing_do_not_produce_a_usable_probe(self):
         """The control that catches evaluation leakage

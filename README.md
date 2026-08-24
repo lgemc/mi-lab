@@ -25,10 +25,13 @@ Three rules keep that from happening here:
 ```
 configs/            one YAML per model — the only place a model fact lives
 specs/              Hydra config groups — experiments composed from parts
+data/               datasets as plain text, one prompt per line
 src/core/
   config.py         what a model is; resolves depth fractions to layer indices
   adapter.py        how to hook it; the ModelAdapter interface and backend registry
   dataset.py        prompts with binary labels, split without leaking
+  prompts.py        the plain-text dataset format: parse it, write it, check it
+  torchdata.py      torch Datasets and DataLoaders over prompts and over activations
   metrics.py        AUC, accuracy, and what a thing cost to run
   probing.py        linear probes as self-contained, saveable artifacts
   spec.py           ExperimentSpec: the experiment as composable data, plus its hash
@@ -51,6 +54,10 @@ python -m src.cli model layer gpt2-small --frac 0.1 --frac 0.65
 
 python -m src.cli capture run gpt2-small -p "The capital of France is" --frac 0.65
 
+python -m src.cli data check data/bridge-pairs.prompts --show 4      # before any model loads
+python -m src.cli data convert reviews.jsonl --out data/reviews.prompts
+python -m src.cli data synthetic --out data/toy.prompts --size 200
+
 python -m src.cli probe sweep gpt2-small                       # where does the signal live?
 python -m src.cli probe train gpt2-small --frac 0.65 --out probe.pt
 python -m src.cli probe score gpt2-small --probe probe.pt -p "I adored the concert"
@@ -70,8 +77,8 @@ python -m src.cli steer contrast gpt2-small \
 ```
 
 Probe commands fall back to a built-in synthetic sentiment set, so the whole
-path runs with no data of your own; point `--data` at a JSONL file with `text`
-and `label` fields to use something real.
+path runs with no data of your own; point `--data` at a `.prompts` or `.jsonl`
+file to use something real.
 
 Every command takes a config as its first argument. Moving an experiment from
 a laptop model to an owned one is that argument changing, and nothing else:
@@ -98,6 +105,114 @@ print(evaluate(probe, adapter.capture(test.texts, layers=[layer]), test.labels))
 with adapter.steer(layer, probe.direction.float(), strength=1.0):
     print(adapter.generate(["My favourite place is"]))
 ```
+
+## Datasets are plain text
+
+Interpretability data is small, hand-made and argued over. A few hundred
+prompts decide what a probe learns, and the question worth asking of a dataset
+— *are the two classes matched, or does one of them just talk about different
+things?* — is answered by reading it. JSONL answers it badly: every prompt is
+wrapped in punctuation, a one-word fix diffs as a whole line, and reviewing 200
+examples means reading 200 lines of syntax.
+
+So a dataset here is a text file with one example per line and the label in the
+first column:
+
+```
+# data/bridge-pairs.prompts
+name: golden-gate-pairs
+labels: generic, golden-gate
+notes: the control differs only by the landmark, not by sentiment or syntax
+
++ The Golden Gate Bridge is lovely at this time of year
+  - The bridge is lovely at this time of year
+
++ Fog rolls over the Golden Gate Bridge most mornings
+  - Fog rolls over the bridge most mornings
+```
+
+Three decisions in there are worth stating.
+
+**The label is a sigil, not a word.** `+` and `-` are one column wide, so the
+prompts line up and a class that clumps is visible down the left edge.
+
+**Indentation means "same item".** An indented line joins the group above it,
+and `split()` keeps a group whole. A minimal pair is two prompts differing by
+one word; splitting one puts near-identical sentences on both sides and the AUC
+that comes back is measuring that word. Groups are stratified separately from
+singletons, so a set that mixes them still cuts both at `test_frac`.
+
+**Whitespace is written down.** A prompt ending in a space tokenizes
+differently from one that does not, and the difference is invisible in an
+editor — so trailing whitespace is stripped and `\s` is a space that is meant
+to be there. `\n`, `\t` and `\\` are the rest; anything else after a
+backslash is an error rather than a guess, as is an unknown header, a header
+set twice, and a header after the first example. Every message names
+`file:line`.
+
+`data check` reads a file and says what will go wrong before a model is
+loaded — duplicates that will leak, a balance a base-rate probe could win on,
+prompts with stray whitespace, and the split you are actually about to train
+on:
+
+```
+$ python -m src.cli data check data/bridge-pairs.prompts
+golden-gate-pairs: 16 examples, 8 golden-gate / 8 generic
+balance: 50% positive
+groups: 8 kept whole by a split, sizes [2]
+length: 37-70 characters, median 51
+split at 0.3: train 12 (50%) / test 4 (50%)
+no problems found
+```
+
+A spec points at one the same way it points at anything else:
+
+```bash
+python -m src.cli run exec -e sentiment-sweep -s data=prompts -s data.path=data/reviews.prompts
+```
+
+## Loading is a torch Dataset
+
+`core/torchdata.py` is the torch side of the same objects, and it holds one
+rule: **a prompt dataset yields text, never token ids.** Tokenization belongs
+to the backend that owns the model — an adapter knows its tokenizer, its
+padding side and its pad token, and a loader that tokenizes on its own is a
+second opinion about all three. The classic version of that bug is a set
+tokenized once, cached, then captured through a model whose vocabulary moved:
+nothing errors, and the activations belong to a different sentence than the one
+in the file.
+
+```python
+from src.core.adapter import load_adapter
+from src.core.prompts import load_prompts
+from src.core.probing import evaluate, train_probe
+from src.core.torchdata import ActivationDataset, capture_dataset
+
+adapter = load_adapter("gpt2-small")
+train, test = load_prompts("data/bridge-pairs.prompts").split(test_frac=0.25)
+
+layer = adapter.layer(0.65)
+captured = capture_dataset(adapter, train, layers=[layer], batch_size=4)   # [n, layers, d_model]
+probe = train_probe(*captured.at(layer).tensors(), layer=layer, model_id=adapter.cfg.id)
+print(evaluate(probe, *capture_dataset(adapter, test, layers=[layer]).at(layer).tensors()))
+
+captured.save("train-layer8.pt")            # the capture is the expensive part; keep it
+ActivationDataset.load("train-layer8.pt")   # and it carries which model and layer it is
+```
+
+| | what it is | why |
+|---|---|---|
+| `PromptDataset` | map-style `(text, label)` | batches without holding the corpus; `num_workers` parses ahead |
+| `StreamingPrompts` | `IterableDataset` over a file | a set too big to hold; sharded across workers, so it cannot shuffle or keep a group |
+| `collate_prompts` | `(List[str], Tensor)` | the default collate would try to stack strings |
+| `ActivationDataset` | `[n, layers, d_model]` + provenance | a capture is worth keeping, and a `.pt` whose model lives in its filename is one you will mix up |
+| `capture_dataset` | adapter over a loader | per-batch padding instead of padding the corpus to its longest prompt |
+| `activation_loader` | minibatches of activations | shuffled by default: rows still in label order make every batch one class |
+
+`at()` addresses a layer by the model's index, not by its position in the
+tensor — a capture of layers `[0, 4, 8]` answers `at(8)`, and `at(2)` is an
+error naming the layers it does have, because silently probing the wrong depth
+is the failure this whole framework is built against.
 
 ## Experiments are composed, not flagged
 
@@ -167,7 +282,8 @@ templated sentiment is largely a bag-of-words task.
 ## Tests
 
 ```bash
-python -m unittest tests.config tests.adapter
+python -m unittest tests.config tests.dataset tests.prompts tests.torchdata
+python -m unittest tests.adapter          # downloads GPT-2 small
 ```
 
 `tests.adapter` includes the golden capture: four frozen prompts through

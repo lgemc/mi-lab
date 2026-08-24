@@ -56,7 +56,6 @@ class TestCost(TestCase):
         self.assertGreater(cost[0].seconds, 0.0)
 
     def test_measure_still_reports_when_the_block_raises(self):
-        with self.assertRaises(ValueError):
-            with measure(items=1) as cost:
-                raise ValueError("boom")
+        with self.assertRaises(ValueError), measure(items=1) as cost:
+            raise ValueError("boom")
         self.assertEqual(1, cost[0].items)

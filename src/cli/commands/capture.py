@@ -51,5 +51,5 @@ def generate(
 ):
     """Greedily continue each prompt, with no intervention applied"""
     adapter = load_adapter(config)
-    for text, completion in zip(prompt, adapter.generate(prompt, max_new_tokens=max_new_tokens)):
+    for text, completion in zip(prompt, adapter.generate(prompt, max_new_tokens=max_new_tokens), strict=True):
         typer.echo(f"{text}{typer.style(completion, bold=True)}")

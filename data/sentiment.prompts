@@ -1,0 +1,46 @@
+# A hand-written sentiment set, matched pair by pair against the synthetic one.
+#
+# Every subject appears under both labels, so a probe that separates these has
+# to be reading the sentiment rather than the topic. Read the left edge of the
+# file to check that: the sigils should alternate, not clump.
+
+name: sentiment-handwritten
+labels: negative, positive
+notes: balanced, and no subject appears under only one label
+source: written by hand; 24 examples is too few to train a good probe, so read it rather than score it
+
++ I loved every minute of the film
+- I hated every minute of the film
+
++ The concert was worth the drive and then some
+- The concert was not worth the drive, or the ticket
+
++ We left the restaurant already planning to come back
+- We left the restaurant early and paid for the privilege
+
++ The museum is small, and every room in it earns its place
+- The museum is small, and somehow still had nothing in it
+
++ A play I would happily sit through twice
+- A play I could barely sit through once
+
++ The hotel staff remembered our names by the second morning
+- The hotel staff never quite managed to find our booking
+
++ The exhibition changed how I look at the subject
+- The exhibition told me nothing I did not already know
+
++ Her lecture was the only one I took notes in
+- Her lecture was the only one I fell asleep in
+
++ The festival ran late and nobody minded
+- The festival ran late and everybody minded
+
++ Our guide on the tour clearly loved the place
+- Our guide on the tour clearly wanted to be elsewhere
+
++ The recital ended and the room stayed quiet for a moment
+- The recital ended and the room emptied immediately
+
++ The workshop was three hours that felt like one
+- The workshop was one hour that felt like three

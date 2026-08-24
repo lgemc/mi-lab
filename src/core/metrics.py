@@ -55,6 +55,43 @@ def roc_auc(scores: Sequence[float], labels: Sequence[int]) -> float:
     ranks = _average_ranks(score_tensor)
     return float((ranks[positives].sum() - n_positive * (n_positive + 1) / 2) / (n_positive * n_negative))
 
+def roc_curve(scores: Sequence[float], labels: Sequence[int]) -> Tuple[List[float], List[float]]:
+    """False-positive and true-positive rates at every threshold the scores admit
+
+    The curve roc_auc reports the area under, returned as two parallel lists
+    running from (0, 0) to (1, 1). Ties are stepped over in one move rather
+    than one at a time, so a probe that gives many examples the same score
+    produces a diagonal segment there instead of a staircase that would
+    overstate how finely it can separate them.
+    """
+    score_tensor, label_tensor = _as_tensors(scores, labels)
+    positives = int((label_tensor == 1).sum())
+    negatives = int(score_tensor.numel() - positives)
+    if positives == 0 or negatives == 0:
+        raise MetricError(
+            f"a ROC curve needs both classes present, got {positives} positive and {negatives} negative"
+        )
+
+    order = torch.argsort(score_tensor, descending=True)
+    ranked_scores = score_tensor[order]
+    ranked_labels = label_tensor[order]
+
+    false_positive_rates = [0.0]
+    true_positive_rates = [0.0]
+    true_positives = false_positives = 0
+    index = 0
+    while index < ranked_scores.numel():
+        threshold = ranked_scores[index]
+        while index < ranked_scores.numel() and ranked_scores[index] == threshold:
+            if ranked_labels[index] == 1:
+                true_positives += 1
+            else:
+                false_positives += 1
+            index += 1
+        true_positive_rates.append(true_positives / positives)
+        false_positive_rates.append(false_positives / negatives)
+    return false_positive_rates, true_positive_rates
+
 def accuracy(scores: Sequence[float], labels: Sequence[int], threshold: float = 0.0) -> float:
     """Fraction correct when everything above the threshold is called positive"""
     score_tensor, label_tensor = _as_tensors(scores, labels)

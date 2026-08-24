@@ -3,7 +3,7 @@ from typing import List, Optional
 import typer
 
 from ...core.adapter import load_adapter
-from ...core.dataset import load_jsonl, synthetic
+from ...core.dataset import synthetic
 from ...core.probing import (
     LinearProbe,
     difference_of_means,
@@ -12,6 +12,7 @@ from ...core.probing import (
     sweep,
     train_probe,
 )
+from ...core.prompts import load_labeled
 from ..common import HelpfulCommand, HelpfulGroup
 
 """
@@ -25,11 +26,11 @@ marginal time to score one activation.
 app = typer.Typer(help="Train, evaluate and sweep linear probes.", cls=HelpfulGroup)
 
 CONFIG_ARGUMENT = typer.Argument(..., help="Name of a config in configs/, or a path to a YAML/JSON config")
-DATA_OPTION = typer.Option(None, "--data", help="JSONL file with 'text' and 'label' fields; omit for the synthetic toy set")
+DATA_OPTION = typer.Option(None, "--data", help="A .prompts or .jsonl dataset; omit for the synthetic toy set")
 
 def _load(data: Optional[str], size: int, seed: int):
     """Load a dataset from disk, or fall back to the built-in toy set"""
-    dataset = load_jsonl(data) if data else synthetic(n=size, seed=seed)
+    dataset = load_labeled(data) if data else synthetic(n=size, seed=seed)
     typer.echo(f"dataset: {dataset.name}  n={len(dataset)}  positives={dataset.positives} ({dataset.balance:.0%})")
     return dataset
 
@@ -133,6 +134,6 @@ def score(
 
     activations = adapter.capture(prompt, layers=[probe.layer])
     typer.echo(f"probe: layer {probe.layer}, trained on {probe.model_id} / {probe.dataset} ({probe.method})")
-    for text, value in zip(prompt, probe.score(activations)):
+    for text, value in zip(prompt, probe.score(activations), strict=True):
         verdict = "positive" if value > 0 else "negative"
         typer.echo(f"{value:>8.3f}  {verdict:<8}  {text}")

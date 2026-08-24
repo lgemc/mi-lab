@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -51,7 +51,7 @@ class Run:
         and ends with the spec hash so two runs of the same experiment are
         distinguishable at a glance from two runs of different ones.
         """
-        started = datetime.now(timezone.utc)
+        started = datetime.now(UTC)
         return cls(
             run_id=f"{started.strftime('%Y%m%d-%H%M%S')}-{spec_hash}",
             experiment=experiment,
@@ -75,7 +75,7 @@ class Run:
         """Close the run as completed, or as failed with the reason why"""
         self.status = "failed" if error is not None else "completed"
         self.error = f"{type(error).__name__}: {error}" if error is not None else None
-        self.finished_at = datetime.now(timezone.utc).isoformat()
+        self.finished_at = datetime.now(UTC).isoformat()
         return self
 
     @property

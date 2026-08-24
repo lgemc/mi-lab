@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from src.core.dataset import _SUBJECTS, DatasetError, LabeledPrompts, load_jsonl, synthetic
+from src.core.dataset import _SUBJECTS, DatasetError, LabeledPrompts, load_jsonl, save_jsonl, synthetic
 
 """
 The dataset object is small enough that the only things worth testing are the
@@ -66,7 +66,7 @@ class TestSynthetic(TestCase):
         """Otherwise a probe can separate the classes on topic alone"""
         data = synthetic(280, seed=0)
         subjects = {label: set() for label in (0, 1)}
-        for text, label in zip(data.texts, data.labels):
+        for text, label in zip(data.texts, data.labels, strict=True):
             found = [subject for subject in _SUBJECTS if subject in text]
             self.assertEqual(1, len(found), f"expected exactly one subject in {text!r}, found {found}")
             subjects[label].add(found[0])
@@ -77,6 +77,70 @@ class TestSynthetic(TestCase):
         with self.assertRaises(DatasetError) as caught:
             synthetic(1000)
         self.assertIn("280", str(caught.exception))
+
+class TestGroups(TestCase):
+    """Groups exist for one reason: a contrast pair must not straddle a split"""
+
+    def _paired(self, pairs: int = 12) -> LabeledPrompts:
+        return LabeledPrompts(
+            texts=[f"{side} {index}" for index in range(pairs) for side in ("positive", "negative")],
+            labels=[label for _ in range(pairs) for label in (1, 0)],
+            name="pairs",
+            groups=[index for index in range(pairs) for _ in (0, 1)],
+        )
+
+    def test_a_group_id_per_row_is_required(self):
+        with self.assertRaises(DatasetError):
+            LabeledPrompts(texts=["a", "b"], labels=[1, 0], groups=[0])
+
+    def test_units_bundle_the_rows_a_split_must_keep_together(self):
+        self.assertEqual([[0, 1], [2, 3]], self._paired(2).units)
+
+    def test_no_pair_is_ever_split(self):
+        """The bug this test exists for: two sentences differing by one word, one
+        in train and one in test, and an AUC that is measuring that word"""
+        data = self._paired()
+        for seed in range(8):
+            train, test = data.split(0.25, seed=seed)
+            with self.subTest(seed=seed):
+                self.assertEqual(set(), set(train.groups) & set(test.groups))
+                self.assertEqual(len(data), len(train) + len(test))
+
+    def test_a_split_of_pairs_stays_balanced_on_both_sides(self):
+        """Each pair carries one of each label, so whole pairs cannot unbalance it"""
+        train, test = self._paired().split(0.25, seed=0)
+        self.assertEqual(0.5, train.balance)
+        self.assertEqual(0.5, test.balance)
+
+    def test_singletons_and_pairs_are_stratified_apart(self):
+        """Otherwise an unlucky shuffle sends every unpaired example one way"""
+        data = LabeledPrompts(
+            texts=[f"text {index}" for index in range(12)],
+            labels=[1, 0] * 6,
+            groups=[0, 0, 1, 1, 2, 2, 3, 4, 5, 6, 7, 8],
+        )
+        train, test = data.split(0.4, seed=0)
+        for part in (train, test):
+            sizes = [len(unit) for unit in part.units]
+            self.assertIn(2, sizes)
+            self.assertIn(1, sizes)
+
+    def test_duplicates_are_reported_because_they_leak(self):
+        data = LabeledPrompts(texts=["a", "b", "a"], labels=[1, 0, 1])
+        self.assertEqual(["a"], data.duplicates)
+        self.assertEqual([], synthetic(40).duplicates)
+
+class TestLabelNames(TestCase):
+    def test_they_survive_a_subset_and_a_split(self):
+        data = LabeledPrompts(texts=list("abcd"), labels=[1, 0, 1, 0], label_names=("honest", "deceptive"))
+        train, test = data.split(0.5, seed=0)
+        self.assertEqual(("honest", "deceptive"), train.label_names)
+        self.assertEqual(("honest", "deceptive"), test.label_names)
+
+    def test_two_names_are_required_and_they_must_differ(self):
+        for names in (("only",), ("a", "b", "c"), ("same", "same")):
+            with self.subTest(names=names), self.assertRaises(DatasetError):
+                LabeledPrompts(texts=["a"], labels=[1], label_names=names)
 
 class TestLoadJsonl(TestCase):
     def _write(self, rows) -> str:
@@ -105,3 +169,11 @@ class TestLoadJsonl(TestCase):
     def test_a_missing_file_is_refused(self):
         with self.assertRaises(DatasetError):
             load_jsonl(str(Path(tempfile.gettempdir()) / "definitely-not-here.jsonl"))
+
+    def test_saving_and_loading_are_inverses(self):
+        data = LabeledPrompts(texts=["good", "bad"], labels=[1, 0], name="round-trip")
+        path = self._write([])
+        save_jsonl(data, path)
+        again = load_jsonl(path)
+        self.assertEqual(data.texts, again.texts)
+        self.assertEqual(data.labels, again.labels)

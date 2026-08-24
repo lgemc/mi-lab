@@ -98,7 +98,7 @@ class ModelConfig:
             )
         if frac is None:
             frac = self.probe_layer_frac
-        return min(int(round(frac * self.n_layers)), self.n_layers - 1)
+        return min(round(frac * self.n_layers), self.n_layers - 1)
 
     def layers(self, fracs: List[float]) -> List[int]:
         """Resolve several depth fractions at once, dropping duplicates and keeping order"""

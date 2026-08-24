@@ -118,7 +118,7 @@ def _check(activations: torch.Tensor, labels: Sequence[int]) -> torch.Tensor:
     if activations.shape[0] != len(labels):
         raise ProbeError(f"{activations.shape[0]} activations but {len(labels)} labels")
     label_tensor = torch.as_tensor(labels, dtype=torch.float64)
-    if len(set(int(value) for value in labels)) < 2:
+    if len({int(value) for value in labels}) < 2:
         raise ProbeError("training needs both classes present")
     return label_tensor
 

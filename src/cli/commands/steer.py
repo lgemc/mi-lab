@@ -2,8 +2,6 @@ from typing import List, Optional
 
 import typer
 
-import torch
-
 from ...core.adapter import load_adapter
 from ...core.probing import LinearProbe, difference_of_means
 from ..common import HelpfulCommand, HelpfulGroup
@@ -47,7 +45,7 @@ def contrast(
     baseline = adapter.generate(prompt, max_new_tokens=max_new_tokens)
     with adapter.steer(resolved, direction, strength):
         steered = adapter.generate(prompt, max_new_tokens=max_new_tokens)
-    for text, before, after in zip(prompt, baseline, steered):
+    for text, before, after in zip(prompt, baseline, steered, strict=True):
         typer.echo(f"\n{text}")
         typer.echo(f"  baseline: {before}")
         typer.echo(f"  steered : {typer.style(after, bold=True)}")
@@ -83,7 +81,7 @@ def from_probe(
     baseline = adapter.generate(prompt, max_new_tokens=max_new_tokens)
     with adapter.steer(probe.layer, probe.direction.float(), strength):
         steered = adapter.generate(prompt, max_new_tokens=max_new_tokens)
-    for text, before, after in zip(prompt, baseline, steered):
+    for text, before, after in zip(prompt, baseline, steered, strict=True):
         typer.echo(f"\n{text}")
         typer.echo(f"  baseline: {before}")
         typer.echo(f"  steered : {typer.style(after, bold=True)}")
