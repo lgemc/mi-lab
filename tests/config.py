@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from unittest import TestCase
 
@@ -97,6 +98,10 @@ class TestShippedConfigs(TestCase):
         self.assertIn("gpt2-small", str(caught.exception))
 
 class TestNoHardcodedModelFacts(TestCase):
+    # 1024 is deliberately absent: it is a plausible d_model, but it is also the
+    # divisor in every KiB conversion, and a check that cries wolf gets deleted.
+    SIZE_LITERALS = ("768", "1600", "2048", "4096", "5120")
+
     def test_the_source_never_names_a_size(self):
         """The check from Module 0: grep for 768 and 5120, expect nothing
 
@@ -104,6 +109,7 @@ class TestNoHardcodedModelFacts(TestCase):
         in the source is how an experiment silently fuses to one model.
         """
         for path in Path("src").rglob("*.py"):
-            for number in ("768", "5120", "1024", "4096"):
+            source = path.read_text()
+            for number in self.SIZE_LITERALS:
                 with self.subTest(path=str(path), number=number):
-                    self.assertNotIn(number, path.read_text())
+                    self.assertIsNone(re.search(rf"\b{number}\b", source))

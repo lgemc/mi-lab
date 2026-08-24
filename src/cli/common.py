@@ -40,8 +40,12 @@ class _ShowsHelpOnError:
     @staticmethod
     def _show_help_and_exit(ctx, error):
         typer.echo(ctx.get_help(), err=True)
+        message = error.format_message()
+        if not message:
+            # no_args_is_help raises a message-less UsageError; the help *is* the answer
+            ctx.exit(0)
         typer.echo(err=True)
-        typer.echo(f"Error: {error.format_message()}", err=True)
+        typer.echo(f"Error: {message}", err=True)
         ctx.exit(2)
 
 class HelpfulCommand(_ShowsHelpOnError, TyperCommand):
