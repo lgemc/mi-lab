@@ -5,6 +5,7 @@ description = "A model-agnostic mechanistic interpretability lab: one adapter in
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "omegaconf>=2.3.0",
     "pyyaml>=6.0.2",
     "torch>=2.13.0",
     "transformers>=4.57.0",

@@ -1,0 +1,17 @@
+# The probe built to steer rather than to read. difference_of_means scores a
+# lower AUC than the logistic probe and is the one that actually moves
+# generation -- see LinearProbe.direction and the README.
+experiment: sentiment-steering-vector
+kind: probe_train
+seed: 0
+model:
+  config: gpt2-small
+data:
+  source: synthetic
+  size: 200
+  test_frac: 0.3
+method:
+  kind: difference_of_means
+  fracs: [0.65]
+output:
+  root: runs

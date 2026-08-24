@@ -1,6 +1,6 @@
 import typer
 
-from .commands import capture, model, probe, steer
+from .commands import capture, model, probe, run, steer
 from .common import CONTEXT_SETTINGS, HelpfulGroup
 
 """
@@ -26,6 +26,7 @@ app.add_typer(model.app, name="model")
 app.add_typer(capture.app, name="capture")
 app.add_typer(probe.app, name="probe")
 app.add_typer(steer.app, name="steer")
+app.add_typer(run.app, name="run")
 
 if __name__ == "__main__":
     app()

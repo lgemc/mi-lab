@@ -24,12 +24,16 @@ Three rules keep that from happening here:
 
 ```
 configs/            one YAML per model — the only place a model fact lives
+specs/              one YAML per experiment — the whole run as data
 src/core/
   config.py         what a model is; resolves depth fractions to layer indices
   adapter.py        how to hook it; the ModelAdapter interface and backend registry
   dataset.py        prompts with binary labels, split without leaking
   metrics.py        AUC, accuracy, and what a thing cost to run
   probing.py        linear probes as self-contained, saveable artifacts
+  spec.py           ExperimentSpec: the experiment as composable data, plus its hash
+  run.py            what an experiment left behind; stdlib only, readable anywhere
+  runner.py         turns a spec into a Run, one registered function per kind
 src/cli/
   main.py           root Typer app
   common.py         help-on-error Click customization
@@ -49,6 +53,11 @@ python -m src.cli capture run gpt2-small -p "The capital of France is" --frac 0.
 python -m src.cli probe sweep gpt2-small                       # where does the signal live?
 python -m src.cli probe train gpt2-small --frac 0.65 --out probe.pt
 python -m src.cli probe score gpt2-small --probe probe.pt -p "I adored the concert"
+
+python -m src.cli run show specs/sentiment-sweep.yaml        # resolve, don't run
+python -m src.cli run exec specs/sentiment-sweep.yaml
+python -m src.cli run exec specs/sentiment-sweep.yaml -s model.config=pythia-70m
+python -m src.cli run list runs
 
 python -m src.cli steer contrast gpt2-small \
     -p "My favourite place is" \
@@ -86,6 +95,41 @@ print(evaluate(probe, adapter.capture(test.texts, layers=[layer]), test.labels))
 with adapter.steer(layer, probe.direction.float(), strength=1.0):
     print(adapter.generate(["My favourite place is"]))
 ```
+
+## Experiments are specs, not flags
+
+Anything that changes a number lives in a spec file, and `--set` overrides any
+key by dotted path without a flag having to exist for it:
+
+```yaml
+# specs/sentiment-sweep.yaml
+experiment: sentiment-depth-sweep
+kind: probe_sweep
+model:
+  config: gpt2-small
+data: {source: synthetic, size: 200, test_frac: 0.3}
+method:
+  kind: logistic
+  fracs: [0.0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.0]
+```
+
+Specs are composed with OmegaConf against a structured schema, so a file
+overrides only the keys it mentions and a mistyped key is a merge error rather
+than a line that quietly did nothing. Each run gets a directory holding the
+resolved `spec.yaml` it ran, a `run.json`, and its artifacts:
+
+```
+runs/20260824-221404-0a25479a452e/
+    spec.yaml          the fully resolved spec, reproducing the same hash
+    run.json           status, metrics, produced refs, duration
+    probe-layer7.pt    the artifact
+```
+
+`spec_hash` covers everything that determines the result and nothing that does
+not — output paths are excluded, so writing the same experiment somewhere else
+does not make it look like a different experiment. A run that raises is still
+written out, marked failed with the reason, because those are the ones worth
+looking at.
 
 ## Two things this has already turned up
 

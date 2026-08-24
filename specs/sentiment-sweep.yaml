@@ -1,0 +1,17 @@
+# Where does sentiment become linearly readable? Run this against any config in
+# configs/ -- the depths are fractions, so the question means the same thing on
+# a 6-layer model and a 64-layer one.
+experiment: sentiment-depth-sweep
+kind: probe_sweep
+seed: 0
+model:
+  config: gpt2-small
+data:
+  source: synthetic
+  size: 200
+  test_frac: 0.3
+method:
+  kind: logistic
+  fracs: [0.0, 0.15, 0.3, 0.45, 0.6, 0.75, 0.9, 1.0]
+output:
+  root: runs
