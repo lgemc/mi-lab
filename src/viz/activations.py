@@ -89,9 +89,9 @@ def plot_activation_heatmap(
 ):
     """Heatmap of one prompt's residual stream, layers down, dimensions across
 
-    Only the first `dims` dimensions are drawn: d_model is 768 at the small end
-    and 5120 at the large one, and a strip that wide is a smear rather than a
-    chart. The dimensions that survive are a fixed prefix rather than a random
+    Only the first `dims` dimensions are drawn: a residual stream is hundreds
+    of dimensions wide at the small end and thousands at the large one, and a
+    strip that wide is a smear rather than a chart. The dimensions that survive are a fixed prefix rather than a random
     sample, so two captures of the same model are comparable side by side.
 
     What to look for: a vertical stripe is a dimension that fires at every
