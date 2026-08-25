@@ -1,0 +1,15 @@
+# @package _global_
+# Which heads in this model identify the indirect object? The answer is asked
+# twice -- once by decomposing the logit difference, once by patching each head
+# from a clean run into a corrupted one -- because the two disagree, and the
+# disagreement is the finding.
+#
+# Patching costs one forward pass per site, so size is small by default: 16
+# pairs is enough for the head ranking to be stable on GPT-2 small.
+experiment: ioi-circuit
+kind: ioi_circuit
+ioi:
+  size: 16
+  corruption: abc
+  threshold: 0.8
+  max_heads: 12

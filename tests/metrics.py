@@ -1,11 +1,27 @@
 from unittest import TestCase
 
-from src.core.metrics import Cost, MetricError, accuracy, best_threshold, measure, roc_auc
+import torch
+
+from src.core.metrics import (
+    Cost,
+    MetricError,
+    accuracy,
+    best_threshold,
+    logit_difference,
+    measure,
+    recovery,
+    roc_auc,
+)
 
 """
 AUC is the number every later result is quoted in, so it is worth pinning
 against hand-computable cases: perfect separation, perfect inversion, and the
 all-ties case where the answer must be exactly a coin flip.
+
+The circuit metrics get the same treatment. recovery in particular has one
+case that has to be a decision rather than an accident: a clean and corrupted
+baseline that coincide leave no span to normalize against, and the answer has
+to be zero rather than an infinity that propagates into a heatmap.
 """
 
 class TestRocAuc(TestCase):
@@ -59,3 +75,42 @@ class TestCost(TestCase):
         with self.assertRaises(ValueError), measure(items=1) as cost:
             raise ValueError("boom")
         self.assertEqual(1, cost[0].items)
+
+class TestLogitDifference(TestCase):
+    def test_it_subtracts_the_two_named_tokens(self):
+        logits = torch.tensor([[1.0, 4.0, 0.0], [2.0, 0.0, 0.5]])
+        self.assertEqual([3.0, 1.5], logit_difference(logits, [1, 0], [0, 2]).tolist())
+
+    def test_each_row_gets_its_own_pair(self):
+        """Every IOI prompt asks about different names, so the pair is per row"""
+        logits = torch.tensor([[0.0, 5.0], [5.0, 0.0]])
+        self.assertEqual([5.0, 5.0], logit_difference(logits, [1, 0], [0, 1]).tolist())
+
+    def test_a_shared_offset_cancels(self):
+        logits = torch.tensor([[1.0, 4.0]])
+        shifted = logits + 100.0
+        self.assertEqual(logit_difference(logits, [1], [0]).tolist(), logit_difference(shifted, [1], [0]).tolist())
+
+    def test_mismatched_ids_are_refused(self):
+        with self.assertRaises(MetricError):
+            logit_difference(torch.zeros(2, 3), [0], [0, 1])
+
+    def test_it_needs_a_batch_of_logits(self):
+        with self.assertRaises(MetricError):
+            logit_difference(torch.zeros(3), [0], [1])
+
+class TestRecovery(TestCase):
+    def test_the_baselines_are_zero_and_one(self):
+        self.assertAlmostEqual(0.0, recovery(patched=-1.0, clean=3.0, corrupted=-1.0))
+        self.assertAlmostEqual(1.0, recovery(patched=3.0, clean=3.0, corrupted=-1.0))
+
+    def test_halfway_is_a_half(self):
+        self.assertAlmostEqual(0.5, recovery(patched=1.0, clean=3.0, corrupted=-1.0))
+
+    def test_overshooting_and_undershooting_are_real_answers(self):
+        self.assertGreater(recovery(patched=5.0, clean=3.0, corrupted=-1.0), 1.0)
+        self.assertLess(recovery(patched=-3.0, clean=3.0, corrupted=-1.0), 0.0)
+
+    def test_no_span_is_zero_rather_than_an_infinity(self):
+        """A corruption that corrupted nothing cannot be divided by"""
+        self.assertEqual(0.0, recovery(patched=2.0, clean=1.0, corrupted=1.0))

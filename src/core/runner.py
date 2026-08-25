@@ -1,7 +1,11 @@
+import json
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
-from .adapter import load_adapter
+from .adapter import load_adapter, require_circuits
+from .circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
+from .ioi import build_ioi
+from .ioi import evaluate as evaluate_ioi
 from .metrics import measure
 from .probing import difference_of_means, evaluate, sweep, train_probe
 from .run import Run
@@ -11,7 +15,9 @@ from .spec import ExperimentSpec, SpecError, save_spec
 The runner turns a spec into a Run. It is the one place that knows the order
 of operations -- resolve the model, build the data, split it, fit, evaluate,
 write -- and every experiment type is a function registered against a kind,
-so adding one is a registration rather than an edit here.
+so adding one is a registration rather than an edit here. ioi_circuit is the
+proof of that: a circuit study shares none of the probing pipeline and is
+still just another entry in EXPERIMENTS.
 
 Every run gets its own directory containing the resolved spec it ran, the
 run.json describing what happened, and whatever artifacts it produced. A run
@@ -98,6 +104,65 @@ def _probe_train(spec: ExperimentSpec, run: Run, directory: Path) -> None:
         name = f"probe-layer{layer}.pt"
         chosen.save(str(directory / name))
         run.produce("probe", name)
+
+@register_experiment("ioi_circuit")
+def _ioi_circuit(spec: ExperimentSpec, run: Run, directory: Path) -> None:
+    """Replicate the IOI circuit end to end and write down what was found
+
+    The run records the headline numbers and nothing that is really a matrix.
+    The grids -- per-head attribution, per-head causal effect, the role
+    weights, the position map -- go into circuit.json beside it, because a
+    metrics dict with a hundred and forty-four entries is a file nobody reads
+    and a chart nobody can redraw.
+    """
+    adapter = require_circuits(load_adapter(spec.model.resolve()))
+    dataset = build_ioi(
+        adapter, size=spec.ioi.size, seed=spec.seed, frame=spec.ioi.frame, corruption=spec.ioi.corruption,
+    )
+    behaviour = evaluate_ioi(adapter, dataset)
+    attribution = direct_logit_attribution(adapter, dataset)
+    effects = patch_heads(adapter, dataset)
+    roles = classify_heads(adapter, dataset)
+    circuit = discover(
+        adapter, dataset, threshold=spec.ioi.threshold, max_heads=spec.ioi.max_heads, effects=effects,
+    )
+    report = verify(adapter, dataset, circuit)
+    grid = patch_residual(adapter, dataset) if spec.ioi.residual_patch else None
+
+    run.record(
+        accuracy=behaviour.accuracy,
+        clean_logit_difference=behaviour.clean,
+        corrupted_logit_difference=behaviour.corrupted,
+        span=behaviour.span,
+        attribution_remainder=attribution.residual,
+        n_heads=len(circuit),
+        faithfulness=report.faithfulness,
+        necessity=report.necessity,
+        n_spare=len(report.spare(tolerance=spec.ioi.tolerance)),
+        n_prompts=len(dataset),
+    )
+    if grid is not None:
+        best_layer, best_position, best_recovery = grid.best()
+        run.record(best_patch_layer=best_layer, best_patch_position=best_position, best_patch_recovery=best_recovery)
+
+    payload = {
+        "frame": dataset.frame,
+        "corruption": dataset.corruption,
+        "tokens": dataset.token_labels(adapter),
+        "landmarks": dataset.landmarks(adapter),
+        "attribution": attribution.heads.tolist(),
+        "mlp_attribution": attribution.mlps.tolist(),
+        "head_effects": effects.effects.tolist(),
+        "roles": {"names": list(roles.roles), "weights": roles.weights.tolist()},
+        "circuit": {
+            "heads": [list(head) for head in circuit.heads],
+            "scores": circuit.scores,
+            "minimality": {f"L{layer}H{head}": drop for (layer, head), drop in report.minimality.items()},
+        },
+        "residual_patch": grid.effects.tolist() if grid is not None else None,
+    }
+    (directory / "circuit.json").write_text(json.dumps(payload, indent=2))
+    run.produce("circuit", "circuit.json")
 
 def run_experiment(spec: ExperimentSpec, root: Optional[str] = None) -> Run:
     """Execute a spec, writing everything it produced into its own directory

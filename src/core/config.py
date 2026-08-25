@@ -63,6 +63,7 @@ class ModelConfig:
     hf_name: str
     n_layers: Optional[int] = None
     d_model: Optional[int] = None
+    n_heads: Optional[int] = None
     probe_layer_frac: float = 0.65
     batch_size: int = 8
     device: str = "cpu"
@@ -81,8 +82,34 @@ class ModelConfig:
 
     @property
     def is_resolved(self) -> bool:
-        """Whether the checkpoint's shape metadata has been filled in yet"""
+        """Whether the checkpoint's shape metadata has been filled in yet
+
+        n_heads is not part of this. Everything that addresses the residual
+        stream needs n_layers and d_model; only head-level circuit work needs
+        the head count, and a backend that cannot expose heads should still
+        count as resolved for the probing half of the framework.
+        """
         return self.n_layers is not None and self.d_model is not None
+
+    @property
+    def d_head(self) -> int:
+        """Width of one attention head, which is the shape a head-level patch has to be
+
+        Derived rather than stored: a head is a slice of the residual stream
+        width, and storing it separately is a second chance to disagree with
+        the checkpoint.
+        """
+        if self.d_model is None or self.n_heads is None:
+            raise ConfigError(
+                f"config '{self.id}' has no d_model/n_heads yet, so a head width cannot be derived; "
+                "load an adapter first"
+            )
+        if self.d_model % self.n_heads:
+            raise ConfigError(
+                f"config '{self.id}' has d_model not divisible by n_heads, so heads are not "
+                "equal-width slices of the residual stream; head-level work needs a different split"
+            )
+        return self.d_model // self.n_heads
 
     def layer(self, frac: Optional[float] = None) -> int:
         """Resolve a depth fraction to an absolute layer index
@@ -117,7 +144,7 @@ class ModelConfig:
             return [self.layer(0.5)]
         return self.layers([step / (count - 1) for step in range(count)])
 
-    def with_sizes(self, n_layers: int, d_model: int) -> "ModelConfig":
+    def with_sizes(self, n_layers: int, d_model: int, n_heads: Optional[int] = None) -> "ModelConfig":
         """Return a copy carrying the shape metadata a backend read off the checkpoint
 
         If the config already stated a size, disagreeing with the checkpoint is an
@@ -127,13 +154,16 @@ class ModelConfig:
         for name, stated, actual in (
             ("n_layers", self.n_layers, n_layers),
             ("d_model", self.d_model, d_model),
+            ("n_heads", self.n_heads, n_heads),
         ):
-            if stated is not None and stated != actual:
+            if actual is None or stated is None:
+                continue
+            if stated != actual:
                 raise ConfigError(
                     f"config '{self.id}' declares {name}={stated} but checkpoint "
                     f"'{self.hf_name}' has {name}={actual}"
                 )
-        return replace(self, n_layers=n_layers, d_model=d_model)
+        return replace(self, n_layers=n_layers, d_model=d_model, n_heads=n_heads or self.n_heads)
 
     def as_dict(self) -> Dict[str, Any]:
         """Plain-data view of the config, for printing, hashing or writing back out"""

@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 
 from .config import ModelConfig, load_config
 from .dataset import LabeledPrompts, load_jsonl, synthetic
+from .ioi import CORRUPTIONS, FRAMES
 from .prompts import load_prompts
 
 """
@@ -108,6 +109,25 @@ class MethodSpec:
     l2: float = 0.01
 
 @dataclass
+class IOISpec:
+    """The knobs of the IOI circuit study, which the probing kinds ignore
+
+    A spec carries every section whatever its kind, so a probe_sweep hashes an
+    IOISpec it never reads and an ioi_circuit hashes a MethodSpec it never
+    reads. That is the cost of one spec type; the alternative is a spec whose
+    shape depends on its kind, which no longer type-checks as one schema. What
+    is not negotiable is the other direction: a knob that changes an IOI number
+    lives here, inside the hash, rather than being passed at the command line.
+    """
+    size: int = 16
+    frame: int = 0
+    corruption: str = "abc"
+    threshold: float = 0.8
+    max_heads: int = 12
+    tolerance: float = 0.05
+    residual_patch: bool = True
+
+@dataclass
 class OutputSpec:
     """Where the run's artifacts land
 
@@ -130,6 +150,7 @@ class ExperimentSpec:
     model: ModelSpec = field(default_factory=ModelSpec)
     data: DataSpec = field(default_factory=DataSpec)
     method: MethodSpec = field(default_factory=MethodSpec)
+    ioi: IOISpec = field(default_factory=IOISpec)
     output: OutputSpec = field(default_factory=OutputSpec)
 
     def validate(self) -> "ExperimentSpec":
@@ -150,6 +171,14 @@ class ExperimentSpec:
             raise SpecError(f"unknown data.source '{self.data.source}'; known sources are {sorted(SOURCES)}")
         if self.data.source != "synthetic" and not self.data.path:
             raise SpecError(f"data.source is '{self.data.source}' but data.path is not set")
+        if self.ioi.corruption not in CORRUPTIONS:
+            raise SpecError(f"unknown ioi.corruption '{self.ioi.corruption}'; known ones are {sorted(CORRUPTIONS)}")
+        if not 0 <= self.ioi.frame < len(FRAMES):
+            raise SpecError(f"ioi.frame must be one of the {len(FRAMES)} shipped frames, got {self.ioi.frame}")
+        if self.ioi.size < 1:
+            raise SpecError(f"ioi.size must be at least one prompt pair, got {self.ioi.size}")
+        if self.ioi.max_heads < 1:
+            raise SpecError(f"ioi.max_heads must be at least one head, got {self.ioi.max_heads}")
         return self
 
     def as_dict(self) -> Dict[str, Any]:

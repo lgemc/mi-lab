@@ -14,6 +14,12 @@ AUC is computed rank-wise with ties averaged rather than by thresholding a
 grid, so it is exact and does not quietly depend on how the scores happen to
 be scaled.
 
+A circuit study measures something else and it is here for the same reason:
+logit_difference is what "the model got it right" means when the answer is one
+of two tokens, and recovery is how a patched run is read against the clean and
+corrupted runs it sits between. Both are arithmetic on numbers a model already
+produced, so both stay model-free.
+
 A common pipe could be: score | roc_auc | best_threshold
 """
 
@@ -109,6 +115,46 @@ def best_threshold(scores: Sequence[float], labels: Sequence[int]) -> Tuple[floa
     scored = [(accuracy(score_tensor, label_tensor, float(point)), float(point)) for point in midpoints]
     best_accuracy, best_point = max(scored)
     return best_point, best_accuracy
+
+def logit_difference(
+    logits: torch.Tensor, positive: Sequence[int], negative: Sequence[int]
+) -> torch.Tensor:
+    """logit(positive) - logit(negative) for each row, given one token pair per row
+
+    The behaviour metric for a two-answer task. It is a difference rather than
+    a probability on purpose: the softmax's normalizer is shared by both
+    tokens, so it cancels here, and what is left moves only when the model
+    actually shifts weight between the two answers. An accuracy over the same
+    pairs throws away how close the call was.
+    """
+    values = torch.as_tensor(logits, dtype=torch.float64)
+    if values.dim() != 2:
+        raise MetricError(f"logits must be [batch, vocab], got shape {tuple(values.shape)}")
+    if len(positive) != values.shape[0] or len(negative) != values.shape[0]:
+        raise MetricError(
+            f"{values.shape[0]} rows of logits but {len(positive)} positive and "
+            f"{len(negative)} negative token ids; they index the same batch"
+        )
+    rows = torch.arange(values.shape[0])
+    return values[rows, torch.as_tensor(list(positive))] - values[rows, torch.as_tensor(list(negative))]
+
+def recovery(patched: float, clean: float, corrupted: float) -> float:
+    """Where a patched run sits between the corrupted and the clean baseline, as 0 to 1
+
+    1.0 means this intervention alone restored the clean behaviour; 0.0 means
+    it changed nothing. Values outside [0, 1] are real results, not errors: a
+    component can overshoot, and a negative one is a component whose clean
+    value actively works against the answer.
+
+    The two baselines have to come from the same prompts as the patched run,
+    or the scale means nothing. When they coincide -- a prompt the corruption
+    did not actually corrupt -- there is no span to normalize against, and
+    saying 0 is more honest than dividing by it.
+    """
+    span = clean - corrupted
+    if span == 0:
+        return 0.0
+    return (patched - corrupted) / span
 
 @dataclass(frozen=True)
 class Cost:

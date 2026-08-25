@@ -20,13 +20,13 @@ There are no `__init__.py` files and test modules are named after the module the
 modules explicitly:
 
 ```bash
-# everything: 191 tests, ~45s (probing/runner/adapter load GPT-2 small)
+# everything: 234 tests, ~30s (probing/runner/adapter/circuits load GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.probing tests.runner tests.adapter
+    tests.prompts tests.torchdata tests.ioi tests.probing tests.runner tests.adapter tests.circuits
 
-# offline subset: 152 tests, ~2s, no checkpoint needed
+# offline subset: no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata
+    tests.prompts tests.torchdata tests.ioi
 
 # one module / class / method
 uv run python -m unittest tests.spec
@@ -96,9 +96,14 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
 - `core/adapter.py` — `ModelAdapter` is a `Protocol`; backends register a factory under a string key
   via `@register_backend("name")`, and a config names that key. `transformers` is implemented;
   `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not implemented.
+  `CircuitAdapter` is a **second** protocol on top of it (`logits`, `attention`, `head_outputs`,
+  `decompose`, `patch`, `single_token`, `tokens`) — a backend behind an inference API can honestly
+  capture and steer and honestly cannot patch a head, so circuit code calls `require_circuits()`
+  and gets a message naming the backend rather than an `AttributeError` halfway through.
 - `core/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
-  (`probe_sweep`, `probe_train`). Adding an experiment type is a registration, not an edit to
-  `ExperimentSpec` or the runner body.
+  (`probe_sweep`, `probe_train`, `ioi_circuit`). Adding an experiment type is a registration, not an
+  edit to `ExperimentSpec` or the runner body — `ioi_circuit` shares none of the probing pipeline
+  and is still just an entry in `EXPERIMENTS`.
 - `core/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
 - `core/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
@@ -109,6 +114,15 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
 - `core/torchdata.py` — map-style and streaming `Dataset`s over prompts, plus `ActivationDataset`
   over what a capture produced (which carries its model, layers and position, because a directory
   of `.pt` files identified by filename is one you will eventually mix up).
+- `core/ioi.py` — the Indirect Object Identification task (Wang et al., 2023) as data: one frame per
+  dataset, single-token names, the two name orders balanced, and clean/corrupted pairs under either
+  the `abc` corruption (replace the repeated name) or `swap` (exchange the two roles).
+- `core/circuits.py` — the circuit study itself, asked twice. `direct_logit_attribution` is the
+  correlational half (exact, one forward pass, blind to everything but the direct path);
+  `patch_heads` / `patch_residual` are the causal half (one forward pass per site). `discover`
+  grows a circuit greedily and `verify` checks it three ways. **The two halves disagree and the
+  disagreement is the finding** — on GPT-2 small the negative name movers write hard against the
+  answer and patching says the model needs them.
 
 ### Invariants that the code enforces (don't break these)
 
@@ -167,10 +181,33 @@ and every message names `file:line`.
 you are about to train on — before any model loads. `synthetic` is the toy generator that keeps the
 path runnable with no download: a machinery check, not a result.
 
+### Circuits
+
+`ioi_circuit` is the second kind of experiment this repo runs, and the parts of it that are easy to
+get quietly wrong are all guarded:
+
+- **The decomposition is checked, not assumed.** `Decomposition.remainder` and
+  `Attribution.residual` are the receipts: every write into the residual stream, summed and pushed
+  through the frozen unembedding, has to land on the logit difference the model actually produced.
+  Both are asserted in `tests/circuits.py` and both are ~1e-6 on GPT-2 small.
+- **The final norm is frozen, and that is the approximation.** A component's write becomes logits
+  by dividing by the scale the *complete* residual stream produced. `_normalizer` decides whether
+  the norm centres by asking the module (LayerNorm is invariant to adding a constant to every
+  coordinate, RMSNorm is not) rather than by recognizing a class name.
+- **Head writes are computed by calling the projection, never by slicing its weight.** GPT-2 stores
+  a `Conv1D` as `[in, out]` and everything else stores a `Linear` as `[out, in]`; a transposed
+  slice is wrong in a way that still produces plausible numbers.
+- **Patching writes into the same site `capture` reads** — the residual stream leaving a block, and
+  the input to the attention output projection. Writing back what was already there is exactly a
+  no-op, which is what every causal number is a difference against.
+- Patched forward passes still chunk by `batch_size`, so the patch hooks slice the rows of the
+  chunk they fire in. Handing a hook the full donor patches the wrong prompts the moment one batch
+  becomes two.
+
 ### CLI
 
 `src/cli/main.py` aggregates one Typer app per group: `model`, `capture`, `data`, `probe`, `steer`,
-`run`, `viz`. Command modules only format what `core` returns — anything doable from the shell must
+`ioi`, `run`, `viz`. Command modules only format what `core` returns — anything doable from the shell must
 be doable by importing the same core function. `HelpfulCommand`/`HelpfulGroup` in `cli/common.py`
 print full help on a parse error; note that Typer 0.27 vendors its own Click fork, so the
 `UsageError` caught there is `typer._click.exceptions.UsageError`.
@@ -181,13 +218,17 @@ laptop model to a large one is that argument changing and nothing else.
 ### Charts
 
 `src/viz/` is one module per subject (`dataset`, `model`, `activations`, `probing`, `steering`,
-`runs`) over `style.py`. Two rules:
+`circuits`, `runs`) over `style.py`. Two rules:
 
 - **The palette is keyed by meaning, not colour.** `PALETTE["baseline"]`, never `"steelblue"` — so
   the positive class is the same green in every chart.
 - **Only the CLI selects a backend.** `cli/commands/viz.py` sets `matplotlib.use("Agg")` because it
   writes files; `src/viz/` must never call `use()`, or it takes the backend away from a notebook
   that imported it.
+
+`viz circuit dashboard` does the same for the IOI battery, measuring every chart off one dataset and
+one pair of baselines so the panels on the page are comparable with each other — which stops being
+true the moment they are made one command at a time.
 
 `viz dashboard` assembles a run's charts into one self-contained HTML page with images inlined as
 data URIs, so the file survives being moved or attached. Every `viz` command takes `--output` and

@@ -1,6 +1,6 @@
 import typer
 
-from .commands import capture, data, model, probe, run, steer, viz
+from .commands import capture, data, ioi, model, probe, run, steer, viz
 from .common import CONTEXT_SETTINGS, HelpfulGroup
 
 """
@@ -27,6 +27,7 @@ app.add_typer(capture.app, name="capture")
 app.add_typer(data.app, name="data")
 app.add_typer(probe.app, name="probe")
 app.add_typer(steer.app, name="steer")
+app.add_typer(ioi.app, name="ioi")
 app.add_typer(run.app, name="run")
 app.add_typer(viz.app, name="viz")
 

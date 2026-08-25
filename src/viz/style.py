@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Sequence
+from typing import Optional, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -83,9 +83,14 @@ def show_figure(path):
 
     from_file(str(path)).draw()
 
-def annotate_best(ax, x, y, text: str, color: Optional[str] = None):
-    """Mark the winning point on a sweep, since which one won is the whole result"""
+def annotate_best(ax, x, y, text: str, color: Optional[str] = None, offset: Tuple[int, int] = (8, 8)):
+    """Mark the winning point on a sweep, since which one won is the whole result
+
+    offset moves the label off the marker. It is a parameter because charts
+    that circle several points at once get labels landing on top of each
+    other, and two labels overprinted are worth less than one.
+    """
     ax.scatter([x], [y], s=140, facecolors="none", edgecolors=color or PALETTE["steered"], linewidths=2, zorder=5)
-    ax.annotate(text, (x, y), textcoords="offset points", xytext=(8, 8), fontsize=9,
+    ax.annotate(text, (x, y), textcoords="offset points", xytext=offset, fontsize=9,
                 color=color or PALETTE["steered"], weight="bold")
     return ax
