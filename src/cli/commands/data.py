@@ -1,8 +1,9 @@
+from dataclasses import replace
 from pathlib import Path
 
 import typer
 
-from ...core.dataset import DatasetError, save_jsonl, synthetic
+from ...core.dataset import DatasetError, load_csv, save_jsonl, synthetic
 from ...core.prompts import SUFFIXES, load_labeled, save_prompts
 from ..common import HelpfulCommand, HelpfulGroup
 
@@ -18,6 +19,7 @@ drifted apart -- are all visible in the file.
 app = typer.Typer(help="Inspect and convert datasets.", cls=HelpfulGroup)
 
 PATH_ARGUMENT = typer.Argument(..., help="Path to a .prompts or .jsonl dataset")
+SOURCE_ARGUMENT = typer.Argument(..., help="Path to a .prompts, .jsonl or .csv dataset")
 
 @app.command("check", cls=HelpfulCommand)
 def check(
@@ -70,19 +72,38 @@ def check(
 
 @app.command("convert", cls=HelpfulCommand)
 def convert(
-    path: str = PATH_ARGUMENT,
+    path: str = SOURCE_ARGUMENT,
     out: str = typer.Option(..., "--out", help="Destination; the suffix picks the format"),
-    text_field: str = typer.Option("text", help="Field holding the prompt, when reading JSONL"),
-    label_field: str = typer.Option("label", help="Field holding the label, when reading JSONL"),
+    text_field: str = typer.Option("text", help="Column or field holding the prompt"),
+    label_field: str = typer.Option("label", help="Column or field holding the label"),
+    group_field: str = typer.Option(None, "--group-field", help="CSV column whose shared value makes rows one group"),
+    labels: str = typer.Option(None, "--labels", help="Two comma-separated names for label 0 and label 1"),
+    name: str = typer.Option(None, "--name", help="Name for the dataset; defaults to the filename"),
 ):
-    """Convert between .prompts and .jsonl
+    """Convert between .prompts, .jsonl and a downloaded .csv
 
     JSONL has nowhere to put label names or groups, so converting to it drops
     them. That direction is for handing data to something that is not this
     framework; the other direction is the one to run once on a download and
     then keep.
+
+    A downloaded contrast set is the reason --group-field exists. Rows sharing
+    a subject are a pair, and a pair split in half makes the AUC measure the
+    one word that differs -- so name the column that identifies the pair, and
+    check the result with `data check` before training anything on it.
     """
-    data = load_labeled(path, text_field=text_field, label_field=label_field)
+    if Path(path).suffix.lower() == ".csv":
+        data = load_csv(path, text_field=text_field, label_field=label_field, group_field=group_field)
+    else:
+        data = load_labeled(path, text_field=text_field, label_field=label_field)
+    if labels:
+        names = tuple(part.strip() for part in labels.split(","))
+        if len(names) != 2:
+            raise DatasetError(f"--labels wants two comma-separated names, got {labels!r}")
+        data = replace(data, label_names=names)
+    if name:
+        data = data.rename(name)
+
     suffix = Path(out).suffix.lower()
     if suffix in SUFFIXES:
         save_prompts(data, out)
@@ -95,7 +116,8 @@ def convert(
             f"cannot tell what format '{out}' should be from its suffix; "
             f"use {sorted((*SUFFIXES, '.jsonl'))}"
         )
-    typer.echo(f"wrote {len(data)} examples to {out}")
+    groups = "ungrouped" if data.groups is None else f"{len(data.units)} groups"
+    typer.echo(f"wrote {len(data)} examples ({groups}) to {out}")
 
 @app.command("synthetic", cls=HelpfulCommand)
 def write_synthetic(

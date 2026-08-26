@@ -165,6 +165,22 @@ backslash is an error rather than a guess, as is an unknown header, a header
 set twice, and a header after the first example. Every message names
 `file:line`.
 
+**A download is converted once, not read at run time.** Probing sets arrive as
+CSV and no two agree on column names, so `data convert` imports one and
+`--group-field` names the column that identifies a pair:
+
+```bash
+python -m src.cli data convert downloaded.csv --out data/cities.prompts \
+    --text-field statement --group-field city --labels "false,true" --name cities
+# wrote 1496 examples (748 groups) to data/cities.prompts
+```
+
+Without `--group-field` those 1496 rows import as 1496 independent examples,
+the pairs straddle the split, and the sweep comes back below chance rather than
+near it — every test twin is the same subject carrying the opposite label. That
+is the failure mode worth recognizing: a probe that has learned the topic looks
+much worse than a probe that has learned nothing.
+
 `data check` reads a file and says what will go wrong before a model is
 loaded — duplicates that will leak, a balance a base-rate probe could win on,
 prompts with stray whitespace, and the split you are actually about to train

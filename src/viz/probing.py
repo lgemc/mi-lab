@@ -40,6 +40,20 @@ def _flatten(activations: torch.Tensor) -> torch.Tensor:
         return activations[:, 0]
     return activations
 
+def _metric_values(reports: Sequence, metric: str) -> List[float]:
+    """The number each layer report contributes to a sweep chart"""
+    return [report.auc if metric == "auc" else report.metrics[metric] for report in reports]
+
+def _sweep_floor(values: Sequence[float]) -> float:
+    """The bottom of a sweep axis: 0.4 normally, lower when the sweep went below it
+
+    A fixed floor drew a blank chart for a below-chance sweep -- axes, legend
+    and the chance line over nothing -- and below chance is a finding, not an
+    error state. It is what a contrast pair straddling the split looks like:
+    the probe learns the topic and is confidently wrong on the twin.
+    """
+    return min(0.4, min(values) - 0.05)
+
 def plot_layer_sweep(reports: Sequence, metric: str = "auc", ax=None, label: Optional[str] = None, color: Optional[str] = None):
     """AUC (or accuracy) against depth, with the winning layer circled
 
@@ -53,7 +67,7 @@ def plot_layer_sweep(reports: Sequence, metric: str = "auc", ax=None, label: Opt
     if not reports:
         raise VizError("a sweep chart needs at least one layer report")
     fracs = [report.frac for report in reports]
-    values = [report.auc if metric == "auc" else report.metrics[metric] for report in reports]
+    values = _metric_values(reports, metric)
     best = max(range(len(values)), key=lambda index: values[index])
 
     if ax is None:
@@ -66,7 +80,7 @@ def plot_layer_sweep(reports: Sequence, metric: str = "auc", ax=None, label: Opt
 
     ax.axhline(0.5, color=PALETTE["grid"], linestyle=":", linewidth=1)
     ax.text(0.005, 0.505, "chance", fontsize=8, color="0.45")
-    ax.set_ylim(0.4, 1.03)
+    ax.set_ylim(_sweep_floor(values), 1.03)
     ax.set_xlabel("Depth fraction")
     ax.set_ylabel(metric.upper() if metric == "auc" else metric)
     ax.set_title(f"Where the signal lives: probe {metric} by depth")
@@ -91,6 +105,8 @@ def plot_method_sweep(sweeps: Dict[str, Sequence], metric: str = "auc", ax=None)
     cycle = [PALETTE["primary"], PALETTE["steered"], PALETTE["secondary"], PALETTE["accent"], PALETTE["highlight"]]
     for index, (name, reports) in enumerate(sweeps.items()):
         plot_layer_sweep(reports, metric=metric, ax=ax, label=name, color=cycle[index % len(cycle)])
+    ax.set_ylim(_sweep_floor([value for reports in sweeps.values()
+                             for value in _metric_values(reports, metric)]), 1.03)
     ax.set_title(f"Probe {metric} by depth, {len(sweeps)} methods compared")
     ax.legend(title="")
     return ax

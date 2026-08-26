@@ -1,8 +1,19 @@
 __pycache__/
 *.py[cod]
 .venv/
-outputs/
 
 runs/
 outputs/
 multirun/
+charts/
+
+.idea/
+.vscode/
+
+# Downloaded datasets and anything converted from them. geometry-of-truth ships
+# no LICENSE file, which by default means all rights reserved -- fine to hold and
+# work on locally, not something this repo may redistribute. CHEATSHEET.md has the
+# fetch and the exact `data convert` line, so both are one command away.
+data/external/
+data/cities.prompts
+data/neg-cities.prompts

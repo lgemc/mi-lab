@@ -1,3 +1,4 @@
+import csv
 import json
 import random
 from dataclasses import dataclass, replace
@@ -186,6 +187,78 @@ def load_jsonl(
         if limit is not None and len(texts) >= limit:
             break
     return LabeledPrompts(texts=texts, labels=labels, name=source.stem)
+
+def load_csv(
+    path: str,
+    text_field: str = "text",
+    label_field: str = "label",
+    group_field: Optional[str] = None,
+    limit: Optional[int] = None,
+) -> LabeledPrompts:
+    """Read a CSV of labelled rows into a dataset, optionally grouping them
+
+    CSV is what a downloaded probing set arrives as, and every one of them
+    names its columns differently -- hence the field arguments, as for
+    load_jsonl.
+
+    `group_field` is the important one. A downloaded contrast set usually
+    carries the subject of the pair in a column of its own, and rows sharing
+    that subject must not be split apart. Naming the column here is what turns
+    an ordinary table into groups; leaving it unnamed says the rows are
+    genuinely independent.
+
+    A group's rows must be adjacent in the file. Scattered rows would still
+    split correctly, but prompts.dumps writes a group as an indented run, so a
+    scattered one could not be written back out and read back the same -- and
+    a converted file that quietly loses its pairing is the failure this whole
+    argument exists to prevent.
+    """
+    source = Path(path)
+    if not source.exists():
+        raise DatasetError(f"no dataset at {source}")
+
+    with source.open(newline="") as handle:
+        rows = list(csv.DictReader(handle))
+    if not rows:
+        raise DatasetError(f"{source} has no rows")
+
+    wanted = [text_field, label_field] + ([group_field] if group_field else [])
+    missing = [field for field in wanted if field not in rows[0]]
+    if missing:
+        raise DatasetError(
+            f"{source} has columns {sorted(rows[0])}, which do not include {missing}"
+        )
+
+    texts: List[str] = []
+    labels: List[int] = []
+    groups: List[int] = []
+    seen: Dict[str, int] = {}
+    for number, row in enumerate(rows, start=2):  # 1 is the header
+        raw = str(row[label_field]).strip()
+        if raw not in ("0", "1"):
+            raise DatasetError(f"{source}:{number} has label {raw!r}, expected '0' or '1'")
+        if group_field:
+            key = str(row[group_field])
+            if key in seen and groups and groups[-1] != seen[key]:
+                raise DatasetError(
+                    f"{source}:{number} belongs to group {key!r}, which stopped earlier in the file; "
+                    "sort the file so each group's rows are adjacent"
+                )
+            group = seen.setdefault(key, len(seen))
+        else:
+            group = len(texts)
+        if limit is not None and len(texts) >= limit and (not groups or group != groups[-1]):
+            break
+        texts.append(str(row[text_field]))
+        labels.append(int(raw))
+        groups.append(group)
+
+    return LabeledPrompts(
+        texts=texts,
+        labels=labels,
+        name=source.stem,
+        groups=groups if group_field else None,
+    )
 
 def save_jsonl(data: LabeledPrompts, path: str, text_field: str = "text", label_field: str = "label") -> None:
     """Write a dataset back out as one JSON object per line

@@ -3,7 +3,8 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from src.core.dataset import _SUBJECTS, DatasetError, LabeledPrompts, load_jsonl, save_jsonl, synthetic
+from src.core.dataset import _SUBJECTS, DatasetError, LabeledPrompts, load_csv, load_jsonl, save_jsonl, synthetic
+from src.core.prompts import dumps, parse
 
 """
 The dataset object is small enough that the only things worth testing are the
@@ -177,3 +178,57 @@ class TestLoadJsonl(TestCase):
         again = load_jsonl(path)
         self.assertEqual(data.texts, again.texts)
         self.assertEqual(data.labels, again.labels)
+
+class TestLoadCsv(TestCase):
+    """A downloaded contrast set, and the pairing that must survive the import"""
+
+    HEADER = "statement,label,city\n"
+    PAIRS = (
+        "The city of Lodz is in Poland.,1,Lodz\n"
+        "The city of Lodz is in Chad.,0,Lodz\n"
+        "The city of Maracay is in Venezuela.,1,Maracay\n"
+        "The city of Maracay is in Chad.,0,Maracay\n"
+    )
+
+    def _write(self, body: str) -> str:
+        path = Path(tempfile.mkdtemp()) / "downloaded.csv"
+        path.write_text(body)
+        return str(path)
+
+    def test_a_named_group_column_becomes_groups(self):
+        data = load_csv(self._write(self.HEADER + self.PAIRS), text_field="statement", group_field="city")
+        self.assertEqual([0, 0, 1, 1], data.groups)
+        self.assertEqual(2, len(data.units))
+
+    def test_without_a_group_column_the_rows_are_independent(self):
+        data = load_csv(self._write(self.HEADER + self.PAIRS), text_field="statement")
+        self.assertIsNone(data.groups)
+
+    def test_a_group_split_across_the_file_is_refused(self):
+        scattered = (
+            "The city of Lodz is in Poland.,1,Lodz\n"
+            "The city of Maracay is in Venezuela.,1,Maracay\n"
+            "The city of Lodz is in Chad.,0,Lodz\n"
+        )
+        with self.assertRaises(DatasetError) as caught:
+            load_csv(self._write(self.HEADER + scattered), text_field="statement", group_field="city")
+        self.assertIn(":4", str(caught.exception))
+
+    def test_a_missing_column_is_named(self):
+        with self.assertRaises(DatasetError) as caught:
+            load_csv(self._write(self.HEADER + self.PAIRS), text_field="prompt")
+        self.assertIn("prompt", str(caught.exception))
+
+    def test_a_label_that_is_not_binary_names_the_line(self):
+        body = self.HEADER + "The city of Lodz is in Poland.,yes,Lodz\n"
+        with self.assertRaises(DatasetError) as caught:
+            load_csv(self._write(body), text_field="statement")
+        self.assertIn(":2", str(caught.exception))
+
+    def test_pairs_survive_a_round_trip_through_prompts(self):
+        """The reason groups must be adjacent: dumps writes them as an indented run"""
+        data = load_csv(self._write(self.HEADER + self.PAIRS), text_field="statement", group_field="city")
+        again = parse(dumps(data), name="again")
+        self.assertEqual(data.texts, again.texts)
+        self.assertEqual(data.labels, again.labels)
+        self.assertEqual(data.groups, again.groups)

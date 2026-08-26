@@ -192,6 +192,20 @@ ids, so a split cannot cut a minimal pair in half. Whitespace is written down (`
 escape, an unknown header, a repeated header and a header after the first example are all errors,
 and every message names `file:line`.
 
+`csv` is deliberately **not** a `DataSpec.source`. `load_csv` and `data convert` exist to import a
+download once and keep the result, because a CSV is what a probing set arrives as and none of them
+agree on column names. `--group-field` is the argument that matters: a downloaded contrast set
+carries the subject of the pair in a column, and naming it is what turns a table into groups.
+Without it the pairs straddle the split, the probe learns the subject, and the sweep comes back
+*below* chance — every test twin being the same subject with the opposite label. A group's rows
+must be adjacent in the file, because `dumps` writes a group as an indented run and a scattered one
+could not be read back the same way.
+
+`dumps` writes `name:` and `labels:` and drops `notes:`/`source:` — a converted file loses prose by
+design, so the conversion command is the provenance. Keep it written down (CHEATSHEET.md has the
+ones used so far). Downloaded data and anything converted from it is gitignored: geometry-of-truth
+ships no LICENSE, so it stays local.
+
 `uv run python -m src.cli data check <file>` reports duplicates, balance, group sizes and the split
 you are about to train on — before any model loads. `synthetic` is the toy generator that keeps the
 path runnable with no download: a machinery check, not a result.
