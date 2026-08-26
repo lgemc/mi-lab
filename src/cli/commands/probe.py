@@ -5,7 +5,6 @@ import typer
 from ...core.adapter import load_adapter
 from ...core.dataset import synthetic
 from ...core.probing import (
-    LinearProbe,
     difference_of_means,
     evaluate,
     measure_scoring_cost,
@@ -13,6 +12,7 @@ from ...core.probing import (
     train_probe,
 )
 from ...core.prompts import load_labeled
+from ...core.sharing import open_probe
 from ..common import HelpfulCommand, HelpfulGroup
 
 """
@@ -60,7 +60,7 @@ def train(
     train_activations = adapter.capture(train_set.texts, layers=[layer])
     test_activations = adapter.capture(test_set.texts, layers=[layer])
 
-    provenance = {"model_id": adapter.cfg.id, "layer": layer, "dataset": dataset.name}
+    provenance = {"model_id": adapter.cfg.id, "n_layers": adapter.cfg.n_layers, "layer": layer, "dataset": dataset.name}
     probe = train_probe(train_activations, train_set.labels, seed=seed, **provenance)
     baseline = difference_of_means(train_activations, train_set.labels, **provenance)
 
@@ -119,7 +119,7 @@ def sweep_layers(
 @app.command("score", cls=HelpfulCommand)
 def score(
     config: str = CONFIG_ARGUMENT,
-    probe_path: str = typer.Option(..., "--probe", help="Path to a probe saved by 'probe train'"),
+    probe_path: str = typer.Option(..., "--probe", help="Path to a probe .pt, or to a shared .mia artifact"),
     prompt: List[str] = typer.Option(..., "--prompt", "-p", help="Prompt to score; repeatable"),
 ):
     """Apply a saved probe to new prompts
@@ -128,7 +128,7 @@ def score(
     told where to look.
     """
     adapter = load_adapter(config)
-    probe = LinearProbe.load(probe_path)
+    probe = open_probe(probe_path)
     if probe.model_id != adapter.cfg.id:
         typer.echo(f"warning: probe was trained on '{probe.model_id}', scoring '{adapter.cfg.id}'", err=True)
 

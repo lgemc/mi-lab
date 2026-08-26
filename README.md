@@ -34,6 +34,11 @@ src/core/
   torchdata.py      torch Datasets and DataLoaders over prompts and over activations
   metrics.py        AUC, accuracy, and what a thing cost to run
   probing.py        linear probes as self-contained, saveable artifacts
+  steering.py       the steering sweep: effect against fluency, with a random control
+  ioi.py            the Indirect Object Identification task, as balanced clean/corrupted data
+  circuits.py       the circuit study: attribution, patching, discovery and three checks
+  artifact.py       the shareable form of a result: a JSON card plus one safetensors file
+  sharing.py        converters between what this lab measures and that format
   spec.py           ExperimentSpec: the experiment as composable data, plus its hash
   run.py            what an experiment left behind; stdlib only, readable anywhere
   runner.py         turns a spec into a Run, one registered function per kind
@@ -42,6 +47,9 @@ src/cli/
   main.py           root Typer app
   common.py         help-on-error Click customization
   commands/         one module per command group
+src/viz/            one chart module per subject, over a shared style
+docs/
+  artifact-format.md  the sharing format: what it stores and why
 tests/              unit tests, plus a golden capture that catches silent drift
 ```
 
@@ -68,6 +76,12 @@ python -m src.cli run exec -e sentiment-sweep
 python -m src.cli run exec -e sentiment-sweep -s model=pythia-70m -s method.lr=0.1
 python -m src.cli run list runs
 python -m src.cli run replay runs/20260824-221404-0a25479a452e
+
+python -m src.cli ioi circuit gpt2-small --size 8 --save ioi-abc.mia   # replicate, then share it
+python -m src.cli artifact show ioi-abc.mia                  # read one without loading a model
+python -m src.cli artifact check ioi-abc.mia
+python -m src.cli artifact pack probe.pt                     # wrap a probe for sharing
+python -m src.cli probe score gpt2-small --probe probe.mia -p "I adored the concert"
 
 python -m src.cli steer contrast gpt2-small \
     -p "My favourite place is" \

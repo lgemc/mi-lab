@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.11.1",
     "omegaconf>=2.3.0",
     "pyyaml>=6.0.2",
+    "safetensors>=0.8.0",
     "seaborn>=0.13.2",
     "term-image>=0.7.2",
     "torch>=2.13.0",

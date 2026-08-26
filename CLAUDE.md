@@ -20,13 +20,14 @@ There are no `__init__.py` files and test modules are named after the module the
 modules explicitly:
 
 ```bash
-# everything: 234 tests, ~30s (probing/runner/adapter/circuits load GPT-2 small)
+# everything: 260 tests, ~30s (probing/runner/adapter/circuits load GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.probing tests.runner tests.adapter tests.circuits
+    tests.prompts tests.torchdata tests.ioi tests.artifact tests.probing tests.runner \
+    tests.adapter tests.circuits
 
-# offline subset: no checkpoint needed, seconds
+# offline subset: 205 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi
+    tests.prompts tests.torchdata tests.ioi tests.artifact
 
 # one module / class / method
 uv run python -m unittest tests.spec
@@ -106,6 +107,11 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   and is still just an entry in `EXPERIMENTS`.
 - `core/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
+- `core/artifact.py` — the shareable form of a result (`.mia`: a JSON card plus one
+  `safetensors` file). It knows nothing about this repository, which is what keeps
+  `Artifact.load` from importing transformers. `core/sharing.py` is the one place that knows
+  both, so a new experiment kind gets a converter there rather than a special case inside the
+  format. See `docs/artifact-format.md`.
 - `core/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
   at one strength. It measures *effect* (the probe's score on the steered continuation) against
   *fluency* (share of non-repeated words), because those two moving together is what "the ceiling"
@@ -204,10 +210,34 @@ get quietly wrong are all guarded:
   chunk they fire in. Handing a hook the full donor patches the wrong prompts the moment one batch
   becomes two.
 
+### Sharing results
+
+`ioi_circuit` writes `circuit.mia` into its run directory and that is the artifact meant to leave
+the machine; `run.json` stays the record of what this machine did. Four rules are enforced by
+`Artifact.validate()` and each one is a way a shared result gets misread:
+
+- **A tensor is never stored without its axes.** `Payload` keeps values, axis names and units
+  together, and `labels` names the ticks (the token strings under a `position` axis). A bare grid
+  in a `.pt` is one the next reader transposes, and the transposed heatmap still looks plausible.
+- **A site carries the depth fraction, not only the layer index** — invariant 1, applied to
+  something leaving the repo. `Site.at` refuses to build a site without knowing the model's depth
+  rather than defaulting the fraction away.
+- **Anything reporting a recovery must carry the span it is a fraction of.** Same reason
+  `circuits.baselines` refuses a span near zero.
+- **A circuit node keeps both `attribution` and `causal`.** Storing one summary score per
+  component throws away the finding the second measurement exists to produce.
+
+`edges` is in the schema and is empty: this repo measures which heads matter, not which head feeds
+which. An artifact that omitted the field would read as a circuit whose wiring nobody recorded.
+
+`open_probe` takes either a `.pt` or a `.mia`, so nothing that only *applies* a probe has to know
+which it was handed. That round trip is the test of the format — a shared artifact that does not
+come back as a working object has shared nothing.
+
 ### CLI
 
 `src/cli/main.py` aggregates one Typer app per group: `model`, `capture`, `data`, `probe`, `steer`,
-`ioi`, `run`, `viz`. Command modules only format what `core` returns — anything doable from the shell must
+`ioi`, `artifact`, `run`, `viz`. Command modules only format what `core` returns — anything doable from the shell must
 be doable by importing the same core function. `HelpfulCommand`/`HelpfulGroup` in `cli/common.py`
 print full help on a parse error; note that Typer 0.27 vendors its own Click fork, so the
 `UsageError` caught there is `typer._click.exceptions.UsageError`.

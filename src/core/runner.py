@@ -1,14 +1,15 @@
-import json
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
 from .adapter import load_adapter, require_circuits
+from .artifact import SUFFIX
 from .circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
 from .ioi import build_ioi
 from .ioi import evaluate as evaluate_ioi
 from .metrics import measure
 from .probing import difference_of_means, evaluate, sweep, train_probe
 from .run import Run
+from .sharing import from_circuit
 from .spec import ExperimentSpec, SpecError, save_spec
 
 """
@@ -78,7 +79,7 @@ def _probe_train(spec: ExperimentSpec, run: Run, directory: Path) -> None:
     """Fit one probe at one depth, next to the training-free baseline"""
     adapter, dataset, train, test = _prepare(spec)
     layer = adapter.cfg.layer(spec.method.fracs[0])
-    provenance = {"model_id": adapter.cfg.id, "layer": layer, "dataset": dataset.name}
+    provenance = {"model_id": adapter.cfg.id, "n_layers": adapter.cfg.n_layers, "layer": layer, "dataset": dataset.name}
 
     train_activations = adapter.capture(train.texts, layers=[layer], position=spec.method.position)
     test_activations = adapter.capture(test.texts, layers=[layer], position=spec.method.position)
@@ -111,9 +112,13 @@ def _ioi_circuit(spec: ExperimentSpec, run: Run, directory: Path) -> None:
 
     The run records the headline numbers and nothing that is really a matrix.
     The grids -- per-head attribution, per-head causal effect, the role
-    weights, the position map -- go into circuit.json beside it, because a
-    metrics dict with a hundred and forty-four entries is a file nobody reads
-    and a chart nobody can redraw.
+    weights, the position map -- go into the artifact beside it, because a
+    metrics dict with one entry per head is a file nobody reads and a chart
+    nobody can redraw.
+
+    The artifact is the shareable half of the result: run.json says what this
+    machine did, and circuit.mia says what was found, in a form another lab
+    can load without this repository.
     """
     adapter = require_circuits(load_adapter(spec.model.resolve()))
     dataset = build_ioi(
@@ -145,24 +150,13 @@ def _ioi_circuit(spec: ExperimentSpec, run: Run, directory: Path) -> None:
         best_layer, best_position, best_recovery = grid.best()
         run.record(best_patch_layer=best_layer, best_patch_position=best_position, best_patch_recovery=best_recovery)
 
-    payload = {
-        "frame": dataset.frame,
-        "corruption": dataset.corruption,
-        "tokens": dataset.token_labels(adapter),
-        "landmarks": dataset.landmarks(adapter),
-        "attribution": attribution.heads.tolist(),
-        "mlp_attribution": attribution.mlps.tolist(),
-        "head_effects": effects.effects.tolist(),
-        "roles": {"names": list(roles.roles), "weights": roles.weights.tolist()},
-        "circuit": {
-            "heads": [list(head) for head in circuit.heads],
-            "scores": circuit.scores,
-            "minimality": {f"L{layer}H{head}": drop for (layer, head), drop in report.minimality.items()},
-        },
-        "residual_patch": grid.effects.tolist() if grid is not None else None,
-    }
-    (directory / "circuit.json").write_text(json.dumps(payload, indent=2))
-    run.produce("circuit", "circuit.json")
+    name = f"circuit{SUFFIX}"
+    from_circuit(
+        adapter.cfg, dataset, attribution, effects, report, roles=roles, grid=grid,
+        tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
+        name=f"{dataset.name}-{adapter.cfg.id}",
+    ).save(str(directory / name))
+    run.produce("artifact", name)
 
 def run_experiment(spec: ExperimentSpec, root: Optional[str] = None) -> Run:
     """Execute a spec, writing everything it produced into its own directory

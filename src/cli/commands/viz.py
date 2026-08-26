@@ -388,7 +388,7 @@ def _probe_at(adapter, loaded, frac: float, test_frac: float, seed: int, method:
     """Fit one probe at one depth and return it with the held-out activations"""
     train_set, test_set = loaded.split(test_frac=test_frac, seed=seed)
     layer = adapter.cfg.layer(frac)
-    provenance = {"model_id": adapter.cfg.id, "layer": layer, "dataset": loaded.name}
+    provenance = {"model_id": adapter.cfg.id, "n_layers": adapter.cfg.n_layers, "layer": layer, "dataset": loaded.name}
     train_activations = adapter.capture(train_set.texts, layers=[layer])
     test_activations = adapter.capture(test_set.texts, layers=[layer])
     fit = difference_of_means if method == "difference_of_means" else train_probe
@@ -570,7 +570,8 @@ def steer_sweep(
         layer = adapter.cfg.layer(frac)
         captured = adapter.capture(list(positive) + list(negative), layers=[layer])
         probe = difference_of_means(captured, [1] * len(positive) + [0] * len(negative),
-                                    layer=layer, model_id=adapter.cfg.id, dataset="contrast pairs")
+                                    layer=layer, model_id=adapter.cfg.id,
+                                    n_layers=adapter.cfg.n_layers, dataset="contrast pairs")
         direction = probe.direction.float()
     else:
         raise typer.BadParameter("give either --probe, or both --positive and --negative")

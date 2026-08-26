@@ -3,7 +3,8 @@ from typing import List, Optional
 import typer
 
 from ...core.adapter import load_adapter
-from ...core.probing import LinearProbe, difference_of_means
+from ...core.probing import difference_of_means
+from ...core.sharing import open_probe
 from ..common import HelpfulCommand, HelpfulGroup
 
 """
@@ -38,7 +39,8 @@ def contrast(
     activations = adapter.capture(list(positive) + list(negative), layers=[resolved])
     labels = [1] * len(positive) + [0] * len(negative)
     direction = difference_of_means(
-        activations, labels, layer=resolved, model_id=adapter.cfg.id, dataset="contrast pairs",
+        activations, labels, layer=resolved, model_id=adapter.cfg.id,
+        n_layers=adapter.cfg.n_layers, dataset="contrast pairs",
     ).direction.float()
 
     typer.echo(f"steering layer {resolved} of {adapter.cfg.n_layers} at strength {strength}")
@@ -53,7 +55,7 @@ def contrast(
 @app.command("probe", cls=HelpfulCommand)
 def from_probe(
     config: str = CONFIG_ARGUMENT,
-    probe_path: str = typer.Option(..., "--probe", help="Path to a probe saved by 'probe train'"),
+    probe_path: str = typer.Option(..., "--probe", help="Path to a probe .pt, or to a shared .mia artifact"),
     prompt: List[str] = typer.Option(..., "--prompt", "-p", help="Prompt to continue while steered; repeatable"),
     strength: float = typer.Option(2.0, help="Intervention size, in mean activation norms"),
     max_new_tokens: Optional[int] = typer.Option(None, help="Tokens to generate; defaults to the config"),
@@ -67,7 +69,7 @@ def from_probe(
     for why those are not the same thing.
     """
     adapter = load_adapter(config)
-    probe = LinearProbe.load(probe_path)
+    probe = open_probe(probe_path)
     if probe.model_id != adapter.cfg.id:
         typer.echo(f"warning: probe was trained on '{probe.model_id}', steering '{adapter.cfg.id}'", err=True)
 

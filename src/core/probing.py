@@ -14,9 +14,11 @@ property, the model represents it linearly at that layer, and the artifact
 that ships is a few kilobytes of floats rather than a second model.
 
 Probes here are self-contained artifacts. A saved probe carries the layer it
-was read from, the model it was read from, and the standardization it was fit
-with, because a direction without those three facts cannot be applied to
-anything and cannot be checked by anyone.
+was read from and how deep that layer is, the model it was read from, and the
+standardization it was fit with, because a direction without those facts
+cannot be applied to anything and cannot be checked by anyone. The depth is
+there for the same reason nothing else in the framework names a layer index:
+an index means one place in a shallow model and another in a deep one.
 
 difference_of_means is included as the baseline to beat: it needs no training
 at all, it is the same vector that steers in adapter.steer, and a trained
@@ -37,6 +39,7 @@ class LinearProbe:
     std: torch.Tensor
     layer: int
     model_id: str
+    n_layers: Optional[int] = None
     position: str = "last"
     dataset: str = "unnamed"
     method: str = "logistic"
@@ -45,6 +48,19 @@ class LinearProbe:
     @property
     def d_model(self) -> int:
         return int(self.weight.numel())
+
+    @property
+    def frac(self) -> Optional[float]:
+        """The depth this probe was read from, or None if the model's depth was not recorded
+
+        The layer index alone does not transfer: layer 8 means one place in a
+        shallow model and another in a deep one, and the fraction is the half
+        of that pair a receiving lab can act on. Older probes predate the
+        field and honestly answer None rather than guessing.
+        """
+        if not self.n_layers:
+            return None
+        return self.layer / self.n_layers
 
     @property
     def direction(self) -> torch.Tensor:
@@ -104,7 +120,8 @@ class LinearProbe:
         if not source.exists():
             raise ProbeError(f"no probe at {source}")
         payload = torch.load(source, weights_only=False)
-        missing = set(cls.__dataclass_fields__) - set(payload) - {"metrics", "method", "position", "dataset"}
+        allowed_missing = {"metrics", "method", "position", "dataset", "n_layers"}
+        missing = set(cls.__dataclass_fields__) - set(payload) - allowed_missing
         if missing:
             raise ProbeError(f"{source} is missing probe fields {sorted(missing)}")
         return cls(**payload)
@@ -250,7 +267,7 @@ def sweep(
     for position, layer in enumerate(layers):
         probe = fit(
             train_activations[:, position], train.labels, layer=layer,
-            model_id=adapter.cfg.id, dataset=train.name, **train_kwargs,
+            model_id=adapter.cfg.id, n_layers=adapter.cfg.n_layers, dataset=train.name, **train_kwargs,
         )
         metrics = evaluate(probe, test_activations[:, position], test.labels)
         probe.metrics.update(metrics)

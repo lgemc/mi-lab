@@ -1,8 +1,13 @@
+from pathlib import Path
+from typing import Optional
+
 import typer
 
 from ...core.adapter import load_adapter, require_circuits
+from ...core.artifact import SUFFIX
 from ...core.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
 from ...core.ioi import CORRUPTIONS, FRAMES, build_ioi, evaluate
+from ...core.sharing import from_circuit
 from ..common import HelpfulCommand, HelpfulGroup
 
 """
@@ -207,6 +212,9 @@ def circuit(
     max_heads: int = typer.Option(12, help="Most heads the search is allowed to add"),
     tolerance: float = typer.Option(0.05, help="Recovery a head has to be worth before it counts as load-bearing"),
     roles: bool = typer.Option(True, help="Name each head found after its attention movement"),
+    save: Optional[Path] = typer.Option(
+        None, "--save", help=f"Write the whole study as a shareable {SUFFIX} artifact"
+    ),
 ):
     """Grow a circuit, then check whether it is enough, needed, and free of passengers
 
@@ -226,7 +234,8 @@ def circuit(
     typer.echo(f"\nfaithfulness (this set alone restores the answer) : {report.faithfulness:.3f}")
     typer.echo(f"necessity    (the clean run needs it)              : {report.necessity:.3f}")
     typer.echo("minimality   (recovery lost by dropping each head) :")
-    named = classify_heads(adapter, dataset).assign() if roles else {}
+    measured_roles = classify_heads(adapter, dataset) if roles else None
+    named = measured_roles.assign() if measured_roles is not None else {}
     for (layer, head), drop in report.minimality.items():
         role = f"  [{named[(layer, head)]}]" if (layer, head) in named else ""
         verdict = "load-bearing" if drop >= tolerance else "spare"
@@ -236,3 +245,16 @@ def circuit(
     if spare:
         listed = ", ".join(f"L{layer}H{head}" for layer, head in spare)
         typer.echo(f"\n{len(spare)} head(s) the circuit does not need: {listed}")
+
+    if save is not None:
+        # the artifact carries both halves of the study, so attribution is measured
+        # here even though the printed report above never needed it: a circuit shared
+        # with only its causal column invites exactly the reading this repo argues against
+        artifact = from_circuit(
+            adapter.cfg, dataset,
+            direct_logit_attribution(adapter, dataset), effects, report,
+            roles=measured_roles,
+            tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
+        )
+        artifact.save(str(save))
+        typer.echo(f"\nwrote {save}: {artifact}")
