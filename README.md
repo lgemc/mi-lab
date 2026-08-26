@@ -86,8 +86,8 @@ python -m src.cli run groups                                 # what can be swapp
 python -m src.cli run show -e sentiment-sweep               # compose, don't run
 python -m src.cli run exec -e sentiment-sweep
 python -m src.cli run exec -e sentiment-sweep -s model=pythia-70m -s method.lr=0.1
-python -m src.cli run list runs
-python -m src.cli run replay runs/20260824-221404-0a25479a452e
+python -m src.cli run list                                   # every run under outputs/
+python -m src.cli run replay outputs/sentiment-sweep/20260824-221404-0a25479a452e
 
 python -m src.cli ioi circuit gpt2-small --size 8 --save ioi-abc.mia   # replicate, then share it
 python -m src.cli artifact show ioi-abc.mia                  # read one without loading a model
@@ -285,14 +285,20 @@ python -m src.app --multirun method.lr=0.01,0.05,0.2 seed=0,1,2
 ```
 
 Each run gets a directory holding the resolved `spec.yaml` it ran, a
-`run.json`, and its artifacts:
+`run.json`, and its artifacts, filed under the experiment that produced it:
 
 ```
-runs/20260824-221404-0a25479a452e/
+outputs/<experiment>/<run id>/
     spec.yaml          the fully resolved spec, reproducing the same hash
     run.json           status, metrics, produced refs, duration
-    probe-layer7.pt    the artifact
+    circuit.mia/       the shareable artifact
+    charts/            anything `viz` was pointed at this directory to draw
 ```
+
+The experiment name is a directory rather than part of the run id because a
+root accumulates runs forever, and the question asked of it is almost always
+"what did *this* experiment do" rather than "what ran on Tuesday". `outputs/`
+is gitignored.
 
 That `spec.yaml` is fully resolved and self-contained — no groups, no defaults
 list — so `run replay <dir>` reproduces the experiment from its own directory

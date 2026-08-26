@@ -4,7 +4,7 @@ from typing import List, Optional
 import typer
 
 from ...experiment.run import Run, find_runs
-from ...experiment.runner import EXPERIMENTS, run_experiment
+from ...experiment.runner import EXPERIMENTS, run_directory, run_experiment
 from ...experiment.spec import compose_spec, groups, load_spec
 from ..common import HelpfulCommand, HelpfulGroup
 
@@ -61,7 +61,7 @@ def show(preset: Optional[str] = PRESET_OPTION, set_: List[str] = SET_OPTION):
 
 def _report(spec, run, root: Optional[str]) -> None:
     """Print what a finished run measured and where it landed"""
-    directory = Path(root or spec.output.root) / run.run_id
+    directory = run_directory(spec, run, root)
     typer.echo(f"{run.status} in {run.duration_seconds:.1f}s -> {directory}")
     for key, value in sorted(run.metrics.items()):
         typer.echo(f"  {key}: {value:g}")
@@ -98,7 +98,7 @@ def replay(
     _report(spec, run_experiment(spec, root=root), root)
 
 @app.command("list", cls=HelpfulCommand)
-def list_runs(root: str = typer.Argument("runs", help="Directory holding run directories")):
+def list_runs(root: str = typer.Argument("outputs", help="Directory holding the experiment directories")):
     """List the runs under a root, newest first"""
     runs = find_runs(root)
     if not runs:

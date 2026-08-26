@@ -1,7 +1,7 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from .experiment.runner import run_experiment
+from .experiment.runner import run_directory, run_experiment
 from .experiment.spec import _register_schema
 
 """
@@ -33,7 +33,7 @@ def main(cfg: DictConfig) -> float:
     run = run_experiment(spec)
 
     headline = run.metrics.get("best_auc", run.metrics.get("auc", float("nan")))
-    print(f"{run.status} in {run.duration_seconds:.1f}s -> {spec.output.root}/{run.run_id}  AUC {headline:.3f}")
+    print(f"{run.status} in {run.duration_seconds:.1f}s -> {run_directory(spec, run)}  AUC {headline:.3f}")
     return headline
 
 if __name__ == "__main__":

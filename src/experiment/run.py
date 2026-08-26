@@ -119,6 +119,15 @@ class Run:
 def find_runs(root: str) -> List["Run"]:
     """Every run under a root directory, newest first
 
+    A run is any directory holding a run.json, found at whatever depth it sits.
+    Runs are grouped by experiment underneath the root, so a listing that only
+    looked one level down would find the experiment directories and report no
+    runs at all -- and it would go on doing that silently, which is worse than
+    finding nothing.
+
+    Ordering comes from the run id rather than the directory walk, because the
+    id leads with its timestamp and the walk is ordered by experiment name.
+
     A directory without a readable run.json is skipped rather than fatal: a
     run killed mid-write should not make the whole listing unusable.
     """
@@ -126,9 +135,9 @@ def find_runs(root: str) -> List["Run"]:
     if not base.is_dir():
         return []
     runs = []
-    for directory in sorted(base.iterdir(), reverse=True):
+    for marker in base.rglob("run.json"):
         try:
-            runs.append(Run.load(str(directory)))
+            runs.append(Run.load(str(marker.parent)))
         except RunError:
             continue
-    return runs
+    return sorted(runs, key=lambda run: run.run_id, reverse=True)

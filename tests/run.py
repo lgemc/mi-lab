@@ -99,5 +99,27 @@ class TestFindRuns(TestCase):
             (Path(root) / "broken" / "run.json").write_text("{")
             self.assertEqual(1, len(find_runs(root)))
 
+    def test_runs_are_found_under_their_experiment_directory(self):
+        """Runs group by experiment, so a listing that looked one level down would find none"""
+        with tempfile.TemporaryDirectory() as root:
+            for experiment, name in (("sweep", "20260101-000000-aaa"), ("circuit", "20260301-000000-ccc")):
+                run = _run()
+                run.run_id, run.experiment = name, experiment
+                run.save(str(Path(root) / experiment / name))
+            found = find_runs(root)
+            self.assertEqual(["20260301-000000-ccc", "20260101-000000-aaa"], [run.run_id for run in found])
+            self.assertEqual(["circuit", "sweep"], [run.experiment for run in found])
+
+    def test_the_order_is_the_run_id_not_the_directory_walk(self):
+        """Grouping is by experiment name, so the walk alone would order by that instead of by time"""
+        with tempfile.TemporaryDirectory() as root:
+            for experiment, name in (("zzz-last", "20260301-000000-ccc"), ("aaa-first", "20260101-000000-aaa")):
+                run = _run()
+                run.run_id, run.experiment = name, experiment
+                run.save(str(Path(root) / experiment / name))
+            self.assertEqual(
+                ["20260301-000000-ccc", "20260101-000000-aaa"], [run.run_id for run in find_runs(root)]
+            )
+
     def test_a_missing_root_is_empty_rather_than_fatal(self):
         self.assertEqual([], find_runs("/tmp/definitely-no-runs-here"))

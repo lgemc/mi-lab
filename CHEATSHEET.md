@@ -374,20 +374,24 @@ the result rather than a bug.
 ### As a run
 
 ```bash
-uv run python -m src.cli run exec --preset ioi-circuit --set ioi.size=8
+uv run python -m src.cli run exec --preset ioi-circuit --set ioi.size=16
 ```
 
 ```
-completed in 133.7s -> runs/20260825-032710-a7d60664c7df
+completed in 231.1s -> outputs/ioi-circuit/20260826-035015-82807f2efe6d
   accuracy: 1
-  attribution_remainder: 1.72481e-06
+  attribution_remainder: 5.10458e-06
   best_patch_layer: 0
   best_patch_position: 10
-  faithfulness: 0.918788
-  necessity: 1.16033
+  best_patch_recovery: 1.00898
+  clean_logit_difference: 2.96518
+  corrupted_logit_difference: -0.0492563
+  faithfulness: 0.903974
+  necessity: 1.08049
   n_heads: 7
+  n_prompts: 16
   n_spare: 2
-  span: 2.55313
+  span: 3.01444
   produced artifact: circuit.mia
 ```
 
@@ -395,14 +399,35 @@ The grids that are really matrices — per-head attribution, per-head effect, th
 position map — go into `circuit.mia` beside `run.json`, because a metrics dict with one entry per
 head is a file nobody reads. `run replay <dir>` re-runs it from the spec it recorded.
 
+Runs are filed under the experiment that produced them, `outputs/<experiment>/<run id>/`, because a
+root accumulates runs forever and the question asked of it is nearly always "what did *this*
+experiment do". Point the chart battery at the same directory and the run becomes self-contained:
+
+```bash
+RUN=outputs/ioi-circuit/20260826-035015-82807f2efe6d
+uv run python -m src.cli viz circuit dashboard gpt2-small --size 16 --out-dir "$RUN/charts"
+```
+
+```
+$RUN/
+  spec.yaml        the resolved spec, reproducing hash 82807f2efe6d
+  run.json         status, metrics, produced refs, duration
+  circuit.mia/     artifact.json + tensors.safetensors
+  charts/          eight PNGs and a self-contained circuit.html
+```
+
+The dashboard rebuilds the dataset from the same seed, frame and corruption, so its panels report
+the same 7 heads, faithfulness 0.90 and necessity 1.08 that `run.json` does. `outputs/` is
+gitignored — the run is reproducible from its own `spec.yaml`, which is the thing worth keeping.
+
 ### Sharing the result
 
 `run.json` is the record of what this machine did; `circuit.mia` is the part meant to leave it. It
 is a directory holding a JSON card and one `safetensors` file, and reading it costs no checkpoint:
 
 ```bash
-uv run python -m src.cli artifact show runs/20260825-032710-a7d60664c7df/circuit.mia
-uv run python -m src.cli artifact check runs/20260825-032710-a7d60664c7df/circuit.mia
+uv run python -m src.cli artifact show outputs/ioi-circuit/20260826-035015-82807f2efe6d/circuit.mia
+uv run python -m src.cli artifact check outputs/ioi-circuit/20260826-035015-82807f2efe6d/circuit.mia
 ```
 
 ```

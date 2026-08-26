@@ -158,6 +158,21 @@ def _ioi_circuit(spec: ExperimentSpec, run: Run, directory: Path) -> None:
     ).save(str(directory / name))
     run.produce("artifact", name)
 
+def run_directory(spec: ExperimentSpec, run: Run, root: Optional[str] = None) -> Path:
+    """Where a run's files go: <root>/<experiment>/<run id>
+
+    The experiment name is a directory rather than part of the run id because a
+    root accumulates runs forever, and the question asked of it is almost always
+    "what did *this* experiment do" rather than "what ran on Tuesday". Grouping
+    answers that with `ls` instead of a filter.
+
+    It is computed here and nowhere else. Three callers need this path -- the
+    runner that writes it, the CLI that reports it, the Hydra entry point that
+    prints it -- and three copies of a layout is three chances to print a
+    directory that does not exist.
+    """
+    return Path(root or spec.output.root) / spec.experiment / run.run_id
+
 def run_experiment(spec: ExperimentSpec, root: Optional[str] = None) -> Run:
     """Execute a spec, writing everything it produced into its own directory
 
@@ -169,7 +184,7 @@ def run_experiment(spec: ExperimentSpec, root: Optional[str] = None) -> Run:
         raise SpecError(f"unknown experiment kind '{spec.kind}'; known kinds are {sorted(EXPERIMENTS)}")
 
     run = Run.start(experiment=spec.experiment, kind=spec.kind, spec_hash=spec.spec_hash, params=spec.as_dict())
-    directory = Path(root or spec.output.root) / run.run_id
+    directory = run_directory(spec, run, root)
     directory.mkdir(parents=True, exist_ok=True)
     save_spec(spec, str(directory / "spec.yaml"))
     run.save(str(directory))

@@ -2,8 +2,8 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from src.experiment.run import Run
-from src.experiment.runner import EXPERIMENTS, register_experiment, run_experiment
+from src.experiment.run import Run, find_runs
+from src.experiment.runner import EXPERIMENTS, register_experiment, run_directory, run_experiment
 from src.experiment.spec import SpecError, load_spec
 
 """
@@ -46,7 +46,7 @@ class TestProbeTrain(RunnerTestCase):
         with tempfile.TemporaryDirectory() as root:
             spec = _tiny(root)
             run = run_experiment(spec)
-            directory = Path(root) / run.run_id
+            directory = run_directory(spec, run)
 
             self.assertEqual("completed", run.status)
             self.assertEqual(spec.spec_hash, run.spec_hash)
@@ -60,17 +60,19 @@ class TestProbeTrain(RunnerTestCase):
         from src.methods.probing import LinearProbe
 
         with tempfile.TemporaryDirectory() as root:
-            run = run_experiment(_tiny(root))
+            spec = _tiny(root)
+            run = run_experiment(spec)
             (ref,) = run.produced
-            probe = LinearProbe.load(str(Path(root) / run.run_id / ref.id))
+            probe = LinearProbe.load(str(run_directory(spec, run) / ref.id))
             self.assertEqual("gpt2-small", probe.model_id)
             self.assertEqual(int(run.metrics["layer"]), probe.layer)
 
     def test_the_saved_spec_reproduces_the_hash(self):
         """The point of writing spec.yaml: the run says exactly what it ran"""
         with tempfile.TemporaryDirectory() as root:
-            run = run_experiment(_tiny(root))
-            reloaded = load_spec(str(Path(root) / run.run_id / "spec.yaml"))
+            spec = _tiny(root)
+            run = run_experiment(spec)
+            reloaded = load_spec(str(run_directory(spec, run) / "spec.yaml"))
             self.assertEqual(run.spec_hash, reloaded.spec_hash)
 
     def test_save_probe_false_produces_nothing(self):
@@ -104,11 +106,16 @@ class TestFailurePath(RunnerTestCase):
             with self.assertRaises(RuntimeError):
                 run_experiment(spec)
 
-            (directory,) = list(Path(root).iterdir())
+            # located by its run.json rather than by walking a known depth: the run
+            # raised, so there is no Run object to ask run_directory about
+            (marker,) = Path(root).rglob("run.json")
+            directory = marker.parent
             failed = Run.load(str(directory))
             self.assertEqual("failed", failed.status)
             self.assertIn("the hook fell off", failed.error)
             self.assertTrue((directory / "spec.yaml").exists())
+            # and a failed run is a run: it still turns up in the listing
+            self.assertEqual(["failed"], [found.status for found in find_runs(root)])
         EXPERIMENTS.pop("unit-test-explodes")
 
     def test_an_unknown_kind_says_what_is_known(self):

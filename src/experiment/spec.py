@@ -131,9 +131,11 @@ class IOISpec:
 class OutputSpec:
     """Where the run's artifacts land
 
-    Excluded from spec_hash: none of this changes a number.
+    Excluded from spec_hash: none of this changes a number. A run written to a
+    different root is the same experiment and hashes the same, which is what
+    lets one be moved without looking like a new result.
     """
-    root: str = "runs"
+    root: str = "outputs"
     save_probe: bool = True
 
 @dataclass

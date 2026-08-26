@@ -122,7 +122,7 @@ def check(path: str = PATH_ARGUMENT):
         typer.echo("  nothing to flag")
 
 @app.command("list", cls=HelpfulCommand)
-def list_artifacts(root: str = typer.Argument("runs", help="Directory to search for artifacts")):
+def list_artifacts(root: str = typer.Argument("outputs", help="Directory to search for artifacts")):
     """Every artifact under a directory, one line each"""
     found = find_artifacts(root)
     if not found:

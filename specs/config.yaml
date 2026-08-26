@@ -16,5 +16,5 @@ experiment: unnamed
 kind: probe_sweep
 seed: 0
 output:
-  root: runs
+  root: outputs
   save_probe: true

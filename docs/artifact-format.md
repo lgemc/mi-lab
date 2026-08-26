@@ -173,12 +173,12 @@ An artifact whose provenance is confidently wrong is worse than one with none.
 python -m src.cli ioi circuit gpt2-small --size 8 --save ioi-abc.mia
 
 # every ioi_circuit run writes one automatically
-python -m src.cli run exec -e ioi-circuit          # -> runs/<id>/circuit.mia/
+python -m src.cli run exec -e ioi-circuit    # -> outputs/ioi-circuit/<id>/circuit.mia/
 
 # read someone else's without loading a model
 python -m src.cli artifact show ioi-abc.mia
 python -m src.cli artifact check ioi-abc.mia
-python -m src.cli artifact list runs
+python -m src.cli artifact list
 
 # wrap a probe for sharing, then use the shared form directly
 python -m src.cli artifact pack probe.pt

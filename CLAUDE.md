@@ -176,6 +176,7 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
    before hashing, so the same experiment written elsewhere hashes the same. Anything added to
    `ExperimentSpec` that changes a number must be inside the hash; anything that doesn't must not.
 5. **A failed run is still written out**, marked `failed` with the reason. Never clean up on failure.
+   It is still found by `find_runs`, which is what makes that promise checkable.
 6. **Capture uses forward hooks on the decoder blocks, not `output_hidden_states`.** The last
    hidden-states entry is post-final-layernorm, so depth 1.0 would silently mean a different
    quantity; and Transformers' own recorder hooks can observe a block before a steering hook is
@@ -192,6 +193,23 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
    about all three, and the failure is silent: activations of a different sentence than the file has.
 10. **`zip()` over parallel sequences takes `strict=True`.** Prompts against their completions,
     scores or labels must be the same length; truncating silently is the bug the linter now catches.
+
+### Where a run lands
+
+`outputs/<experiment>/<run id>/`, and `run_directory` in `experiment/runner.py` is the only place
+that layout is written down — the runner writes it, the CLI reports it and `src/app.py` prints it,
+and three copies of a path is three chances to print a directory that does not exist.
+
+The experiment name is a directory because a root accumulates runs forever and the question asked of
+it is nearly always "what did *this* experiment do" rather than "what ran on Tuesday". `find_runs`
+therefore looks for a `run.json` at any depth rather than one level down, and orders by run id
+rather than by the directory walk — the walk is ordered by experiment name, the id leads with its
+timestamp. A listing that only looked one level down would find the experiment directories, report
+no runs, and go on doing it silently.
+
+`output.root` is excluded from `spec_hash`, so a run moved to another root is the same run and
+hashes the same. `outputs/`, `runs/` and `multirun/` are all gitignored: what makes a run
+reproducible is the `spec.yaml` inside it, not the directory.
 
 ### Composition vs sweeps
 
