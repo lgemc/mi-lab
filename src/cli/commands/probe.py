@@ -2,17 +2,17 @@ from typing import List, Optional
 
 import typer
 
-from ...core.adapter import load_adapter
-from ...core.dataset import synthetic
-from ...core.probing import (
+from ...data.dataset import synthetic
+from ...data.prompts import load_labeled
+from ...methods.probing import (
     difference_of_means,
     evaluate,
     measure_scoring_cost,
     sweep,
     train_probe,
 )
-from ...core.prompts import load_labeled
-from ...core.sharing import open_probe
+from ...model.adapter import load_adapter
+from ...share.sharing import open_probe
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

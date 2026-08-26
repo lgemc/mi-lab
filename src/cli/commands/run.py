@@ -3,9 +3,9 @@ from typing import List, Optional
 
 import typer
 
-from ...core.run import Run, find_runs
-from ...core.runner import EXPERIMENTS, run_experiment
-from ...core.spec import compose_spec, groups, load_spec
+from ...experiment.run import Run, find_runs
+from ...experiment.runner import EXPERIMENTS, run_experiment
+from ...experiment.spec import compose_spec, groups, load_spec
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

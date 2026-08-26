@@ -3,9 +3,9 @@ from typing import Optional
 
 import typer
 
-from ....core.adapter import load_adapter, require_circuits
-from ....core.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
-from ....core.ioi import CORRUPTIONS, FRAMES, build_ioi
+from ....data.ioi import CORRUPTIONS, FRAMES, build_ioi
+from ....methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
+from ....model.adapter import load_adapter, require_circuits
 from ....viz import circuits as circuit_viz
 from ....viz.dashboard import Panel, Section, render
 from ....viz.style import save_figure

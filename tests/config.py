@@ -113,3 +113,47 @@ class TestNoHardcodedModelFacts(TestCase):
             for number in self.SIZE_LITERALS:
                 with self.subTest(path=str(path), number=number):
                     self.assertIsNone(re.search(rf"\b{number}\b", source))
+
+class TestPackageLayering(TestCase):
+    """The package split is only worth having if it is checked
+
+    src/ is ordered: core depends on nothing, and every package below it may
+    import the ones above and never the reverse. Written down in CLAUDE.md and
+    enforced here, because a layering that is only documented is one that holds
+    until the first hurried import.
+    """
+
+    # viz sits above the packages that measure and below cli, which drives it, so the
+    # one order covers every package and needs no exceptions
+    ORDER = ("core", "model", "data", "methods", "share", "experiment", "viz", "cli")
+
+    def _imports(self):
+        """Every (importer, imported) package pair, read off the relative imports"""
+        rank = {name: index for index, name in enumerate(self.ORDER)}
+        for path in Path("src").rglob("*.py"):
+            if len(path.parts) < 3:
+                continue
+            own = path.parts[1]
+            if own not in rank:
+                continue
+            # a module at src/pkg/mod.py reaches a sibling package with '..', and one at
+            # src/pkg/sub/mod.py with '...', so the dot count says what the import escaped
+            depth = len(path.parts) - 2
+            for dots, target in re.findall(r"from (\.+)([a-z_]+)[. ]", path.read_text()):
+                if target in rank and len(dots) == depth + 1 and target != own:
+                    yield own, target, str(path)
+
+    def test_no_package_imports_one_at_or_below_its_own_level(self):
+        rank = {name: index for index, name in enumerate(self.ORDER)}
+        for importer, imported, path in self._imports():
+            with self.subTest(path=path, imports=imported):
+                self.assertLess(
+                    rank[imported], rank[importer],
+                    f"{path} imports '{imported}', which is not below '{importer}'",
+                )
+
+    def test_core_depends_on_nothing(self):
+        """The bottom of the order has to actually be the bottom"""
+        for importer, imported, path in self._imports():
+            if importer == "core":
+                self.fail(f"{path} imports '{imported}'; core is what everything else rests on")

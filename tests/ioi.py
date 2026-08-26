@@ -2,7 +2,7 @@ import re
 from types import SimpleNamespace
 from unittest import TestCase
 
-from src.core.ioi import (
+from src.data.ioi import (
     CORRUPTIONS,
     FRAMES,
     NAMES,

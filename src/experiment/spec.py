@@ -4,10 +4,10 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from .config import ModelConfig, load_config
-from .dataset import LabeledPrompts, load_jsonl, synthetic
-from .ioi import CORRUPTIONS, FRAMES
-from .prompts import load_prompts
+from ..core.config import ModelConfig, load_config
+from ..data.dataset import LabeledPrompts, load_jsonl, synthetic
+from ..data.ioi import CORRUPTIONS, FRAMES
+from ..data.prompts import load_prompts
 
 """
 An ExperimentSpec is the whole experiment as data: which model, which data,

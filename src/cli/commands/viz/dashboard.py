@@ -3,8 +3,8 @@ from typing import List, Optional
 
 import typer
 
-from ....core.adapter import load_adapter
-from ....core.probing import measure_scoring_cost
+from ....methods.probing import measure_scoring_cost
+from ....model.adapter import load_adapter
 from ....viz import activations as act_viz
 from ....viz import dataset as dataset_viz
 from ....viz import model as model_viz

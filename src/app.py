@@ -1,8 +1,8 @@
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
-from .core.runner import run_experiment
-from .core.spec import _register_schema
+from .experiment.runner import run_experiment
+from .experiment.spec import _register_schema
 
 """
 The Hydra entry point, and the only place @hydra.main is used.

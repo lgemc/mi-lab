@@ -3,7 +3,7 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from src.core.run import Ref, Run, RunError, find_runs
+from src.experiment.run import Ref, Run, RunError, find_runs
 
 """
 Run is plain data, and these tests hold it to that: it must survive a round

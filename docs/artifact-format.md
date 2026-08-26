@@ -1,7 +1,7 @@
 # MIA v0.1 — an envelope for interpretability results
 
 **Status:** implemented in this repository, proposed for discussion.
-**Reference implementation:** `src/core/artifact.py` (the format), `src/core/sharing.py` (the converters).
+**Reference implementation:** `src/share/artifact.py` (the format), `src/share/sharing.py` (the converters).
 
 ## The gap
 
@@ -189,8 +189,8 @@ python -m src.cli steer probe gpt2-small --probe probe.mia -p "The film was"
 From Python:
 
 ```python
-from src.core.artifact import Artifact
-from src.core.sharing import to_probe
+from src.share.artifact import Artifact
+from src.share.sharing import to_probe
 
 circuit = Artifact.load("ioi-abc.mia")
 circuit.metrics["faithfulness"]                     # 0.919

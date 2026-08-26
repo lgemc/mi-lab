@@ -2,8 +2,10 @@ from unittest import TestCase
 
 import torch
 
-from src.core.adapter import load_adapter, require_circuits
-from src.core.circuits import (
+from src.core.config import ConfigError, Position
+from src.core.metrics import logit_difference
+from src.data.ioi import build_ioi
+from src.methods.circuits import (
     Circuit,
     CircuitError,
     baselines,
@@ -11,9 +13,7 @@ from src.core.circuits import (
     patch_heads,
     verify,
 )
-from src.core.config import ConfigError, Position
-from src.core.ioi import build_ioi
-from src.core.metrics import logit_difference
+from src.model.adapter import load_adapter, require_circuits
 
 """
 Circuit tests need a real checkpoint and skip loudly without one.

@@ -5,9 +5,9 @@ from unittest import TestCase
 import torch
 
 from src.core.config import ModelConfig, Position
-from src.core.dataset import DatasetError, LabeledPrompts
-from src.core.prompts import parse
-from src.core.torchdata import (
+from src.data.dataset import DatasetError, LabeledPrompts
+from src.data.prompts import parse
+from src.data.torchdata import (
     ActivationDataset,
     PromptDataset,
     StreamingPrompts,

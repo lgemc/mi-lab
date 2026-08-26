@@ -3,8 +3,8 @@ from typing import List, Optional, Tuple
 
 import typer
 
-from ....core.adapter import load_adapter
-from ....core.probing import LinearProbe, difference_of_means, evaluate, measure_scoring_cost, sweep, train_probe
+from ....methods.probing import LinearProbe, difference_of_means, evaluate, measure_scoring_cost, sweep, train_probe
+from ....model.adapter import load_adapter
 from ....viz import probing as probe_viz
 from ...common import HelpfulCommand, HelpfulGroup
 from .common import (

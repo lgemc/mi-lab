@@ -2,8 +2,8 @@ from typing import List
 
 import typer
 
-from ...core.adapter import load_adapter
 from ...core.config import load_config, presets
+from ...model.adapter import load_adapter
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

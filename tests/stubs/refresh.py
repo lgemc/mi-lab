@@ -2,7 +2,7 @@ from pathlib import Path
 
 import torch
 
-from src.core.adapter import load_adapter
+from src.model.adapter import load_adapter
 from tests.adapter import GOLDEN, GOLDEN_FRACS, GOLDEN_PROMPTS
 
 """

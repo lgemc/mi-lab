@@ -6,7 +6,7 @@ from unittest import TestCase
 import torch
 
 from src.core.metrics import roc_auc
-from src.core.probing import (
+from src.methods.probing import (
     LinearProbe,
     ProbeError,
     difference_of_means,

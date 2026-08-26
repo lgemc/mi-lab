@@ -4,7 +4,7 @@ from typing import Callable, Dict, Iterator, List, Optional, Protocol, Sequence,
 
 import torch
 
-from .config import ConfigError, ModelConfig, Position, load_config
+from ..core.config import ConfigError, ModelConfig, Position, load_config
 
 """
 Adapter is the one interface every experiment in this framework is written

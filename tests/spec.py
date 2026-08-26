@@ -2,8 +2,8 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from src.core.dataset import DatasetError
-from src.core.spec import (
+from src.data.dataset import DatasetError
+from src.experiment.spec import (
     ExperimentSpec,
     ModelSpec,
     SpecError,

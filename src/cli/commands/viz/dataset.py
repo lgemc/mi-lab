@@ -3,7 +3,7 @@ from typing import Optional
 
 import typer
 
-from ....core.adapter import load_adapter
+from ....model.adapter import load_adapter
 from ....viz import dataset as dataset_viz
 from ...common import HelpfulCommand, HelpfulGroup
 from .common import (

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import typer
 
-from ....core.run import Run, find_runs
+from ....experiment.run import Run, find_runs
 from ....viz import runs as runs_viz
 from ...common import HelpfulCommand, HelpfulGroup
 from .common import (

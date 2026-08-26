@@ -4,11 +4,11 @@ from typing import Any, Dict, List, Optional, Sequence
 
 import torch
 
+from ..core.config import ModelConfig, load_config
+from ..data.ioi import IOIDataset
+from ..methods.circuits import Attribution, CircuitReport, HeadEffects, HeadRoles, PatchGrid
+from ..methods.probing import LinearProbe
 from .artifact import Artifact, ModelRef, Node, Payload, Site, Span
-from .circuits import Attribution, CircuitReport, HeadEffects, HeadRoles, PatchGrid
-from .config import ModelConfig, load_config
-from .ioi import IOIDataset
-from .probing import LinearProbe
 
 """
 Turning what this lab measures into artifacts anyone can load, and back.

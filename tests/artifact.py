@@ -5,7 +5,9 @@ from unittest import TestCase
 
 import torch
 
-from src.core.artifact import (
+from src.core.config import ModelConfig
+from src.methods.probing import LinearProbe
+from src.share.artifact import (
     FORMAT,
     MANIFEST,
     TENSORS,
@@ -19,9 +21,7 @@ from src.core.artifact import (
     Span,
     find_artifacts,
 )
-from src.core.config import ModelConfig
-from src.core.probing import LinearProbe
-from src.core.sharing import from_activations, from_probe, from_steering, open_probe, to_probe
+from src.share.sharing import from_activations, from_probe, from_steering, open_probe, to_probe
 
 """
 The artifact format is tested without a checkpoint, because everything that
@@ -300,7 +300,7 @@ class TestProbeArtifacts(TestCase):
 class TestOtherKinds(TestCase):
     def test_a_steering_vector_carries_its_sweep(self):
         """A direction without the curve that found its ceiling is untestable"""
-        from src.core.steering import SteeringPoint
+        from src.methods.steering import SteeringPoint
 
         points = [SteeringPoint(strength=value, effect=value, fluency=1.0 - value / 4) for value in (0.0, 1.0, 2.0)]
         artifact = from_steering(

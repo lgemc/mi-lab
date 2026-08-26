@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import torch
 
-from .metrics import logit_difference
+from ..core.metrics import logit_difference
 
 """
 Indirect Object Identification is the task the circuit literature is built on

@@ -3,11 +3,11 @@ from typing import Optional
 
 import typer
 
-from ...core.adapter import load_adapter, require_circuits
-from ...core.artifact import SUFFIX
-from ...core.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
-from ...core.ioi import CORRUPTIONS, FRAMES, build_ioi, evaluate
-from ...core.sharing import from_circuit
+from ...data.ioi import CORRUPTIONS, FRAMES, build_ioi, evaluate
+from ...methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
+from ...model.adapter import load_adapter, require_circuits
+from ...share.artifact import SUFFIX
+from ...share.sharing import from_circuit
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

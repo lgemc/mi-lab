@@ -5,7 +5,7 @@ from typing import Iterator, List, Optional, Sequence, Tuple, Union
 import torch
 from torch.utils.data import DataLoader, Dataset, IterableDataset, get_worker_info
 
-from .config import Position
+from ..core.config import Position
 from .dataset import DatasetError, LabeledPrompts
 from .prompts import load_labeled, scan
 

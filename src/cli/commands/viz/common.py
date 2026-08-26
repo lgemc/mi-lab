@@ -3,10 +3,10 @@ from typing import List, Optional, Sequence
 
 import typer
 
-from ....core.adapter import load_adapter
 from ....core.config import ConfigError, load_config
-from ....core.dataset import synthetic
-from ....core.prompts import load_labeled
+from ....data.dataset import synthetic
+from ....data.prompts import load_labeled
+from ....model.adapter import load_adapter
 from ....viz.style import save_figure, show_figure
 
 """

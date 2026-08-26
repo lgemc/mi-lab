@@ -26,20 +26,25 @@ Three rules keep that from happening here:
 configs/            one YAML per model — the only place a model fact lives
 specs/              Hydra config groups — experiments composed from parts
 data/               datasets as plain text, one prompt per line
-src/core/
+src/core/           the two things nothing else can be built without
   config.py         what a model is; resolves depth fractions to layer indices
+  metrics.py        AUC, accuracy, logit difference, and what a thing cost to run
+src/model/
   adapter.py        how to hook it; the ModelAdapter contract and backend registry
   backends/         one module per implementation; transformers.py is the only one
+src/data/
   dataset.py        prompts with binary labels, split without leaking
   prompts.py        the plain-text dataset format: parse it, write it, check it
   torchdata.py      torch Datasets and DataLoaders over prompts and over activations
-  metrics.py        AUC, accuracy, and what a thing cost to run
+  ioi.py            the Indirect Object Identification task, as balanced clean/corrupted data
+src/methods/
   probing.py        linear probes as self-contained, saveable artifacts
   steering.py       the steering sweep: effect against fluency, with a random control
-  ioi.py            the Indirect Object Identification task, as balanced clean/corrupted data
   circuits.py       the circuit study: attribution, patching, discovery and three checks
+src/share/
   artifact.py       the shareable form of a result: a JSON card plus one safetensors file
   sharing.py        converters between what this lab measures and that format
+src/experiment/
   spec.py           ExperimentSpec: the experiment as composable data, plus its hash
   run.py            what an experiment left behind; stdlib only, readable anywhere
   runner.py         turns a spec into a Run, one registered function per kind
@@ -53,6 +58,12 @@ docs/
   artifact-format.md  the sharing format: what it stores and why
 tests/              unit tests, plus a golden capture that catches silent drift
 ```
+
+The packages are ordered above the way they depend on each other, and that
+order is one-way: `core` imports nothing, `model` and `data` import only
+`core`, `methods` adds `model` and `data`, `share` adds `methods`, and
+`experiment` sits on top of all of them. Nothing ever imports upward. If a new
+module cannot find a home without breaking that, the module is doing two jobs.
 
 ## Use
 
@@ -105,9 +116,9 @@ python -m src.cli probe sweep configs/pythia-70m.yaml
 From Python the same objects are one import away:
 
 ```python
-from src.core.adapter import load_adapter
-from src.core.dataset import synthetic
-from src.core.probing import train_probe, evaluate
+from src.model.adapter import load_adapter
+from src.data.dataset import synthetic
+from src.methods.probing import train_probe, evaluate
 
 adapter = load_adapter("gpt2-small")
 train, test = synthetic(200).split(test_frac=0.3)
@@ -204,7 +215,7 @@ python -m src.cli run exec -e sentiment-sweep -s data=prompts -s data.path=data/
 
 ## Loading is a torch Dataset
 
-`core/torchdata.py` is the torch side of the same objects, and it holds one
+`data/torchdata.py` is the torch side of the same objects, and it holds one
 rule: **a prompt dataset yields text, never token ids.** Tokenization belongs
 to the backend that owns the model — an adapter knows its tokenizer, its
 padding side and its pad token, and a loader that tokenizes on its own is a
@@ -214,10 +225,10 @@ nothing errors, and the activations belong to a different sentence than the one
 in the file.
 
 ```python
-from src.core.adapter import load_adapter
-from src.core.prompts import load_prompts
-from src.core.probing import evaluate, train_probe
-from src.core.torchdata import ActivationDataset, capture_dataset
+from src.model.adapter import load_adapter
+from src.data.prompts import load_prompts
+from src.methods.probing import evaluate, train_probe
+from src.data.torchdata import ActivationDataset, capture_dataset
 
 adapter = load_adapter("gpt2-small")
 train, test = load_prompts("data/bridge-pairs.prompts").split(test_frac=0.25)

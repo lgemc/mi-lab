@@ -1,15 +1,15 @@
 from pathlib import Path
 from typing import Callable, Dict, Optional
 
-from .adapter import load_adapter, require_circuits
-from .artifact import SUFFIX
-from .circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
-from .ioi import build_ioi
-from .ioi import evaluate as evaluate_ioi
-from .metrics import measure
-from .probing import difference_of_means, evaluate, sweep, train_probe
+from ..core.metrics import measure
+from ..data.ioi import build_ioi
+from ..data.ioi import evaluate as evaluate_ioi
+from ..methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
+from ..methods.probing import difference_of_means, evaluate, sweep, train_probe
+from ..model.adapter import load_adapter, require_circuits
+from ..share.artifact import SUFFIX
+from ..share.sharing import from_circuit
 from .run import Run
-from .sharing import from_circuit
 from .spec import ExperimentSpec, SpecError, save_spec
 
 """

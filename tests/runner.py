@@ -2,9 +2,9 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from src.core.run import Run
-from src.core.runner import EXPERIMENTS, register_experiment, run_experiment
-from src.core.spec import SpecError, load_spec
+from src.experiment.run import Run
+from src.experiment.runner import EXPERIMENTS, register_experiment, run_experiment
+from src.experiment.spec import SpecError, load_spec
 
 """
 The runner is tested end to end against a real checkpoint, because the thing
@@ -35,7 +35,7 @@ class RunnerTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
         try:
-            from src.core.adapter import load_adapter
+            from src.model.adapter import load_adapter
 
             load_adapter("gpt2-small")
         except Exception:
@@ -57,7 +57,7 @@ class TestProbeTrain(RunnerTestCase):
             self.assertEqual(run, Run.load(str(directory)))
 
     def test_the_probe_it_wrote_is_the_probe_it_claims(self):
-        from src.core.probing import LinearProbe
+        from src.methods.probing import LinearProbe
 
         with tempfile.TemporaryDirectory() as root:
             run = run_experiment(_tiny(root))

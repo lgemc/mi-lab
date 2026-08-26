@@ -3,10 +3,10 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import torch
 
-from .adapter import require_circuits
-from .config import Position
-from .ioi import IOIDataset
-from .metrics import logit_difference, recovery
+from ..core.config import Position
+from ..core.metrics import logit_difference, recovery
+from ..data.ioi import IOIDataset
+from ..model.adapter import require_circuits
 
 """
 A circuit study asks which parts of a model do a task, and it asks it twice.

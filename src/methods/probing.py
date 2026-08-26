@@ -4,8 +4,8 @@ from typing import Dict, List, Optional, Sequence
 
 import torch
 
-from .dataset import LabeledPrompts
-from .metrics import Cost, accuracy, measure, roc_auc
+from ..core.metrics import Cost, accuracy, measure, roc_auc
+from ..data.dataset import LabeledPrompts
 
 """
 A probe is the cheapest thing that can read a property off a residual stream:

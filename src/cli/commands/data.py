@@ -3,8 +3,8 @@ from pathlib import Path
 
 import typer
 
-from ...core.dataset import DatasetError, load_csv, save_jsonl, synthetic
-from ...core.prompts import SUFFIXES, load_labeled, save_prompts
+from ...data.dataset import DatasetError, load_csv, save_jsonl, synthetic
+from ...data.prompts import SUFFIXES, load_labeled, save_prompts
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

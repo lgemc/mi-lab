@@ -21,12 +21,12 @@ Everything under `src/` is a namespace package except `src/cli/commands/viz/`, w
 modules explicitly:
 
 ```bash
-# everything: 260 tests, ~30s (probing/runner/adapter/circuits load GPT-2 small)
+# everything: 262 tests, ~30s (probing/runner/adapter/circuits load GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.artifact tests.probing tests.runner \
     tests.adapter tests.circuits
 
-# offline subset: 205 tests, no checkpoint needed, seconds
+# offline subset: 207 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.artifact
 
@@ -73,11 +73,34 @@ side effect of another change.
 
 ## Architecture
 
+### The packages are a dependency order, and it is one-way
+
+```
+core        config, metrics                    imports nothing
+model       adapter, backends/                 -> core
+data        dataset, prompts, torchdata, ioi   -> core
+methods     probing, steering, circuits        -> core, model, data
+share       artifact, sharing                  -> core, data, methods
+experiment  spec, run, runner                  -> core, model, data, methods, share
+viz                                            -> core
+cli                                            -> everything
+```
+
+Nothing imports upward and nothing imports sideways within a layer's own row. That is checkable in
+one pass over the source, and it is the property that makes the split worth having: a new module
+that cannot find a home without breaking it is a module doing two jobs.
+
+`core` is small on purpose. It holds the two things with no dependencies of their own that every
+other package needs — what a model is, and how a number is scored — and nothing else earns a place
+there. In particular `metrics` sits below `methods` rather than inside it, because `data/ioi.py`
+scores a logit difference while `methods/circuits.py` builds on `data/ioi.py`; putting metrics in
+`methods` would make `data` and `methods` import each other.
+
 ### Two config layers, and the difference matters
 
 - **`configs/*.yaml` → `ModelConfig`** (`src/core/config.py`): what a *model* is. The only place a
   model fact is allowed to live. Loaded by name (`gpt2-small`) or path; unknown keys raise.
-- **`specs/` → `ExperimentSpec`** (`src/core/spec.py`): what an *experiment* is, composed by Hydra
+- **`specs/` → `ExperimentSpec`** (`src/experiment/spec.py`): what an *experiment* is, composed by Hydra
   from group directories (`model/`, `data/`, `method/`, `preset/`) against `specs/config.yaml`.
   A `specs/model/*.yaml` is a one-liner naming a `configs/` entry — it does not restate model facts.
 
@@ -95,14 +118,14 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
                   load_adapter  →  capture → train_probe/difference_of_means → evaluate
 ```
 
-- `core/adapter.py` — **the contract, and nothing that satisfies it.** No model library is imported
+- `model/adapter.py` — **the contract, and nothing that satisfies it.** No model library is imported
   here and no architecture is named. `ModelAdapter` is a `Protocol`; backends register a factory
   under a string key via `@register_backend("name")`, and a config names that key.
   `CircuitAdapter` is a **second** protocol on top of it (`logits`, `attention`, `head_outputs`,
   `decompose`, `patch`, `single_token`, `tokens`) — a backend behind an inference API can honestly
   capture and steer and honestly cannot patch a head, so circuit code calls `require_circuits()`
   and gets a message naming the backend rather than an `AttributeError` halfway through.
-- `core/backends/` — one module per implementation. `transformers.py` is the only one;
+- `model/backends/` — one module per implementation. `transformers.py` is the only one;
   `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not implemented, and
   adding it is a new file here rather than an edit to `adapter.py`. All architecture knowledge is
   quarantined in `_blocks`, `_attention_projection`, `_mlp` and `_final_norm` — four lookup lists;
@@ -110,29 +133,29 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   `adapter.py` imports this package **at the bottom of the file**, which is the one import in the
   repo whose position is load-bearing: registration has to happen when `adapter` is imported, and
   the backend imports the protocols above it, so anywhere else is a cycle.
-- `core/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
+- `experiment/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
   (`probe_sweep`, `probe_train`, `ioi_circuit`). Adding an experiment type is a registration, not an
   edit to `ExperimentSpec` or the runner body — `ioi_circuit` shares none of the probing pipeline
   and is still just an entry in `EXPERIMENTS`.
-- `core/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
+- `experiment/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
-- `core/artifact.py` — the shareable form of a result (`.mia`: a JSON card plus one
+- `share/artifact.py` — the shareable form of a result (`.mia`: a JSON card plus one
   `safetensors` file). It knows nothing about this repository, which is what keeps
-  `Artifact.load` from importing transformers. `core/sharing.py` is the one place that knows
+  `Artifact.load` from importing transformers. `share/sharing.py` is the one place that knows
   both, so a new experiment kind gets a converter there rather than a special case inside the
   format. See `docs/artifact-format.md`.
-- `core/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
+- `methods/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
   at one strength. It measures *effect* (the probe's score on the steered continuation) against
   *fluency* (share of non-repeated words), because those two moving together is what "the ceiling"
   means. `random_control` is the check that makes the rest mean anything — a random vector of the
   same norm at the same layer also moves the model.
-- `core/torchdata.py` — map-style and streaming `Dataset`s over prompts, plus `ActivationDataset`
+- `data/torchdata.py` — map-style and streaming `Dataset`s over prompts, plus `ActivationDataset`
   over what a capture produced (which carries its model, layers and position, because a directory
   of `.pt` files identified by filename is one you will eventually mix up).
-- `core/ioi.py` — the Indirect Object Identification task (Wang et al., 2023) as data: one frame per
+- `data/ioi.py` — the Indirect Object Identification task (Wang et al., 2023) as data: one frame per
   dataset, single-token names, the two name orders balanced, and clean/corrupted pairs under either
   the `abc` corruption (replace the repeated name) or `swap` (exchange the two roles).
-- `core/circuits.py` — the circuit study itself, asked twice. `direct_logit_attribution` is the
+- `methods/circuits.py` — the circuit study itself, asked twice. `direct_logit_attribution` is the
   correlational half (exact, one forward pass, blind to everything but the direct path);
   `patch_heads` / `patch_residual` are the causal half (one forward pass per site). `discover`
   grows a circuit greedily and `verify` checks it three ways. **The two halves disagree and the
@@ -184,7 +207,7 @@ composition. That is what `run replay <dir>` uses, so a run stays reproducible f
 
 `DataSpec.source` is one of `SOURCES = ("synthetic", "prompts", "jsonl")`.
 
-`prompts` is the format in `core/prompts.py` and the one to prefer: one example per line, `+`/`-` in
+`prompts` is the format in `data/prompts.py` and the one to prefer: one example per line, `+`/`-` in
 the first column as the label, indentation joining a line to the group above it, and `name:` /
 `labels:` headers before the first example. It is the only source carrying label names and group
 ids, so a split cannot cut a minimal pair in half. Whitespace is written down (`\s`, `\n`, `\t`,

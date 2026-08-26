@@ -4,8 +4,8 @@ from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import torch
 
+from ...core.config import ConfigError, ModelConfig, Position
 from ..adapter import DTYPES, Decomposition, ModelAdapter, Unembedding, register_backend
-from ..config import ConfigError, ModelConfig, Position
 
 """
 The HuggingFace backend: the correctness oracle every faster backend is

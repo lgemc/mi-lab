@@ -2,8 +2,8 @@ import tempfile
 from pathlib import Path
 from unittest import TestCase
 
-from src.core.dataset import DatasetError, LabeledPrompts
-from src.core.prompts import dumps, load_labeled, load_prompts, parse, save_prompts
+from src.data.dataset import DatasetError, LabeledPrompts
+from src.data.prompts import dumps, load_labeled, load_prompts, parse, save_prompts
 
 """
 The format is only worth having if a malformed file says which line is wrong

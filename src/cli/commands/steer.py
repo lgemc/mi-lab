@@ -2,9 +2,9 @@ from typing import List, Optional
 
 import typer
 
-from ...core.adapter import load_adapter
-from ...core.probing import difference_of_means
-from ...core.sharing import open_probe
+from ...methods.probing import difference_of_means
+from ...model.adapter import load_adapter
+from ...share.sharing import open_probe
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

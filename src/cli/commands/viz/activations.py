@@ -3,9 +3,9 @@ from typing import List, Optional
 
 import typer
 
-from ....core.adapter import load_adapter
 from ....core.config import Position
 from ....core.metrics import measure
+from ....model.adapter import load_adapter
 from ....viz import activations as act_viz
 from ...common import HelpfulCommand, HelpfulGroup
 from .common import (

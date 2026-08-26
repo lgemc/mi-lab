@@ -3,9 +3,9 @@ from typing import Optional
 
 import typer
 
-from ...core.artifact import SUFFIX, Artifact, ArtifactError, find_artifacts
-from ...core.probing import LinearProbe, ProbeError
-from ...core.sharing import from_probe
+from ...methods.probing import LinearProbe, ProbeError
+from ...share.artifact import SUFFIX, Artifact, ArtifactError, find_artifacts
+from ...share.sharing import from_probe
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

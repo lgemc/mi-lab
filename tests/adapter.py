@@ -3,8 +3,8 @@ from unittest import TestCase, skipUnless
 
 import torch
 
-from src.core.adapter import BACKENDS, load_adapter
 from src.core.config import ConfigError, Position, load_config
+from src.model.adapter import BACKENDS, load_adapter
 
 """
 Adapter tests need a real checkpoint, so they load GPT-2 small once for the
