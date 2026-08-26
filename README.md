@@ -28,7 +28,8 @@ specs/              Hydra config groups — experiments composed from parts
 data/               datasets as plain text, one prompt per line
 src/core/
   config.py         what a model is; resolves depth fractions to layer indices
-  adapter.py        how to hook it; the ModelAdapter interface and backend registry
+  adapter.py        how to hook it; the ModelAdapter contract and backend registry
+  backends/         one module per implementation; transformers.py is the only one
   dataset.py        prompts with binary labels, split without leaking
   prompts.py        the plain-text dataset format: parse it, write it, check it
   torchdata.py      torch Datasets and DataLoaders over prompts and over activations
@@ -46,7 +47,7 @@ src/app.py          the Hydra entry point, for --multirun sweeps
 src/cli/
   main.py           root Typer app
   common.py         help-on-error Click customization
-  commands/         one module per command group
+  commands/         one module per command group; viz/ is a package, one per chart group
 src/viz/            one chart module per subject, over a shared style
 docs/
   artifact-format.md  the sharing format: what it stores and why

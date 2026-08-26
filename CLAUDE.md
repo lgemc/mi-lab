@@ -15,7 +15,8 @@ uv run python -m src.app --multirun model=gpt2-small,pythia-70m   # Hydra sweeps
 
 ### Tests
 
-There are no `__init__.py` files and test modules are named after the module they test
+Everything under `src/` is a namespace package except `src/cli/commands/viz/`, which needs an
+`__init__.py` to hold its Typer app. Test modules are named after the module they test
 (`tests/spec.py`, not `tests/test_spec.py`), so **`unittest discover` does not work**. Name the
 modules explicitly:
 
@@ -94,13 +95,21 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
                   load_adapter  →  capture → train_probe/difference_of_means → evaluate
 ```
 
-- `core/adapter.py` — `ModelAdapter` is a `Protocol`; backends register a factory under a string key
-  via `@register_backend("name")`, and a config names that key. `transformers` is implemented;
-  `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not implemented.
+- `core/adapter.py` — **the contract, and nothing that satisfies it.** No model library is imported
+  here and no architecture is named. `ModelAdapter` is a `Protocol`; backends register a factory
+  under a string key via `@register_backend("name")`, and a config names that key.
   `CircuitAdapter` is a **second** protocol on top of it (`logits`, `attention`, `head_outputs`,
   `decompose`, `patch`, `single_token`, `tokens`) — a backend behind an inference API can honestly
   capture and steer and honestly cannot patch a head, so circuit code calls `require_circuits()`
   and gets a message naming the backend rather than an `AttributeError` halfway through.
+- `core/backends/` — one module per implementation. `transformers.py` is the only one;
+  `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not implemented, and
+  adding it is a new file here rather than an edit to `adapter.py`. All architecture knowledge is
+  quarantined in `_blocks`, `_attention_projection`, `_mlp` and `_final_norm` — four lookup lists;
+  teaching the backend a new model family is editing those and nothing else.
+  `adapter.py` imports this package **at the bottom of the file**, which is the one import in the
+  repo whose position is load-bearing: registration has to happen when `adapter` is imported, and
+  the backend imports the protocols above it, so anywhere else is a cycle.
 - `core/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
   (`probe_sweep`, `probe_train`, `ioi_circuit`). Adding an experiment type is a registration, not an
   edit to `ExperimentSpec` or the runner body — `ioi_circuit` shares none of the probing pipeline
@@ -252,9 +261,15 @@ laptop model to a large one is that argument changing and nothing else.
 
 - **The palette is keyed by meaning, not colour.** `PALETTE["baseline"]`, never `"steelblue"` — so
   the positive class is the same green in every chart.
-- **Only the CLI selects a backend.** `cli/commands/viz.py` sets `matplotlib.use("Agg")` because it
-  writes files; `src/viz/` must never call `use()`, or it takes the backend away from a notebook
-  that imported it.
+- **Only the CLI selects a backend.** `cli/commands/viz/__init__.py` sets `matplotlib.use("Agg")`
+  at the top, before it imports its group modules and therefore before any `src/viz/` module loads;
+  `src/viz/` must never call `use()`, or it takes the backend away from a notebook that imported it.
+
+`src/cli/commands/viz/` mirrors `src/viz/` one module per group, so a chart and the command that
+draws it sit at the same path in two trees. `common.py` holds the shared options and helpers —
+a group differing on what `--size` means is a difference nobody notices until two charts disagree
+about the data they were drawn from. `dashboard.py` is the exception that spans every group, so
+`__init__.py` registers it on the root app rather than it importing the app it hangs off.
 
 `viz circuit dashboard` does the same for the IOI battery, measuring every chart off one dataset and
 one pair of baselines so the panels on the page are comparable with each other — which stops being
