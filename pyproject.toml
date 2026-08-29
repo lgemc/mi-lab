@@ -12,6 +12,7 @@ dependencies = [
     "safetensors>=0.8.0",
     "seaborn>=0.13.2",
     "term-image>=0.7.2",
+    "textual>=8.2.8",
     "torch>=2.13.0",
     "transformers>=4.57.0",
     "typer>=0.27.1",
@@ -19,6 +20,7 @@ dependencies = [
 
 [project.scripts]
 mi-lab = "src.cli.main:app"
+ie = "src.ie.main:run"
 
 [dependency-groups]
 dev = [

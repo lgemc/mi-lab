@@ -10,6 +10,7 @@ The project uses `uv` (there is a `uv.lock`; the `.venv` is what `uv run` uses).
 ```bash
 uv sync                                            # install/refresh the environment
 uv run python -m src.cli --help                    # the CLI (also installed as the `mi-lab` script)
+uv run python -m src.ie                            # the TUI explorer (`ie`); see Explorer below
 uv run python -m src.app --multirun model=gpt2-small,pythia-70m   # Hydra sweeps only
 ```
 
@@ -23,7 +24,7 @@ modules explicitly:
 ```bash
 # everything: 262 tests, ~30s (probing/runner/adapter/circuits load GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.artifact tests.probing tests.runner \
+    tests.prompts tests.torchdata tests.ioi tests.artifact tests.ie tests.probing tests.runner \
     tests.adapter tests.circuits
 
 # offline subset: 207 tests, no checkpoint needed, seconds
@@ -80,10 +81,11 @@ core        config, metrics                    imports nothing
 model       adapter, backends/                 -> core
 data        dataset, prompts, torchdata, ioi   -> core
 methods     probing, steering, circuits        -> core, model, data
-share       artifact, sharing                  -> core, data, methods
+share       schema/, storage, converters/      -> core, data, methods
 experiment  spec, run, runner                  -> core, model, data, methods, share
 viz                                            -> core
 cli                                            -> everything
+ie          app, session, stack, view, views/  -> everything, and nothing imports it
 ```
 
 Nothing imports upward and nothing imports sideways within a layer's own row. That is checkable in
@@ -328,6 +330,38 @@ print full help on a parse error; note that Typer 0.27 vendors its own Click for
 
 Every model-facing command takes a config as its first argument — moving an experiment from a
 laptop model to a large one is that argument changing and nothing else.
+
+### Explorer
+
+`src/ie/` is the second front end: a terminal UI for reading what the CLI computed, built on
+Textual and shaped after k9s. `python -m src.ie` opens it. The CLI stays where things are
+computed; `ie` is where what was computed is navigated.
+
+- `app.py` — one screen, not a stack of them. A persistent header (which model, which prompt,
+  which root), a breadcrumb, the current view, and a command line that appears on `:`. The
+  header has to survive a drill-down, or a table of activations can outlive the checkpoint it
+  claims to be about.
+- `stack.py` — the `PageStack`. `Escape` pops, the breadcrumb is the trail. **Sameness is the
+  title, not the class**: `activations` and `activations L9` are two pages of one class, and
+  comparing types made drilling in silently replace the view you drilled from.
+- `command.py` — `:resource /filter`, two-letter aliases (`:ar`, `:ru`), and the setters
+  `:model`, `:prompt`, `:root`, which take the rest of the line verbatim because a prompt has
+  spaces and slashes in it.
+- `view.py` — every view answers three things: its columns, its `rows()`, and what Enter means.
+  `cell_text` unwraps `(str, Enum)` for display, which is the trap `share/schema/vocabulary.py`
+  documents and which shipped once as a table reading `Kind.CIRCUIT`.
+- `registry.py` — resource name to view class, so adding one is a module under `views/` plus an
+  entry, never an edit to the parser or the app.
+- `session.py` — **the checkpoint is loaded lazily and that is the point.** Runs and artifacts
+  are readable with no torch and no weights, so the explorer opens instantly on them; only a
+  view with `needs_model = True` pays. `tests/ie.py` drives the no-model path with a session
+  that raises if anything asks for an adapter, because the way this breaks is one view quietly
+  reaching for `session.adapter()`.
+
+A title is set in `__init__`, never in `on_mount`: the stack compares titles when a page is
+pushed, and a mount happens after that. And note `capture(layers=None)` means *the config's
+probe layer*, not every layer — the activations view names all of them explicitly, and asking
+for "the activations" without doing so returns exactly one row.
 
 ### Charts
 

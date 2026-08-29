@@ -124,8 +124,9 @@ class TestPackageLayering(TestCase):
     """
 
     # viz sits above the packages that measure and below cli, which drives it, so the
-    # one order covers every package and needs no exceptions
-    ORDER = ("core", "model", "data", "methods", "share", "experiment", "viz", "cli")
+    # one order covers every package and needs no exceptions. ie is last because it is
+    # a second front end: it may reach for anything, and nothing may reach for it.
+    ORDER = ("core", "model", "data", "methods", "share", "experiment", "viz", "cli", "ie")
 
     def _imports(self):
         """Every (importer, imported) package pair, read off the relative imports"""
