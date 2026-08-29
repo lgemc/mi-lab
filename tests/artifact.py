@@ -507,3 +507,24 @@ class TestMigration(TestCase):
             with self.assertRaises(ArtifactError) as caught:
                 storage.upgrade_in_place(path)
         self.assertIn("already", str(caught.exception))
+
+
+class TestEnumsDoNotLeak(TestCase):
+    """A (str, Enum) prints as "Kind.CIRCUIT" in an f-string, and has twice
+
+    Once into a TUI table and once into `artifact show`. The card is fine --
+    json.dumps writes the value -- so the leak only ever appears where a human
+    is reading, which is the one place it is not caught by a round trip.
+    """
+
+    def test_the_card_on_disk_carries_plain_strings(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
+            manifest = json.loads((path / MANIFEST).read_text())
+        self.assertEqual(manifest["kind"], "circuit")
+        self.assertEqual(manifest["site"]["component"], "head_out")
+        self.assertEqual(manifest["site"]["position"], "all")
+
+    def test_str_of_an_artifact_names_the_kind_not_the_member(self):
+        """__str__ is what `artifact check` prints, so it has to be readable"""
+        self.assertTrue(str(tiny_circuit()).startswith("circuit "))

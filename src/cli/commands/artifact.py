@@ -48,7 +48,10 @@ def show(
     """
     artifact = _open(path)
     model = artifact.model
-    typer.echo(f"{artifact.kind}  {typer.style(artifact.id, bold=True)}  ({artifact.version}, {artifact.created_at})")
+    typer.echo(
+        f"{artifact.kind.value}  {typer.style(artifact.id, bold=True)}  "
+        f"({artifact.version}, {artifact.created_at})"
+    )
     typer.echo(
         f"model    : {model.id} ({model.hf_name}), {model.n_layers} layers "
         f"x {model.n_heads} heads, {model.dtype}"
@@ -56,8 +59,10 @@ def show(
 
     site = artifact.site
     depths = ", ".join(f"{frac:.2f}" for frac in site.fracs[:6]) + (" ..." if len(site.fracs) > 6 else "")
-    typer.echo(f"site     : {site.component} at layers {site.layers[:6]}{' ...' if len(site.layers) > 6 else ''}"
-               f" (depth {depths}), position {site.position}")
+    typer.echo(
+        f"site     : {site.component.value} at layers {site.layers[:6]}"
+        f"{' ...' if len(site.layers) > 6 else ''} (depth {depths}), position {site.position.value}"
+    )
     typer.echo(f"method   : {artifact.method}")
 
     if artifact.task:
@@ -160,10 +165,13 @@ def list_artifacts(root: str = typer.Argument("outputs", help="Directory to sear
     if not found and not problems:
         typer.echo(f"no {storage.SUFFIX} artifacts under {root}")
         raise typer.Exit(code=1)
-    for artifact, _ in found:
+    # the path is printed because the id is not unique: it is derived from the dataset
+    # and the model, so every run of one experiment produces the same id, and a listing
+    # of them without the path is a list of rows nobody can tell apart
+    for artifact, path in found:
         typer.echo(
-            f"{artifact.kind.value:<16} {artifact.id:<40} {artifact.model.id:<14} "
-            f"{artifact.n_bytes / 1024:>8.1f} KiB"
+            f"{artifact.kind.value:<10} {artifact.id:<26} {artifact.model.id:<12} "
+            f"{artifact.n_bytes / 1024:>7.1f}K  {path}"
         )
     # reported rather than skipped: an artifact that is one version behind is still
     # your result, and a listing that quietly omits it is how it goes missing
