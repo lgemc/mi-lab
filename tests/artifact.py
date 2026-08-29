@@ -7,21 +7,13 @@ import torch
 
 from src.core.config import ModelConfig
 from src.methods.probing import LinearProbe
-from src.share.artifact import (
-    FORMAT,
-    MANIFEST,
-    TENSORS,
-    VERSION,
-    Artifact,
-    ArtifactError,
-    ModelRef,
-    Node,
-    Payload,
-    Site,
-    Span,
-    find_artifacts,
-)
-from src.share.sharing import from_activations, from_probe, from_steering, open_probe, to_probe
+from src.share import storage
+from src.share.converters.activations import from_activations
+from src.share.converters.probe import from_probe, to_probe
+from src.share.converters.steering import from_steering
+from src.share.loaders import open_probe
+from src.share.schema import FORMAT, VERSION, Artifact, ArtifactError, ModelRef, Node, Payload, Site, Span
+from src.share.storage import MANIFEST, TENSORS
 
 """
 The artifact format is tested without a checkpoint, because everything that
@@ -88,8 +80,8 @@ class TestRoundTrip(TestCase):
         original = tiny_circuit()
         original.tensors["head_effects"].values.copy_(torch.randn(LAYERS, HEADS))
         with tempfile.TemporaryDirectory() as directory:
-            path = original.save(str(Path(directory) / "demo.mia"))
-            reloaded = Artifact.load(path)
+            path = storage.save(original, str(Path(directory) / "demo.mia"))
+            reloaded = storage.load(path)
 
         self.assertEqual(reloaded.kind, original.kind)
         self.assertEqual(reloaded.id, original.id)
@@ -107,13 +99,13 @@ class TestRoundTrip(TestCase):
             torch.zeros(LAYERS, len(tokens)), ["layer", "position"], "recovery", {"position": tokens}
         )
         with tempfile.TemporaryDirectory() as directory:
-            reloaded = Artifact.load(artifact.save(str(Path(directory) / "demo.mia")))
+            reloaded = storage.load(storage.save(artifact, str(Path(directory) / "demo.mia")))
         self.assertEqual(reloaded.tensors["residual_patch"].labels["position"], tokens)
 
     def test_the_card_is_readable_without_torch(self):
         """artifact.json is plain JSON, so deciding whether to download one costs nothing"""
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(tiny_circuit().save(str(Path(directory) / "demo.mia")))
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
             manifest = json.loads((path / MANIFEST).read_text())
 
         self.assertEqual(manifest["format"], FORMAT)
@@ -127,7 +119,7 @@ class TestRoundTrip(TestCase):
         from safetensors import safe_open
 
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(tiny_circuit().save(str(Path(directory) / "demo.mia")))
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
             with safe_open(path / TENSORS, framework="pt") as handle:
                 metadata = handle.metadata()
         self.assertEqual(metadata["format"], FORMAT)
@@ -187,48 +179,48 @@ class TestReading(TestCase):
     def test_a_card_with_unknown_keys_is_refused(self):
         """A key this reader does not know is a claim it would silently drop"""
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(tiny_circuit().save(str(Path(directory) / "demo.mia")))
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
             manifest = json.loads((path / MANIFEST).read_text())
             manifest["confidence"] = "high"
             (path / MANIFEST).write_text(json.dumps(manifest))
             with self.assertRaises(ArtifactError) as caught:
-                Artifact.load(str(path))
+                storage.load(str(path))
         self.assertIn("confidence", str(caught.exception))
 
     def test_a_card_and_a_tensor_file_that_disagree_are_refused(self):
         """A tensor the card does not describe has no axes, so it cannot be read"""
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(tiny_circuit().save(str(Path(directory) / "demo.mia")))
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
             manifest = json.loads((path / MANIFEST).read_text())
             del manifest["tensors"]["head_effects"]
             (path / MANIFEST).write_text(json.dumps(manifest))
             with self.assertRaises(ArtifactError) as caught:
-                Artifact.load(str(path))
+                storage.load(str(path))
         self.assertIn("head_effects", str(caught.exception))
 
     def test_a_future_version_is_refused_rather_than_guessed_at(self):
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(tiny_circuit().save(str(Path(directory) / "demo.mia")))
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
             manifest = json.loads((path / MANIFEST).read_text())
             manifest["version"] = "99.0"
             (path / MANIFEST).write_text(json.dumps(manifest))
             with self.assertRaises(ArtifactError) as caught:
-                Artifact.load(str(path))
+                storage.load(str(path))
         self.assertIn("99.0", str(caught.exception))
 
     def test_a_directory_that_is_not_an_artifact_says_so(self):
         with tempfile.TemporaryDirectory() as directory, self.assertRaises(ArtifactError) as caught:
-            Artifact.load(directory)
+            storage.load(directory)
         self.assertIn(MANIFEST, str(caught.exception))
 
     def test_find_artifacts_skips_what_it_cannot_read(self):
         """One half-written artifact must not make a listing unusable"""
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
-            tiny_circuit().save(str(root / "good.mia"))
+            storage.save(tiny_circuit(), str(root / "good.mia"))
             (root / "broken.mia").mkdir()
             (root / "broken.mia" / MANIFEST).write_text("{not json")
-            found = find_artifacts(str(root))
+            found = storage.find_artifacts(str(root))
         self.assertEqual([artifact.id for artifact in found], ["demo"])
 
 class TestProbeArtifacts(TestCase):
@@ -239,8 +231,8 @@ class TestProbeArtifacts(TestCase):
         before = probe.score(activations)
 
         with tempfile.TemporaryDirectory() as directory:
-            path = from_probe(probe, cfg=tiny_config()).save(str(Path(directory) / "probe.mia"))
-            restored = to_probe(Artifact.load(path))
+            path = storage.save(from_probe(probe, cfg=tiny_config()), str(Path(directory) / "probe.mia"))
+            restored = to_probe(storage.load(path))
 
         self.assertTrue(torch.allclose(before, restored.score(activations)))
         self.assertEqual(restored.layer, probe.layer)
@@ -260,7 +252,7 @@ class TestProbeArtifacts(TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             probe.save(str(root / "probe.pt"))
-            from_probe(probe, cfg=tiny_config()).save(str(root / "probe.mia"))
+            storage.save(from_probe(probe, cfg=tiny_config()), str(root / "probe.mia"))
             from_file = open_probe(str(root / "probe.pt"))
             from_artifact = open_probe(str(root / "probe.mia"))
         self.assertTrue(torch.allclose(from_file.weight, from_artifact.weight))
@@ -286,8 +278,8 @@ class TestProbeArtifacts(TestCase):
     def test_the_depth_survives_the_round_trip(self):
         probe = tiny_probe()
         with tempfile.TemporaryDirectory() as directory:
-            path = from_probe(probe, cfg=tiny_config()).save(str(Path(directory) / "probe.mia"))
-            restored = to_probe(Artifact.load(path))
+            path = storage.save(from_probe(probe, cfg=tiny_config()), str(Path(directory) / "probe.mia"))
+            restored = to_probe(storage.load(path))
         self.assertEqual(restored.n_layers, LAYERS)
         self.assertAlmostEqual(restored.frac, probe.layer / LAYERS)
 

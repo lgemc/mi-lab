@@ -12,7 +12,7 @@ from ...methods.probing import (
     train_probe,
 )
 from ...model.adapter import load_adapter
-from ...share.sharing import open_probe
+from ...share.loaders import open_probe
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

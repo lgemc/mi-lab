@@ -6,8 +6,8 @@ import typer
 from ...data.ioi import CORRUPTIONS, FRAMES, build_ioi, evaluate
 from ...methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
 from ...model.adapter import load_adapter, require_circuits
-from ...share.artifact import SUFFIX
-from ...share.sharing import from_circuit
+from ...share import storage
+from ...share.converters.circuit import from_circuit
 from ..common import HelpfulCommand, HelpfulGroup
 
 """
@@ -213,7 +213,7 @@ def circuit(
     tolerance: float = typer.Option(0.05, help="Recovery a head has to be worth before it counts as load-bearing"),
     roles: bool = typer.Option(True, help="Name each head found after its attention movement"),
     save: Optional[Path] = typer.Option(
-        None, "--save", help=f"Write the whole study as a shareable {SUFFIX} artifact"
+        None, "--save", help=f"Write the whole study as a shareable {storage.SUFFIX} artifact"
     ),
 ):
     """Grow a circuit, then check whether it is enough, needed, and free of passengers
@@ -256,5 +256,5 @@ def circuit(
             roles=measured_roles,
             tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
         )
-        artifact.save(str(save))
+        storage.save(artifact, str(save))
         typer.echo(f"\nwrote {save}: {artifact}")

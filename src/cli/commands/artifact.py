@@ -4,8 +4,9 @@ from typing import Optional
 import typer
 
 from ...methods.probing import LinearProbe, ProbeError
-from ...share.artifact import SUFFIX, Artifact, ArtifactError, find_artifacts
-from ...share.sharing import from_probe
+from ...share import storage
+from ...share.converters.probe import from_probe
+from ...share.schema import Artifact, ArtifactError
 from ..common import HelpfulCommand, HelpfulGroup
 
 """
@@ -21,12 +22,12 @@ Run with: python -m src.cli artifact <command> [options]
 
 app = typer.Typer(help="Read, check and package shareable interpretability artifacts.", cls=HelpfulGroup)
 
-PATH_ARGUMENT = typer.Argument(..., help=f"Path to a {SUFFIX} artifact directory")
+PATH_ARGUMENT = typer.Argument(..., help=f"Path to a {storage.SUFFIX} artifact directory")
 
 def _open(path: str) -> Artifact:
     """Load an artifact or exit with the reason it could not be read"""
     try:
-        return Artifact.load(path)
+        return storage.load(path)
     except ArtifactError as error:
         typer.echo(f"error: {error}", err=True)
         raise typer.Exit(code=1) from error
@@ -124,9 +125,9 @@ def check(path: str = PATH_ARGUMENT):
 @app.command("list", cls=HelpfulCommand)
 def list_artifacts(root: str = typer.Argument("outputs", help="Directory to search for artifacts")):
     """Every artifact under a directory, one line each"""
-    found = find_artifacts(root)
+    found = storage.find_artifacts(root)
     if not found:
-        typer.echo(f"no {SUFFIX} artifacts under {root}")
+        typer.echo(f"no {storage.SUFFIX} artifacts under {root}")
         raise typer.Exit(code=1)
     for artifact in found:
         typer.echo(f"{artifact.kind:<16} {artifact.id:<40} {artifact.model.id:<14} {artifact.n_bytes / 1024:>8.1f} KiB")
@@ -134,7 +135,9 @@ def list_artifacts(root: str = typer.Argument("outputs", help="Directory to sear
 @app.command("pack", cls=HelpfulCommand)
 def pack(
     probe_path: str = typer.Argument(..., help="Path to a probe written by 'probe train' or 'probe sweep'"),
-    out: Optional[Path] = typer.Option(None, "--out", help=f"Where to write it; defaults to the same name{SUFFIX}"),
+    out: Optional[Path] = typer.Option(
+        None, "--out", help=f"Where to write it; defaults to the same name{storage.SUFFIX}"
+    ),
     name: Optional[str] = typer.Option(None, "--name", help="Identifier to give it; defaults to dataset-model-layer"),
 ):
     """Wrap a probe .pt as a shareable artifact
@@ -149,11 +152,11 @@ def pack(
         typer.echo(f"error: {error}", err=True)
         raise typer.Exit(code=1) from error
 
-    target = out or Path(probe_path).with_suffix(SUFFIX)
+    target = out or Path(probe_path).with_suffix(storage.SUFFIX)
     try:
         artifact = from_probe(probe, name=name)
     except ValueError as error:
         typer.echo(f"error: {error}", err=True)
         raise typer.Exit(code=1) from error
-    artifact.save(str(target))
+    storage.save(artifact, str(target))
     typer.echo(f"{artifact}\nwrote {target}")

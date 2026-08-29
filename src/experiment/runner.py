@@ -7,8 +7,8 @@ from ..data.ioi import evaluate as evaluate_ioi
 from ..methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
 from ..methods.probing import difference_of_means, evaluate, sweep, train_probe
 from ..model.adapter import load_adapter, require_circuits
-from ..share.artifact import SUFFIX
-from ..share.sharing import from_circuit
+from ..share import storage
+from ..share.converters.circuit import from_circuit
 from .run import Run
 from .spec import ExperimentSpec, SpecError, save_spec
 
@@ -150,12 +150,15 @@ def _ioi_circuit(spec: ExperimentSpec, run: Run, directory: Path) -> None:
         best_layer, best_position, best_recovery = grid.best()
         run.record(best_patch_layer=best_layer, best_patch_position=best_position, best_patch_recovery=best_recovery)
 
-    name = f"circuit{SUFFIX}"
-    from_circuit(
-        adapter.cfg, dataset, attribution, effects, report, roles=roles, grid=grid,
-        tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
-        name=f"{dataset.name}-{adapter.cfg.id}",
-    ).save(str(directory / name))
+    name = f"circuit{storage.SUFFIX}"
+    storage.save(
+        from_circuit(
+            adapter.cfg, dataset, attribution, effects, report, roles=roles, grid=grid,
+            tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
+            name=f"{dataset.name}-{adapter.cfg.id}",
+        ),
+        str(directory / name),
+    )
     run.produce("artifact", name)
 
 def run_directory(spec: ExperimentSpec, run: Run, root: Optional[str] = None) -> Path:

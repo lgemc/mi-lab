@@ -1,33 +1,27 @@
-import json
-import subprocess
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
 import torch
-from safetensors.torch import load_file, save_file
+
+from .provenance import stamp
 
 """
-An interpretability result is not a number, it is a number plus the model it
-was measured on, the place in that model, the data it was measured over, and
-the baseline it is a fraction of. Weights ship as safetensors and datasets
-ship as a card plus rows; circuits, probes, steering vectors and activation
-maps ship as a paper and a notebook, which is why nobody can load anyone
-else's. This module is the missing envelope.
+What an interpretability result has to say about itself before anyone else can
+use it: the model it was measured on, the place in that model, the data it was
+measured over, and the baseline it is a fraction of. This module is the schema
+and the checks on it, and nothing that touches a disk -- storage.py writes one
+of these down and reads it back, converters/ builds one out of what this lab
+measured.
 
-An artifact is a directory: `artifact.json` is the card and every number lives
-in `tensors.safetensors` beside it. The card is stdlib-readable JSON, so
-deciding whether an artifact is worth downloading never requires torch, and
-the tensors are memory-mappable, so a large one need not be read whole.
-
-Three decisions are what make it loadable by a tool that did not write it:
+Three decisions are what make an artifact loadable by a tool that did not
+write it, and all three are enforced by validate():
 
 - A tensor is never stored without its axes. `head_effects` is [layer, head]
   in recovery, `residual_patch` is [layer, position]; a bare 2-D float array
   named in a filename is one you will eventually transpose. Payload keeps the
-  values, the axis names and the unit together and `save` refuses to write a
-  tensor whose axis names do not match its rank.
+  values, the axis names and the unit together and validate refuses a tensor
+  whose axis names do not match its rank.
 - The site is a depth fraction as well as an index, because layer 8 of a small
   model and layer 42 of a large one are the same place and only the fraction
   survives a model swap.
@@ -35,15 +29,11 @@ Three decisions are what make it loadable by a tool that did not write it:
   a corruption that moved nothing is noise scaled up to look like a finding,
   so `span` is required of anything that reports a recovery.
 
-A common pipe could be: from_circuit | save | load | to_probe
+A common pipe could be: from_circuit | validate | save | load
 """
 
 FORMAT = "mia"
 VERSION = "0.1"
-
-MANIFEST = "artifact.json"
-TENSORS = "tensors.safetensors"
-SUFFIX = ".mia"
 
 KINDS = ("circuit", "probe", "steering_vector", "activation_map")
 
@@ -64,6 +54,7 @@ COMPONENTS = ("residual", "head_out", "mlp_out", "attention")
 
 class ArtifactError(ValueError):
     """Raised when an artifact is incomplete, self-contradictory, or not one at all"""
+
 
 # ------------------------------------------------------------------- the card
 
@@ -202,6 +193,7 @@ class Payload:
             "labels": {axis: list(names) for axis, names in self.labels.items()},
         }
 
+
 @dataclass
 class Artifact:
     """One shareable interpretability result: a card, and named tensors under it"""
@@ -225,7 +217,7 @@ class Artifact:
         if not self.created_at:
             self.created_at = datetime.now(UTC).isoformat()
         if not self.provenance:
-            self.provenance = stamp()
+            self.provenance = stamp(VERSION)
 
     def tensor(self, name: str) -> torch.Tensor:
         """One payload's values by name, with a message naming what is there instead"""
@@ -310,169 +302,6 @@ class Artifact:
                         f"{axis} count is {expected}; a grid measured over a subset must say so in its site"
                     )
 
-    # ------------------------------------------------------------ on disk
-
-    def to_manifest(self) -> Dict[str, Any]:
-        """The card, as the plain data that gets written to artifact.json"""
-        return {
-            "format": FORMAT,
-            "version": self.version,
-            "kind": self.kind,
-            "id": self.id,
-            "created_at": self.created_at,
-            "model": asdict(self.model),
-            "site": asdict(self.site),
-            "task": self.task,
-            "measurement": {
-                "method": self.method,
-                "span": asdict(self.span) if self.span is not None else None,
-                "metrics": self.metrics,
-            },
-            "graph": {
-                "nodes": [asdict(node) for node in self.nodes],
-                "edges": [asdict(edge) for edge in self.edges],
-            },
-            "tensors": {name: payload.describe() for name, payload in self.tensors.items()},
-            "provenance": self.provenance,
-            "notes": self.notes,
-        }
-
-    @classmethod
-    def from_manifest(cls, manifest: Dict[str, Any], tensors: Dict[str, torch.Tensor]) -> "Artifact":
-        """Rebuild an artifact from its card and the tensors that were stored beside it"""
-        unknown = set(manifest) - {
-            "format", "version", "kind", "id", "created_at", "model", "site",
-            "task", "measurement", "graph", "tensors", "provenance", "notes",
-        }
-        if unknown:
-            raise ArtifactError(
-                f"artifact.json has unknown keys {sorted(unknown)}; a key this reader does not know is a "
-                "claim it would silently drop"
-            )
-        if manifest.get("format") != FORMAT:
-            raise ArtifactError(f"not a {FORMAT} artifact: format is {manifest.get('format')!r}")
-
-        measurement = manifest.get("measurement") or {}
-        graph = manifest.get("graph") or {}
-        described = manifest.get("tensors") or {}
-
-        stored, described_names = set(tensors), set(described)
-        if stored != described_names:
-            raise ArtifactError(
-                f"the card and the tensor file disagree: card-only {sorted(described_names - stored)}, "
-                f"file-only {sorted(stored - described_names)}"
-            )
-
-        span = measurement.get("span")
-        return cls(
-            kind=manifest["kind"],
-            id=manifest["id"],
-            model=ModelRef(**manifest["model"]),
-            site=Site(**manifest["site"]),
-            task=manifest.get("task") or {},
-            method=measurement.get("method", "unspecified"),
-            metrics=measurement.get("metrics") or {},
-            span=Span(**span) if span else None,
-            nodes=[Node(**node) for node in graph.get("nodes", [])],
-            edges=[Edge(**edge) for edge in graph.get("edges", [])],
-            tensors={
-                name: Payload(
-                    values=tensors[name],
-                    axes=described[name]["axes"],
-                    units=described[name]["units"],
-                    labels=described[name].get("labels") or {},
-                )
-                for name in described
-            },
-            provenance=manifest.get("provenance") or {},
-            notes=manifest.get("notes", ""),
-            created_at=manifest.get("created_at", ""),
-            version=manifest.get("version", VERSION),
-        )
-
-    def save(self, path: str) -> str:
-        """Write the artifact as a directory: the card, and the tensors beside it
-
-        Validation happens here rather than at read time as well, so an
-        artifact that is wrong never leaves the machine that made it.
-        """
-        self.validate()
-        target = Path(path)
-        target.mkdir(parents=True, exist_ok=True)
-        (target / MANIFEST).write_text(json.dumps(self.to_manifest(), indent=2, sort_keys=True))
-        # the header is duplicated into the tensor file's own metadata so a
-        # tensors.safetensors that got separated from its card still says what it is
-        save_file(
-            {name: payload.values.contiguous() for name, payload in self.tensors.items()},
-            target / TENSORS,
-            metadata={"format": FORMAT, "version": self.version, "kind": self.kind, "id": self.id},
-        )
-        return str(target)
-
-    @classmethod
-    def load(cls, path: str) -> "Artifact":
-        """Read an artifact back from its directory, checking the card against the tensors"""
-        source = Path(path)
-        card, payload = source / MANIFEST, source / TENSORS
-        if not card.exists():
-            raise ArtifactError(f"no {MANIFEST} in {source}; a {FORMAT} artifact is a directory containing one")
-        if not payload.exists():
-            raise ArtifactError(f"{source} has a card but no {TENSORS}; its numbers are missing")
-        try:
-            manifest = json.loads(card.read_text())
-        except json.JSONDecodeError as error:
-            raise ArtifactError(f"{card} is not valid JSON") from error
-        try:
-            return cls.from_manifest(manifest, load_file(payload)).validate()
-        except TypeError as error:
-            raise ArtifactError(f"{card} does not describe a {FORMAT} v{VERSION} artifact: {error}") from error
-
     def __str__(self) -> str:
         where = f"L{self.site.layers[0]}" if len(self.site.layers) == 1 else f"{len(self.site.layers)} layers"
         return f"{self.kind} '{self.id}' on {self.model.id} at {where}, {self.n_bytes / 1024:.1f} KiB"
-
-def find_artifacts(root: str) -> List[Artifact]:
-    """Every artifact under a directory, skipping what does not read as one
-
-    A directory that fails to load is skipped rather than fatal, the same way
-    a half-written run does not make a listing unusable.
-    """
-    base = Path(root)
-    if not base.is_dir():
-        return []
-    found = []
-    for directory in sorted(base.rglob(f"*{SUFFIX}")):
-        try:
-            found.append(Artifact.load(str(directory)))
-        except ArtifactError:
-            continue
-    return found
-
-def stamp(**extra: Any) -> Dict[str, Any]:
-    """The provenance every artifact gets: which tool, which commit, and whether it was clean
-
-    `dirty` is the field that keeps the commit honest. A hash recorded from a
-    tree with uncommitted edits names code that never existed, and an artifact
-    whose provenance is confidently wrong is worse than one with none.
-    """
-    described = _git("describe", "--always", "--dirty")
-    record: Dict[str, Any] = {
-        "tool": "mi-lab",
-        "format_version": VERSION,
-        "git_commit": (described or "").removesuffix("-dirty") or None,
-        "git_dirty": bool(described and described.endswith("-dirty")),
-        "torch": torch.__version__,
-    }
-    record.update(extra)
-    return record
-
-def _git(*args: str) -> Optional[str]:
-    """Ask git something about this checkout, or None if there is no answer to be had"""
-    try:
-        result = subprocess.run(
-            ["git", *args], cwd=Path(__file__).resolve().parents[2],
-            capture_output=True, text=True, timeout=5, check=False,
-        )
-    except (OSError, subprocess.SubprocessError):
-        return None
-    return result.stdout.strip() or None

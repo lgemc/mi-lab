@@ -139,11 +139,13 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   and is still just an entry in `EXPERIMENTS`.
 - `experiment/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
-- `share/artifact.py` — the shareable form of a result (`.mia`: a JSON card plus one
-  `safetensors` file). It knows nothing about this repository, which is what keeps
-  `Artifact.load` from importing transformers. `share/sharing.py` is the one place that knows
-  both, so a new experiment kind gets a converter there rather than a special case inside the
-  format. See `docs/artifact-format.md`.
+- `share/schema.py` + `share/storage.py` — the shareable form of a result (`.mia`: a JSON card
+  plus one `safetensors` file), and that directory on disk. They know nothing about this
+  repository, which is what keeps `storage.load` from importing transformers.
+  `share/converters/` is where both sides are known, so a new experiment kind gets a module
+  there rather than a special case inside the format; `share/loaders.py` is the one door for
+  reading a probe from either form. See `docs/artifact-format.md` for the prose,
+  `docs/rfcs/0001-mia-format.md` for the field-by-field spec, drawn in `docs/sharing/`.
 - `methods/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
   at one strength. It measures *effect* (the probe's score on the steered continuation) against
   *fluency* (share of non-repeated words), because those two moving together is what "the ceiling"

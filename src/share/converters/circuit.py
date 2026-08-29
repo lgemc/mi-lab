@@ -1,0 +1,146 @@
+from typing import Dict, Optional, Sequence
+
+import torch
+
+from ...core.config import ModelConfig
+from ...data.ioi import IOIDataset
+from ...methods.circuits import Attribution, CircuitReport, HeadEffects, HeadRoles, PatchGrid
+from ..schema import Artifact, Node, Payload, Site, Span
+from .common import model_ref
+
+"""
+A finished circuit study, packaged as the graph plus both halves' grids.
+
+The nodes are the circuit and nothing else. The full grids stay as tensors, so
+a reader who disagrees with the threshold can redo the selection from the same
+numbers instead of taking this one on trust -- which is the difference between
+sharing a result and sharing a claim about one.
+
+A common pipe could be: discover | verify | from_circuit | save
+"""
+
+LOGIT_DIFFERENCE = "logit_difference"
+
+def from_circuit(
+    cfg: ModelConfig,
+    dataset: IOIDataset,
+    attribution: Attribution,
+    effects: HeadEffects,
+    report: CircuitReport,
+    roles: Optional[HeadRoles] = None,
+    grid: Optional[PatchGrid] = None,
+    tokens: Optional[Sequence[str]] = None,
+    landmarks: Optional[Dict[str, int]] = None,
+    name: Optional[str] = None,
+) -> Artifact:
+    """Package a finished circuit study: the graph, both halves' grids, and the span
+
+    The nodes are the circuit and nothing else -- the heads the search kept,
+    each carrying what attribution said about it, what patching said about it,
+    and what dropping it costs. The full grids stay as tensors, so a reader
+    who disagrees with the threshold can redo the selection from the same
+    numbers instead of taking this one on trust.
+
+    edges is empty and says so. This repository measures which heads matter,
+    not which head feeds which, and an artifact that left the field out would
+    read as a circuit whose connections nobody thought to record.
+    """
+    span = Span(metric=LOGIT_DIFFERENCE, clean=report.baselines.clean, corrupted=report.baselines.corrupted)
+    named = roles.assign() if roles is not None else {}
+    # the prompt's token strings describe the data whether or not a position map was
+    # measured over them, so they are taken from wherever they are available
+    positions = list(tokens if tokens is not None else (grid.tokens if grid is not None else []))
+    marks = dict(landmarks if landmarks is not None else (grid.landmarks if grid is not None else {}))
+
+    nodes = []
+    for step, ((layer, head), cumulative) in enumerate(
+        zip(report.circuit.heads, report.circuit.scores, strict=True), start=1
+    ):
+        row = effects.layers.index(layer)
+        nodes.append(Node(
+            id=f"L{layer}H{head}",
+            component="head",
+            layer=layer,
+            head=head,
+            role=named.get((layer, head)),
+            in_circuit=True,
+            scores={
+                "attribution": float(attribution.heads[layer, head]),
+                "causal": float(effects.effects[row, head]),
+                "minimality": float(report.minimality[(layer, head)]),
+                "cumulative_recovery": float(cumulative),
+                "step": float(step),
+            },
+        ))
+
+    # attribution answers for every layer in one pass while patching may have swept a
+    # subset, so both grids are cut down to the layers the site actually names -- a row
+    # index that means layer 4 in one tensor and layer 0 in the next is the bug the
+    # site exists to prevent
+    rows = torch.tensor(effects.layers, dtype=torch.long)
+    tensors = {
+        "head_attribution": Payload(
+            values=attribution.heads.index_select(0, rows).float(), axes=["layer", "head"], units="logits"
+        ),
+        "head_effects": Payload(
+            values=effects.effects.float(), axes=["layer", "head"], units="recovery"
+        ),
+        "mlp_attribution": Payload(
+            values=attribution.mlps.index_select(0, rows).float(), axes=["layer"], units="logits"
+        ),
+    }
+    if roles is not None:
+        tensors["role_weights"] = Payload(
+            values=roles.weights.index_select(0, rows).float(), axes=["layer", "head", "role"], units="attention",
+            labels={"role": list(roles.roles)},
+        )
+    if grid is not None:
+        if grid.layers != effects.layers:
+            raise ValueError(
+                f"the position map swept layers {grid.layers} and the head sweep swept {effects.layers}; "
+                "one artifact names one site, so measure both over the same layers or package them separately"
+            )
+        tensors["residual_patch"] = Payload(
+            values=grid.effects.float(), axes=["layer", "position"], units="recovery",
+            labels={"position": positions},
+        )
+
+    return Artifact(
+        kind="circuit",
+        id=name or f"{dataset.name}-{cfg.id}",
+        model=model_ref(cfg, cfg.id),
+        site=Site.at(effects.layers, cfg.n_layers or 0, component="head_out", position="all"),
+        task={
+            "name": dataset.name,
+            "task": "indirect object identification",
+            "frame": dataset.frame,
+            "corruption": dataset.corruption,
+            "n": len(dataset),
+            "balance": dataset.balance,
+            "tokens": positions,
+            "landmarks": marks,
+            "example": {
+                "clean": dataset.examples[0].clean,
+                "corrupted": dataset.examples[0].corrupted,
+                "answer": dataset.examples[0].io,
+                "distractor": dataset.examples[0].subject,
+            } if len(dataset) else {},
+        },
+        method="direct_logit_attribution + activation_patching, greedy search",
+        metrics={
+            "faithfulness": report.faithfulness,
+            "necessity": report.necessity,
+            "n_heads": float(len(report.circuit)),
+            "threshold": report.circuit.threshold,
+            "attribution_remainder": attribution.residual,
+        },
+        span=span,
+        nodes=nodes,
+        edges=[],
+        tensors=tensors,
+        notes=(
+            "Attribution is the direct path only and patching is causal; where the two disagree the "
+            "disagreement is the result, so both are stored per head rather than one summary score. "
+            "No edges were measured."
+        ),
+    ).validate()

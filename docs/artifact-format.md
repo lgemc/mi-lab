@@ -1,7 +1,10 @@
 # MIA v0.1 — an envelope for interpretability results
 
 **Status:** implemented in this repository, proposed for discussion.
-**Reference implementation:** `src/share/artifact.py` (the format), `src/share/sharing.py` (the converters).
+**Reference implementation:** `src/share/schema.py` (the card), `src/share/storage.py` (the disk),
+`src/share/converters/` (what this lab measured, packaged).
+**Specification:** [`rfcs/0001-mia-format.md`](rfcs/0001-mia-format.md) — the field-by-field spec.
+**Diagrams:** [`sharing/`](sharing/) — the round trip, the card, the validation gates, the landscape.
 
 ## The gap
 
@@ -189,16 +192,16 @@ python -m src.cli steer probe gpt2-small --probe probe.mia -p "The film was"
 From Python:
 
 ```python
-from src.share.artifact import Artifact
-from src.share.sharing import to_probe
+from src.share import storage
+from src.share.converters.probe import to_probe
 
-circuit = Artifact.load("ioi-abc.mia")
+circuit = storage.load("ioi-abc.mia")
 circuit.metrics["faithfulness"]                     # 0.919
 [node.id for node in circuit.circuit_heads]         # ['L10H7', 'L11H10', 'L8H6', ...]
 grid = circuit.tensors["residual_patch"]
 grid.values, grid.axes, grid.labels["position"]     # a redrawable heatmap
 
-probe = to_probe(Artifact.load("probe.mia"))        # a working probe, not a file
+probe = to_probe(storage.load("probe.mia"))         # a working probe, not a file
 probe.score(activations)
 ```
 
