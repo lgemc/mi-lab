@@ -5,7 +5,10 @@ import torch
 
 from ...core.config import ModelConfig
 from ...methods.probing import LinearProbe
-from ..schema import Artifact, Metric, Payload, Site
+from ..schema.artifact import Artifact
+from ..schema.metric import Metric
+from ..schema.payload import Payload
+from ..schema.site import Site
 from .common import model_ref
 
 """

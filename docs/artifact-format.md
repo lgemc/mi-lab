@@ -1,7 +1,7 @@
 # MIA v0.2 — an envelope for interpretability results
 
 **Status:** implemented in this repository, proposed for discussion.
-**Reference implementation:** `src/share/schema.py` (the card), `src/share/storage.py` (the disk),
+**Reference implementation:** `src/share/schema/` (the card, a module per class), `src/share/storage.py` (the disk),
 `src/share/converters/` (what this lab measured, packaged).
 **Specification:** [`rfcs/0001-mia-format.md`](rfcs/0001-mia-format.md) — the field-by-field spec.
 **Diagrams:** [`sharing/`](sharing/) — the round trip, the card, the validation gates, the landscape.

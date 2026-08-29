@@ -6,21 +6,19 @@ from typing import Any, Dict, List
 import torch
 from safetensors.torch import load_file, save_file
 
-from .schema import (
-    FORMAT,
-    VERSION,
-    Artifact,
-    ArtifactError,
-    Control,
-    Controls,
-    Edge,
-    Metric,
-    ModelRef,
-    Node,
-    Payload,
-    Site,
-    Span,
-)
+from .schema.artifact import Artifact
+from .schema.control import Control
+from .schema.controls import Controls
+from .schema.edge import Edge
+from .schema.errors import ArtifactError
+from .schema.metric import Metric
+from .schema.model import ModelRef
+from .schema.node import Node
+from .schema.payload import Payload
+from .schema.site import Site
+from .schema.span import Span
+from .schema.version import FORMAT, VERSION
+from .schema.vocabulary import Assumption, Component, Kind, NodeComponent, Position, one_of
 
 """
 An artifact on disk, and back off it again.
@@ -105,21 +103,30 @@ def from_manifest(manifest: Dict[str, Any], tensors: Dict[str, torch.Tensor]) ->
         )
 
     span = measurement.get("span")
+    # a card's closed-set fields arrive as plain strings, and are turned back into
+    # members here rather than left half-typed: a freshly built artifact and a
+    # loaded one should not differ in what their fields are
+    site = dict(manifest["site"])
+    site["component"] = one_of(Component, site.get("component", "residual"), "site.component")
+    site["position"] = one_of(Position, site.get("position", "last"), "site.position")
     return Artifact(
-        kind=manifest["kind"],
+        kind=one_of(Kind, manifest["kind"], "kind"),
         id=manifest["id"],
         model=ModelRef(**manifest["model"]),
-        site=Site(**manifest["site"]),
+        site=Site(**site),
         task=manifest.get("task") or {},
         method=measurement.get("method", "unspecified"),
         metrics={name: Metric(**entry) for name, entry in (measurement.get("metrics") or {}).items()},
         span=Span(**span) if span else None,
-        identifiability=list(measurement.get("identifiability") or []),
+        identifiability=[
+            one_of(Assumption, claimed, "identifiability")
+            for claimed in (measurement.get("identifiability") or [])
+        ],
         controls=Controls(
             cross_task=[Control(**control) for control in controls.get("cross_task", [])],
             random_baseline=[Control(**control) for control in controls.get("random_baseline", [])],
         ),
-        nodes=[Node(**node) for node in graph.get("nodes", [])],
+        nodes=[_node(node) for node in graph.get("nodes", [])],
         edges=[Edge(**edge) for edge in graph.get("edges", [])],
         tensors={
             name: Payload(
@@ -135,6 +142,12 @@ def from_manifest(manifest: Dict[str, Any], tensors: Dict[str, torch.Tensor]) ->
         created_at=manifest.get("created_at", ""),
         version=manifest.get("version", VERSION),
     )
+
+def _node(entry: Dict[str, Any]) -> Node:
+    """One graph node off the card, with its component turned back into a member"""
+    fields = dict(entry)
+    fields["component"] = one_of(NodeComponent, fields.get("component", "head"), f"node {fields.get('id')!r} component")
+    return Node(**fields)
 
 def save(artifact: Artifact, path: str) -> str:
     """Write the artifact as a directory: the card, and the tensors beside it

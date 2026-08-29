@@ -5,7 +5,14 @@ import torch
 from ...core.config import ModelConfig
 from ...data.ioi import IOIDataset
 from ...methods.circuits import Attribution, CircuitReport, HeadEffects, HeadRoles, PatchGrid
-from ..schema import Artifact, Controls, Metric, Node, Payload, Site, Span
+from ..schema.artifact import Artifact
+from ..schema.controls import Controls
+from ..schema.metric import Metric
+from ..schema.node import Node
+from ..schema.payload import Payload
+from ..schema.site import Site
+from ..schema.span import Span
+from ..schema.vocabulary import Component, NodeComponent, Position
 from .common import model_ref
 
 """
@@ -80,7 +87,7 @@ def from_circuit(
         row = effects.layers.index(layer)
         nodes.append(Node(
             id=f"L{layer}H{head}",
-            component="head",
+            component=NodeComponent.HEAD,
             layer=layer,
             head=head,
             role=named.get((layer, head)),
@@ -130,7 +137,7 @@ def from_circuit(
         kind="circuit",
         id=name or f"{dataset.name}-{cfg.id}",
         model=model_ref(cfg, cfg.id),
-        site=Site.at(effects.layers, cfg.n_layers or 0, component="head_out", position="all"),
+        site=Site.at(effects.layers, cfg.n_layers or 0, component=Component.HEAD_OUT, position=Position.ALL),
         task={
             "name": dataset.name,
             "task": "indirect object identification",

@@ -3,7 +3,12 @@ from typing import Any, Dict, Optional, Sequence
 import torch
 
 from ...core.config import ModelConfig
-from ..schema import Artifact, Controls, Metric, Payload, Site
+from ..schema.artifact import Artifact
+from ..schema.controls import Controls
+from ..schema.metric import Metric
+from ..schema.payload import Payload
+from ..schema.site import Site
+from ..schema.vocabulary import Position
 from .common import model_ref
 
 """
@@ -64,7 +69,7 @@ def from_steering(
         kind="steering_vector",
         id=name or f"{dataset}-{cfg.id}-L{layer}",
         model=model_ref(cfg, cfg.id),
-        site=Site.at([layer], cfg.n_layers or 0, position="all"),
+        site=Site.at([layer], cfg.n_layers or 0, position=Position.ALL),
         task={"name": dataset, "source": source},
         method=source,
         metrics=metrics,

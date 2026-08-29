@@ -6,7 +6,8 @@ import typer
 from ...methods.probing import LinearProbe, ProbeError
 from ...share import storage
 from ...share.converters.probe import from_probe
-from ...share.schema import Artifact, ArtifactError
+from ...share.schema.artifact import Artifact
+from ...share.schema.errors import ArtifactError
 from ..common import HelpfulCommand, HelpfulGroup
 
 """

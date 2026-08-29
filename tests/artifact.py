@@ -12,20 +12,18 @@ from src.share.converters.activations import from_activations
 from src.share.converters.probe import from_probe, to_probe
 from src.share.converters.steering import from_steering
 from src.share.loaders import open_probe
-from src.share.schema import (
-    FORMAT,
-    VERSION,
-    Artifact,
-    ArtifactError,
-    Control,
-    Controls,
-    Metric,
-    ModelRef,
-    Node,
-    Payload,
-    Site,
-    Span,
-)
+from src.share.schema.artifact import Artifact
+from src.share.schema.control import Control
+from src.share.schema.controls import Controls
+from src.share.schema.errors import ArtifactError
+from src.share.schema.metric import Metric
+from src.share.schema.model import ModelRef
+from src.share.schema.node import Node
+from src.share.schema.payload import Payload
+from src.share.schema.site import Site
+from src.share.schema.span import Span
+from src.share.schema.version import FORMAT, VERSION
+from src.share.schema.vocabulary import Component, Kind, NodeComponent, Position
 from src.share.storage import MANIFEST, TENSORS
 
 """
@@ -378,3 +376,57 @@ class TestProvenance(TestCase):
         self.assertEqual(provenance["tool"], "mi-lab")
         self.assertIn("git_dirty", provenance)
         self.assertIn("torch", provenance)
+
+class TestVocabulary(TestCase):
+    """The closed sets are closed, and the two `component` fields are not the same set
+
+    A site says where a value was read from and a node says what part of the
+    model it stands for. Before they were separate types nothing stopped one
+    borrowing the other's names, and the card would round-trip either.
+    """
+
+    def test_a_site_cannot_take_a_node_component(self):
+        with self.assertRaises(ArtifactError) as caught:
+            Site.at([0], LAYERS, component="head")
+        self.assertIn("head_out", str(caught.exception))
+
+    def test_a_node_cannot_take_a_site_component(self):
+        artifact = tiny_circuit(nodes=[Node(id="L2H1", component="head_out", layer=2, head=1)])
+        with self.assertRaises(ArtifactError) as caught:
+            artifact.validate()
+        self.assertIn("L2H1", str(caught.exception))
+
+    def test_a_mistyped_position_is_caught_where_it_is_written(self):
+        """position was accepted unchecked before it had a type"""
+        with self.assertRaises(ArtifactError) as caught:
+            Site.at([0], LAYERS, position="lsat")
+        self.assertIn("position", str(caught.exception))
+
+    def test_a_card_naming_an_unknown_component_is_refused_on_load(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
+            manifest = json.loads((path / MANIFEST).read_text())
+            manifest["site"]["component"] = "wherever"
+            (path / MANIFEST).write_text(json.dumps(manifest))
+            with self.assertRaises(ArtifactError) as caught:
+                storage.load(str(path))
+        self.assertIn("wherever", str(caught.exception))
+
+    def test_a_loaded_artifact_is_typed_the_same_as_a_built_one(self):
+        """Half-coerced is its own bug: the same field should not be str here and a member there"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = storage.save(tiny_circuit(), str(Path(directory) / "demo.mia"))
+            reloaded = storage.load(path)
+        self.assertIs(reloaded.kind, Kind.CIRCUIT)
+        self.assertIs(reloaded.site.component, Component.HEAD_OUT)
+        self.assertIs(reloaded.site.position, Position.ALL)
+        self.assertIs(reloaded.nodes[0].component, NodeComponent.HEAD)
+
+    def test_a_member_serializes_as_its_plain_string(self):
+        """The card is JSON a stranger reads, so an enum must not leak its class name"""
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
+            manifest = json.loads((path / MANIFEST).read_text())
+        self.assertEqual(manifest["kind"], "circuit")
+        self.assertEqual(manifest["site"]["component"], "head_out")
+        self.assertEqual(manifest["graph"]["nodes"][0]["component"], "head")

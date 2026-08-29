@@ -6,7 +6,7 @@
 | **Maintainer** | mi-lab                                                        |
 | **Date**       | August 2026                                                   |
 | **Changelog**  | v0.2                                                          |
-| **Reference**  | `src/share/` — `schema.py`, `storage.py`, `converters/`, `loaders.py`, `provenance.py` |
+| **Reference**  | `src/share/` — `schema/`, `storage.py`, `converters/`, `loaders.py`, `provenance.py` |
 | **Validator**  | `python -m src.cli artifact check <path>.mia`                 |
 
 ---
@@ -133,7 +133,7 @@ be *read before it is trusted*, that trade goes the other way from model weights
 | `site`       | Object | Required | Where in that model (§II.4).                                                              |
 | `task`       | Object | Optional | Free-form description of the data it was measured over (§II.5).                           |
 | `measurement`| Object | Required | Method, baseline span, and scalar metrics (§II.6).                                        |
-| `controls`   | Object | Required | The checks this claim was tested against, written even when empty (§II.9).                |
+| `controls`   | Object | Required | The checks this claim was tested against, written even when empty (§II.10).                |
 | `graph`      | Object | Optional | Nodes and edges, for artifacts describing a circuit (§II.6).                              |
 | `tensors`    | Object | Required | The manifest: one entry per tensor in `tensors.safetensors` (§II.7).                      |
 | `provenance` | Object | Required | Which tool, which commit, whether it was clean (§II.8).                                   |
@@ -165,7 +165,7 @@ when they are absent because a payload that cannot be checked is one applied on 
 | `layers`    | Array<Integer>  | Required | Absolute layer indices, because that is what a hook needs.                       |
 | `fracs`     | Array<Float>    | Required | The same layers as depth fractions, because that is what transfers to a model of another size. MUST be the same length as `layers`. |
 | `component` | String          | Required | One of `residual`, `head_out`, `mlp_out`, `attention`.                           |
-| `position`  | String          | Required | Which token position, e.g. `"last"`, `"all"`.                                    |
+| `position`  | String          | Required | One of `last`, `mean`, `all`. Closed, and checked — a site is unreadable at a position nothing can capture. |
 
 Both spellings are written down deliberately. Deriving the fraction from the index needs
 `n_layers`, and an artifact should be readable without resolving the checkpoint.
@@ -251,7 +251,7 @@ chose, and shipping it without that interval is shipping a fraction of nothing s
 | Field        | Type    | Status   | Description                                                                    |
 | :----------- | :------ | :------- | :------------------------------------------------------------------------------ |
 | `id`         | String  | Required | Node identifier, e.g. `"L9H9"`.                                                  |
-| `component`  | String  | Required | What kind of component, e.g. `"head"`.                                           |
+| `component`  | String  | Required | One of `head`, `mlp`. **A different vocabulary from `site.component`** — see §II.10. |
 | `layer`      | Integer | Required | Which layer it sits in.                                                          |
 | `head`       | Integer | Optional | Head index, for attention heads.                                                 |
 | `role`       | String  | Optional | An assigned functional role, e.g. `"name mover"`.                                |
@@ -336,7 +336,34 @@ otherwise have to rediscover.
 code that never existed. `git_dirty` is stored beside it and `artifact check` flags it. **An
 artifact whose provenance is confidently wrong is worse than one with none.**
 
-### II.9 `controls` — what the claim was tested against
+### II.9 Closed sets, and the two `component` fields
+
+Five fields draw from closed sets, and a value outside one is refused rather than carried:
+
+| Field                       | Vocabulary                                                        |
+| :-------------------------- | :------------------------------------------------------------------ |
+| `kind`                      | `circuit`, `probe`, `steering_vector`, `activation_map`             |
+| `site.component`            | `residual`, `head_out`, `mlp_out`, `attention`                      |
+| `site.position`             | `last`, `mean`, `all`                                               |
+| `graph.nodes[].component`   | `head`, `mlp`                                                       |
+| `measurement.identifiability[]` | `independence`, `sparsity`, `multi_environment`, `cross_layer`  |
+
+**`site.component` and `nodes[].component` are deliberately disjoint.** A site says *where in a
+block a value was read from*; a node says *what part of the model it stands for*. A node
+claiming `head_out`, or a site claiming `head`, is a category error — and while both were plain
+strings, nothing caught it and the card round-tripped either.
+
+They keep the same field name because renaming one would change the wire format for no gain to
+a reader who already has the two definitions above.
+
+Everything else on the card is prose on purpose, and the reference implementation's docstrings
+list what each one is written as: `measurement.metrics[].units` and `tensors[].units`,
+`measurement.metrics[].definition`, `span.metric`, `controls[].name` and `controls[].metric`,
+`edges[].kind`, `model.dtype`, `nodes[].role`, `nodes[].scores` keys, `method`, `task` and
+`notes`. Closing any of them would mean a schema change before a new measurement could be
+shared, which is the failure mode this format is trying not to have.
+
+### II.10 `controls` — what the claim was tested against
 
 | Field             | Type           | Status   | Description                                                         |
 | :---------------- | :------------- | :------- | :-------------------------------------------------------------------- |
@@ -568,7 +595,8 @@ filesystem is and the envelope never learns what this repository is.
 
 | Module                       | Responsibility                                                                     |
 | :--------------------------- | :---------------------------------------------------------------------------------- |
-| `share/schema.py`            | The card as dataclasses — `Artifact`, `ModelRef`, `Site`, `Span`, `Node`, `Edge`, `Payload` — plus `validate()`. Touches no disk. |
+| `share/schema/`              | The card as dataclasses, one module per class. Touches no disk (§VI.1). |
+| `share/schema/artifact.py`   | `Artifact` — how the pieces assemble, and `validate()`.                              |
 | `share/storage.py`           | `to_manifest` / `from_manifest` / `save` / `load` / `find_artifacts`. The only module that knows the directory layout. |
 | `share/provenance.py`        | `stamp()` — the one part of a card read off the machine rather than measured; shells out to git. |
 | `share/converters/common.py` | `model_ref()` — the one question every converter asks and none should each answer.  |
@@ -581,20 +609,50 @@ filesystem is and the envelope never learns what this repository is.
 The import direction is the design: `schema` and `storage` never import `methods`, `data` or
 `model`, so a reader with neither transformers nor this repository installed can still open a
 card. A new experiment kind gets a converter under `converters/`; a special case inside
-`schema.py` moves that line.
+`schema/` moves that line.
+
+### VI.1 Inside `schema/`
+
+One module per class, so that each carries the docstring for the decision it encodes rather
+than sharing one long header. It is a namespace package — there is no `__init__.py`, and
+callers import the module: `from ..schema.payload import Payload`.
+
+| Module          | Holds                                        | The decision it encodes                                               |
+| :-------------- | :------------------------------------------- | :---------------------------------------------------------------------- |
+| `artifact.py`   | `Artifact`                                    | How the pieces assemble, and every gate in `validate()`.                |
+| `payload.py`    | `Payload`                                     | A tensor is never stored without its axes.                              |
+| `site.py`       | `Site`                                        | A site is a depth fraction as well as an index.                         |
+| `span.py`       | `Span`                                        | Every fraction carries the interval it is a fraction of.                |
+| `metric.py`     | `Metric`                                      | A number carries the definition that produced it.                       |
+| `control.py`    | `Control`                                     | One check run against a claim — not a metric, an attempt to break one.  |
+| `controls.py`   | `Controls`                                    | The slate of checks, written even when empty.                           |
+| `node.py`       | `Node`                                        | A component keeps every measurement made of it, not a summary.          |
+| `edge.py`       | `Edge`                                        | "Found none" is a different claim from "never looked".                  |
+| `model.py`      | `ModelRef`                                    | An invented `hf_name` is worse than no artifact.                        |
+| `errors.py`     | `ArtifactError`                               | How the subsystem refuses, with a message saying what to do instead.    |
+| `version.py`    | `FORMAT`, `VERSION`                           | The version is refused, not negotiated.                                 |
+| `vocabulary.py` | `KINDS`, `REQUIRED`, `NEEDS_SPAN`, `COMPONENTS`, `ASSUMPTIONS` | The closed sets `validate()` checks against.         |
+
+The order is one-way inside the package too: `errors`, `version` and `vocabulary` import
+nothing; the leaf classes import at most `errors`; `artifact.py` imports all of them. A class
+that could not find a home without a cycle would be a class doing two jobs.
 
 ```
-another lab's tool ──> schema.py, storage.py ──> json, safetensors, torch
+another lab's tool ──> schema/, storage.py ──> json, safetensors, torch
                               ▲
                       converters/ ──> methods, data, core
                               ▲
                       cli, experiment/runner
 ```
 
-### VI.1 Building an artifact
+### VI.2 Building an artifact
 
 ```python
-from src.share.schema import Artifact, ModelRef, Payload, Site, Span
+from src.share.schema.artifact import Artifact
+from src.share.schema.model import ModelRef
+from src.share.schema.payload import Payload
+from src.share.schema.site import Site
+from src.share.schema.span import Span
 from src.share import storage
 
 artifact = Artifact(
@@ -614,7 +672,7 @@ storage.save(artifact, "sentiment.mia")     # validates on the way out
 `Artifact.__post_init__` stamps `created_at` and `provenance` when they are not supplied, so
 neither can be forgotten.
 
-### VI.2 The Validator
+### VI.3 The Validator
 
 **Validation runs at `save`, not only at `load`**, so an artifact that is wrong never leaves
 the machine that made it. Every gate corresponds to a plausible-looking wrong number
@@ -654,7 +712,7 @@ commit, a near-zero span, unmeasured edges, absent model sizes.
 **Programmatic:**
 
 ```python
-from src.share.schema import ArtifactError
+from src.share.schema.errors import ArtifactError
 from src.share import storage
 
 try:
@@ -668,7 +726,7 @@ does not raise "n_layers is 0"; it raises *"cannot place layers [9] at a depth w
 knowing how many layers the model has … so the site says two thirds through rather than
 layer eight"*.
 
-### VI.3 Conformance
+### VI.4 Conformance
 
 A conforming reader MUST: refuse a `format` other than `"mia"`; refuse a `version` it does
 not implement; refuse unknown top-level keys; and check the card's tensor names against the
@@ -676,7 +734,7 @@ tensor file. A conforming writer MUST validate before writing.
 
 ---
 
-## VII. Limits of v0.1
+## VII. Limits of v0.2
 
 Stated plainly, because a format's limits are load-bearing.
 

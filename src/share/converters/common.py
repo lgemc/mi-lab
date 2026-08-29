@@ -1,7 +1,7 @@
 from typing import Optional
 
 from ...core.config import ModelConfig, load_config
-from ..schema import ModelRef
+from ..schema.model import ModelRef
 
 """
 The one thing every converter needs and none of them should each answer:

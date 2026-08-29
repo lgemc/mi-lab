@@ -3,7 +3,10 @@ from typing import Any, Dict, List, Optional, Sequence
 import torch
 
 from ...core.config import ModelConfig
-from ..schema import Artifact, Payload, Site
+from ..schema.artifact import Artifact
+from ..schema.payload import Payload
+from ..schema.site import Site
+from ..schema.vocabulary import Position
 from .common import model_ref
 
 """
@@ -26,7 +29,7 @@ def from_activations(
     labels: Optional[Dict[str, List[str]]] = None,
     name: str = "activations",
     task: Optional[Dict[str, Any]] = None,
-    position: str = "all",
+    position: Position | str = Position.ALL,
 ) -> Artifact:
     """Package a map over layers and positions as data rather than as a picture
 

@@ -10,7 +10,7 @@ pictures, for reading before either rather than instead of them.
 
 ## The round trip
 
-`share/schema.py` and `share/storage.py` are the envelope and know nothing about this
+`share/schema/` and `share/storage.py` are the envelope and know nothing about this
 repository. `share/converters/` is where the two sides meet, which is what keeps
 `storage.load` from importing transformers.
 
@@ -32,7 +32,7 @@ flowchart LR
         FA["activations.from_activations"]
     end
 
-    OUT["Artifact<br/>share/schema.py"]
+    OUT["Artifact<br/>share/schema/artifact.py"]
 
     subgraph dir["name.mia — a directory"]
         CARD["artifact.json<br/>stdlib JSON, no torch"]
@@ -69,7 +69,7 @@ A shared artifact that does not come back as something you can call has shared n
 
 ## Where the boundary sits
 
-The import direction is the whole design. `schema.py` and `storage.py` sit under `converters/`
+The import direction is the whole design. `schema/` and `storage.py` sit under `converters/`
 and never learn what an `IOIDataset` is, so a reader with neither transformers nor this
 repository installed can still open a card.
 
@@ -82,12 +82,12 @@ flowchart TD
     CONV --> METH["methods: circuits, probing"]
     CONV --> DATA["data/ioi.py"]
     CONV --> CORE["core/config.py"]
-    ART["share/schema.py + storage.py<br/>the envelope"] --> STD["json, safetensors, torch"]
+    ART["share/schema/ + storage.py<br/>the envelope"] --> STD["json, safetensors, torch"]
     ART --> PROV["share/provenance.py<br/>git, torch version"]
 
     READER["another lab's tool"] --> ART
 ```
 
-`another lab's tool` reaching `schema.py` without passing through anything else is the
+`another lab's tool` reaching `schema/` without passing through anything else is the
 property being protected. Add a converter for a new experiment kind as a module under
-`converters/`; adding a special case inside `schema.py` moves that line.
+`converters/`; adding a special case inside `schema/` moves that line.

@@ -139,9 +139,15 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   and is still just an entry in `EXPERIMENTS`.
 - `experiment/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
-- `share/schema.py` + `share/storage.py` — the shareable form of a result (`.mia`: a JSON card
-  plus one `safetensors` file), and that directory on disk. They know nothing about this
-  repository, which is what keeps `storage.load` from importing transformers.
+- `share/schema/` + `share/storage.py` — the shareable form of a result (`.mia`: a JSON card
+  plus one `safetensors` file), and that directory on disk. `schema/` is one module per class
+  (`artifact`, `model`, `site`, `span`, `metric`, `payload`, `node`, `edge`, `control`,
+  `controls`) over `errors`, `version` and `vocabulary` — the `(str, Enum)` closed sets
+  `validate()` checks against. `Site.component` and `Node.component` are **different**
+  vocabularies (`head_out` vs `head`) under the same wire name, which is why they are separate
+  types; everything else on a card is prose on purpose and its docstring lists what it takes. Import the module, not the package: it is a namespace package like `converters/`,
+  so `from ..schema.payload import Payload`. They know nothing about this repository, which is
+  what keeps `storage.load` from importing transformers.
   `share/converters/` is where both sides are known, so a new experiment kind gets a module
   there rather than a special case inside the format; `share/loaders.py` is the one door for
   reading a probe from either form. See `docs/artifact-format.md` for the prose,
