@@ -14,8 +14,8 @@ and the checks on it, and nothing that touches a disk -- storage.py writes one
 of these down and reads it back, converters/ builds one out of what this lab
 measured.
 
-Three decisions are what make an artifact loadable by a tool that did not
-write it, and all three are enforced by validate():
+Four decisions are what make an artifact loadable by a tool that did not
+write it, and all four are enforced by validate():
 
 - A tensor is never stored without its axes. `head_effects` is [layer, head]
   in recovery, `residual_patch` is [layer, position]; a bare 2-D float array
@@ -28,12 +28,17 @@ write it, and all three are enforced by validate():
 - Every claim carries the span it is a fraction of. A recovery of 0.9 against
   a corruption that moved nothing is noise scaled up to look like a finding,
   so `span` is required of anything that reports a recovery.
+- A metric carries the definition that produced it. `faithfulness` names at
+  least two different quantities in this field -- a logit-difference recovery
+  under restoration here, a normalized KL reproduction elsewhere -- and two
+  artifacts both reporting 0.9 are not comparable. Metric is to a number what
+  Payload is to a tensor, for exactly the same reason.
 
 A common pipe could be: from_circuit | validate | save | load
 """
 
 FORMAT = "mia"
-VERSION = "0.1"
+VERSION = "0.2"
 
 KINDS = ("circuit", "probe", "steering_vector", "activation_map")
 
@@ -51,6 +56,12 @@ REQUIRED = {
 NEEDS_SPAN = ("circuit",)
 
 COMPONENTS = ("residual", "head_out", "mlp_out", "attention")
+
+# The structural assumptions that pick one direction out of the equivalence
+# class of behaviourally identical ones. Steering directions are generically
+# non-identifiable without at least one of them, so an artifact names which it
+# imposed -- and an empty list is the honest answer, said out loud.
+ASSUMPTIONS = ("independence", "sparsity", "multi_environment", "cross_layer")
 
 class ArtifactError(ValueError):
     """Raised when an artifact is incomplete, self-contradictory, or not one at all"""
@@ -166,6 +177,68 @@ class Edge:
     weight: float = 0.0
 
 @dataclass(frozen=True)
+class Metric:
+    """A number that cannot be separated from the definition that produced it
+
+    `faithfulness` names at least two different quantities in this field: the
+    logit-difference recovery under restoration that this repository measures,
+    and the normalized KL reproduction that the faithfulness critique asks
+    for. Both are reported as a fraction near 0.9 and they are not comparable.
+
+    So a metric is stored the way a tensor is -- with the thing that says what
+    it means attached, not in a README beside it. `definition` is prose and
+    `units` is prose, for the same reason Payload.units is: an enum is a list
+    every new measurement has to be added to before it can be shared.
+    """
+    value: float
+    definition: str
+    units: str = "unspecified"
+
+    def describe(self) -> Dict[str, Any]:
+        """The card's entry for this metric: what it is, and what it is in"""
+        return {"value": float(self.value), "definition": self.definition, "units": self.units}
+
+
+@dataclass(frozen=True)
+class Control:
+    """One check run against a claim, and what it returned
+
+    A control is not a metric: a metric describes the result, a control
+    describes an attempt to make the result go away. Storing them apart is
+    what lets `validate` insist the attempt was recorded even when nobody
+    made one.
+    """
+    name: str
+    metric: str
+    value: float
+    notes: str = ""
+
+
+@dataclass(frozen=True)
+class Controls:
+    """The checks a claim was tested against, listed even when nothing was run
+
+    Both slots default to empty and both are always written, for the reason
+    `edges` is written empty: an artifact that ran no cross-task ablation and
+    one that ran several are otherwise byte-identical, and the reader cannot
+    tell "checked, and it held" from "nobody thought to check".
+
+    `cross_task` is the one that matters most for a circuit. Ablating one
+    task's circuit damages unrelated tasks about as much as its own, because
+    circuits at this level are dominated by shared infrastructure -- so a
+    circuit reporting only within-task numbers is not shown to be about its
+    task at all.
+    """
+    cross_task: List[Control] = field(default_factory=list)
+    random_baseline: List[Control] = field(default_factory=list)
+
+    @property
+    def empty(self) -> bool:
+        """Whether nothing at all was run, which is a thing a reader must be told"""
+        return not self.cross_task and not self.random_baseline
+
+
+@dataclass(frozen=True)
 class Payload:
     """A tensor that cannot be separated from what its axes mean
 
@@ -203,8 +276,10 @@ class Artifact:
     site: Site = field(default_factory=Site)
     task: Dict[str, Any] = field(default_factory=dict)
     method: str = "unspecified"
-    metrics: Dict[str, float] = field(default_factory=dict)
+    metrics: Dict[str, Metric] = field(default_factory=dict)
     span: Optional[Span] = None
+    identifiability: List[str] = field(default_factory=list)
+    controls: Controls = field(default_factory=Controls)
     nodes: List[Node] = field(default_factory=list)
     edges: List[Edge] = field(default_factory=list)
     tensors: Dict[str, Payload] = field(default_factory=dict)
@@ -224,6 +299,22 @@ class Artifact:
         if name not in self.tensors:
             raise ArtifactError(f"artifact '{self.id}' has no tensor '{name}'; it carries {sorted(self.tensors)}")
         return self.tensors[name].values
+
+    def score(self, name: str) -> float:
+        """One metric's value by name, with a message naming what is there instead"""
+        if name not in self.metrics:
+            raise ArtifactError(f"artifact '{self.id}' has no metric '{name}'; it reports {sorted(self.metrics)}")
+        return self.metrics[name].value
+
+    @property
+    def metric_values(self) -> Dict[str, float]:
+        """Just the numbers, for a caller that already knows what they mean
+
+        Anything reporting a metric to a human should reach for `metrics` and
+        print the definition with it; this is for rebuilding an object whose
+        own field is a plain mapping.
+        """
+        return {name: metric.value for name, metric in self.metrics.items()}
 
     @property
     def circuit_heads(self) -> List[Node]:
@@ -269,6 +360,19 @@ class Artifact:
             raise ArtifactError(
                 f"a '{self.kind}' artifact reports recoveries, which are fractions of the span between a "
                 "clean and a corrupted baseline; without the span they have no scale"
+            )
+        for name, metric in self.metrics.items():
+            if not metric.definition.strip():
+                raise ArtifactError(
+                    f"metric '{name}' on '{self.id}' has a value but no definition; 'faithfulness' alone "
+                    "names a logit-difference recovery here and a normalized KL reproduction elsewhere, and "
+                    "the two are not comparable -- say which one this is"
+                )
+        unknown_assumptions = [name for name in self.identifiability if name not in ASSUMPTIONS]
+        if unknown_assumptions:
+            raise ArtifactError(
+                f"artifact '{self.id}' claims structural assumptions {unknown_assumptions} that this format "
+                f"does not know; the ones that break the equivalence class are {sorted(ASSUMPTIONS)}"
             )
         for name, payload in self.tensors.items():
             if len(payload.axes) != payload.values.dim():

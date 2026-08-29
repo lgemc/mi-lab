@@ -3,7 +3,7 @@ from typing import Any, Dict, Optional, Sequence
 import torch
 
 from ...core.config import ModelConfig
-from ..schema import Artifact, Payload, Site
+from ..schema import Artifact, Controls, Metric, Payload, Site
 from .common import model_ref
 
 """
@@ -36,7 +36,13 @@ def from_steering(
     tensors = {
         "vector": Payload(values=vector.float(), axes=["d_model"], units="activation"),
     }
-    metrics: Dict[str, float] = {"norm": float(vector.float().norm())}
+    metrics: Dict[str, Metric] = {
+        "norm": Metric(
+            float(vector.float().norm()),
+            "L2 norm of the direction as stored, before it is scaled by a strength",
+            "activation",
+        )
+    }
     if points:
         tensors["strengths"] = Payload(
             values=torch.tensor([point.strength for point in points]), axes=["point"], units="mean activation norms"
@@ -47,7 +53,12 @@ def from_steering(
         tensors["fluency"] = Payload(
             values=torch.tensor([point.fluency for point in points]), axes=["point"], units="non-repeated word share"
         )
-        metrics["max_strength"] = float(max(point.strength for point in points))
+        metrics["max_strength"] = Metric(
+            float(max(point.strength for point in points)),
+            "the largest strength the sweep visited, which is a range that was searched and not a ceiling "
+            "that was found",
+            "mean activation norms",
+        )
 
     return Artifact(
         kind="steering_vector",
@@ -57,10 +68,18 @@ def from_steering(
         task={"name": dataset, "source": source},
         method=source,
         metrics=metrics,
+        # no structural assumption was imposed on the fit, so this names a member of the
+        # equivalence class of directions with the same behaviour rather than the direction
+        identifiability=[],
+        controls=Controls(),
         tensors=tensors,
         notes=(
             "Added to the residual stream at this layer, scaled in mean activation norms of that layer's "
             "forward pass, so a strength means the same intervention size on another model. Any claim made "
-            "with it needs a norm-matched random vector at the same layer as its control."
+            "with it needs a norm-matched random vector at the same layer as its control, and none is "
+            "recorded here. No structural assumption (independence, sparsity, multi-environment, "
+            "cross-layer consistency) was imposed when this was fit, so it is one of a class of directions "
+            "with indistinguishable behaviour -- read it as 'a direction that does this', not 'the "
+            "direction for this'."
         ),
     ).validate()

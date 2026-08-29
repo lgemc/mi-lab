@@ -18,7 +18,7 @@ flowchart LR
         AM["activation maps<br/>a PNG in a paper"]
     end
 
-    MIA["mia v0.1<br/>one envelope, four kinds"]
+    MIA["mia v0.2<br/>one envelope, four kinds"]
 
     SAE -->|"shape borrowed:<br/>card beside tensors"| MIA
     CV -->|"a vector with<br/>no site semantics"| MIA
@@ -40,10 +40,11 @@ flowchart LR
 
 ## What is not out there
 
-The four requirements in [format.md](format.md) — axes and units mandatory on every tensor, a
+The six requirements in [format.md](format.md) — axes and units mandatory on every tensor, a
 site carrying its depth fraction, a recovery forced to carry the span it is a fraction of,
-and a node keeping both measurements. Every one of them is a way a shared result gets
-misread, and no format above enforces any of them.
+a node keeping both measurements, a metric carrying the definition that produced it, and a
+check that was not run being written down as not run. Every one of them is a way a shared
+result gets misread, and no format above enforces any of them.
 
 That is also the reason not to fold this into one of them yet. Emitting a Neuronpedia graph
 would mean claiming edges that were never measured; emitting a GGUF control vector would

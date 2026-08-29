@@ -6,7 +6,21 @@ from typing import Any, Dict, List
 import torch
 from safetensors.torch import load_file, save_file
 
-from .schema import FORMAT, VERSION, Artifact, ArtifactError, Edge, ModelRef, Node, Payload, Site, Span
+from .schema import (
+    FORMAT,
+    VERSION,
+    Artifact,
+    ArtifactError,
+    Control,
+    Controls,
+    Edge,
+    Metric,
+    ModelRef,
+    Node,
+    Payload,
+    Site,
+    Span,
+)
 
 """
 An artifact on disk, and back off it again.
@@ -46,7 +60,14 @@ def to_manifest(artifact: Artifact) -> Dict[str, Any]:
         "measurement": {
             "method": artifact.method,
             "span": asdict(artifact.span) if artifact.span is not None else None,
-            "metrics": artifact.metrics,
+            "metrics": {name: metric.describe() for name, metric in artifact.metrics.items()},
+            "identifiability": list(artifact.identifiability),
+        },
+        # written even when both slots are empty, for the reason edges is: a
+        # reader cannot otherwise tell "checked, and it held" from "nobody looked"
+        "controls": {
+            "cross_task": [asdict(control) for control in artifact.controls.cross_task],
+            "random_baseline": [asdict(control) for control in artifact.controls.random_baseline],
         },
         "graph": {
             "nodes": [asdict(node) for node in artifact.nodes],
@@ -61,7 +82,7 @@ def from_manifest(manifest: Dict[str, Any], tensors: Dict[str, torch.Tensor]) ->
     """Rebuild an artifact from its card and the tensors that were stored beside it"""
     unknown = set(manifest) - {
         "format", "version", "kind", "id", "created_at", "model", "site",
-        "task", "measurement", "graph", "tensors", "provenance", "notes",
+        "task", "measurement", "controls", "graph", "tensors", "provenance", "notes",
     }
     if unknown:
         raise ArtifactError(
@@ -73,6 +94,7 @@ def from_manifest(manifest: Dict[str, Any], tensors: Dict[str, torch.Tensor]) ->
 
     measurement = manifest.get("measurement") or {}
     graph = manifest.get("graph") or {}
+    controls = manifest.get("controls") or {}
     described = manifest.get("tensors") or {}
 
     stored, described_names = set(tensors), set(described)
@@ -90,8 +112,13 @@ def from_manifest(manifest: Dict[str, Any], tensors: Dict[str, torch.Tensor]) ->
         site=Site(**manifest["site"]),
         task=manifest.get("task") or {},
         method=measurement.get("method", "unspecified"),
-        metrics=measurement.get("metrics") or {},
+        metrics={name: Metric(**entry) for name, entry in (measurement.get("metrics") or {}).items()},
         span=Span(**span) if span else None,
+        identifiability=list(measurement.get("identifiability") or []),
+        controls=Controls(
+            cross_task=[Control(**control) for control in controls.get("cross_task", [])],
+            random_baseline=[Control(**control) for control in controls.get("random_baseline", [])],
+        ),
         nodes=[Node(**node) for node in graph.get("nodes", [])],
         edges=[Edge(**edge) for edge in graph.get("edges", [])],
         tensors={

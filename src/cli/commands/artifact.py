@@ -67,8 +67,22 @@ def show(
             f"baseline : {span.metric} {span.clean:+.3f} clean / {span.corrupted:+.3f} corrupted "
             f"(span {span.span:+.3f})"
         )
-    for key, value in artifact.metrics.items():
-        typer.echo(f"  {key:<22} {value:+.4f}")
+    # the definition is printed under the number rather than beside it, because a
+    # metric name is not a definition and two artifacts reporting 'faithfulness 0.9'
+    # are only comparable if they measured the same thing
+    for key, metric in artifact.metrics.items():
+        typer.echo(f"  {key:<22} {metric.value:+.4f}  [{metric.units}]")
+        typer.echo(typer.style(f"  {'':<22} {metric.definition}", dim=True))
+
+    if artifact.identifiability:
+        typer.echo(f"assumed  : {', '.join(artifact.identifiability)}")
+    controls = artifact.controls
+    if not controls.empty:
+        typer.echo("controls :")
+        for control in controls.cross_task:
+            typer.echo(f"  cross-task  {control.name:<18} {control.metric} {control.value:+.4f}")
+        for control in controls.random_baseline:
+            typer.echo(f"  random      {control.name:<18} {control.metric} {control.value:+.4f}")
 
     typer.echo("tensors  :")
     for name, payload in artifact.tensors.items():
@@ -114,6 +128,21 @@ def check(path: str = PATH_ARGUMENT):
         )
     if artifact.kind == "circuit" and not artifact.edges:
         warnings.append("no edges were measured, so this names the parts of a circuit and not its wiring")
+    if artifact.kind == "circuit" and not artifact.controls.cross_task:
+        warnings.append(
+            "no cross-task ablation was run, so every number here is within-task; circuits at this level "
+            "overlap heavily and this one is not shown to be particular to the task it names"
+        )
+    if artifact.kind == "steering_vector" and not artifact.identifiability:
+        warnings.append(
+            "no structural assumption was imposed when this direction was fit, so it is one of a class of "
+            "directions with indistinguishable behaviour rather than the direction for what it claims"
+        )
+    if artifact.kind == "steering_vector" and not artifact.controls.random_baseline:
+        warnings.append(
+            "no norm-matched random direction was recorded, so nothing here separates this direction's "
+            "effect from what any vector of that size does at that layer"
+        )
     if artifact.model.n_layers is None or artifact.model.d_model is None:
         warnings.append("the model's sizes are not recorded, so a payload cannot be checked before it is applied")
 

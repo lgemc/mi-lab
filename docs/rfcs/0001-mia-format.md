@@ -5,7 +5,7 @@
 | **Status**     | Active — implemented in this repository, proposed for discussion |
 | **Maintainer** | mi-lab                                                        |
 | **Date**       | August 2026                                                   |
-| **Changelog**  | v0.1                                                          |
+| **Changelog**  | v0.2                                                          |
 | **Reference**  | `src/share/` — `schema.py`, `storage.py`, `converters/`, `loaders.py`, `provenance.py` |
 | **Validator**  | `python -m src.cli artifact check <path>.mia`                 |
 
@@ -57,8 +57,34 @@ recommended in prose.
 3. **Every fraction carries the span it is a fraction of.** A recovery of 0.9 against a
    corruption that barely moved the model is noise scaled up to look like a finding.
 
-A fourth is specific to circuits and stated in §II.6: a node keeps **both** measurements,
+4. **A metric carries the definition that produced it.** `faithfulness` names at least two
+   different quantities in this field — a logit-difference recovery under restoration, and a
+   normalized KL reproduction — both of which report as a fraction near 0.9. `Metric` is to a
+   number what `Payload` is to a tensor, for the same reason.
+5. **A check that was not run is written down as not run.** Cross-task ablation and
+   norm-matched random baselines ship as explicitly empty lists, so a reader can tell
+   *"checked, and it held"* from *"nobody thought to check"*.
+
+A sixth is specific to circuits and stated in §II.6: a node keeps **both** measurements,
 because they disagree and the disagreement is the finding.
+
+### I.3 What v0.2 answers
+
+v0.1 enforced that a *tensor* could not travel without its meaning, and then let the headline
+claim — the single float in `metrics` — travel as a bare number. It also had no way to say that
+a circuit was never tested against another task, or that a steering direction was fit with no
+structural assumption constraining it. Three results make those omissions load-bearing rather
+than cosmetic:
+
+| Result | What it says | What v0.2 changes |
+| :----- | :----------- | :---------------- |
+| Faithfulness is not overlap (Hanna et al., 2403.17806) | The field's preferred "did I find the right circuit" metric was correlational, not causal | `Metric.definition` is required, so which faithfulness is being reported is on the card |
+| Circuits are causally real but not task-specific (Li & Subramani) | Ablating one task's circuit damages unrelated tasks about as much as its own; circuits are dominated by shared MLP infrastructure | `controls.cross_task` exists and ships empty, so a within-task-only circuit says so |
+| Steering directions are non-identifiable (Venkatesh & Kurapath) | An infinite equivalence class of geometrically distinct directions produces identical behaviour, and the Cramér-Rao bound in the null space is infinite, so more data cannot fix it | `measurement.identifiability` names which structural assumptions were imposed, `[]` meaning none |
+
+None of these require the underlying claims to be settled. The format's job is to make the
+presence or absence of the check *recordable* — today an artifact that ran the check and one
+that did not are byte-identical.
 
 ### I.2 Terminology
 
@@ -107,6 +133,7 @@ be *read before it is trusted*, that trade goes the other way from model weights
 | `site`       | Object | Required | Where in that model (§II.4).                                                              |
 | `task`       | Object | Optional | Free-form description of the data it was measured over (§II.5).                           |
 | `measurement`| Object | Required | Method, baseline span, and scalar metrics (§II.6).                                        |
+| `controls`   | Object | Required | The checks this claim was tested against, written even when empty (§II.9).                |
 | `graph`      | Object | Optional | Nodes and edges, for artifacts describing a circuit (§II.6).                              |
 | `tensors`    | Object | Required | The manifest: one entry per tensor in `tensors.safetensors` (§II.7).                      |
 | `provenance` | Object | Required | Which tool, which commit, whether it was clean (§II.8).                                   |
@@ -181,7 +208,8 @@ every new task type edits the schema before it can be shared.
 | :-------- | :----- | :------- | :-------------------------------------------------------------------------------------- |
 | `method`  | String | Required | What was run, in prose: `"direct_logit_attribution + activation_patching, greedy search"`. |
 | `span`    | Object | Required for kinds in `NEEDS_SPAN` (currently `circuit`); Optional otherwise | The baselines every fraction is measured between. |
-| `metrics` | Object | Required | Scalar results, `{name: float}`. May be empty.                                          |
+| `metrics` | Object | Required | Scalar results, `{name: Metric}` — never `{name: float}`. May be empty.                 |
+| `identifiability` | Array | Required | Which structural assumptions were imposed. `[]` means none, and means it.           |
 
 **`measurement.span`**
 
@@ -190,6 +218,26 @@ every new task type edits the schema before it can be shared.
 | `metric`    | String | Required | What was measured, e.g. `"logit_difference"`.                            |
 | `clean`     | Float  | Required | The value on unperturbed input — where a recovery reads 1.               |
 | `corrupted` | Float  | Required | The value on corrupted input — where a recovery reads 0.                 |
+
+**`measurement.metrics[name]` — Metric**
+
+| Field        | Type   | Status   | Description                                                            |
+| :----------- | :----- | :------- | :---------------------------------------------------------------------- |
+| `value`      | Float  | Required | The number.                                                              |
+| `definition` | String | Required | What was computed to get it. MUST be non-empty; `validate()` refuses a metric without one. |
+| `units`      | String | Required | What the number is in: `recovery`, `logits`, `auc`, `share`, `heads`.     |
+
+A metric name is not a definition. This repository's `faithfulness` is *"recovery of the clean
+logit difference when only these heads are restored into the corrupted run"*; the faithfulness
+literature's is *"1 − E_x[KL(F‖F_C) / KL(F‖F_∅)]"*. Both report as a fraction near 0.9, neither
+is wrong, and an artifact that says only `0.919` cannot be compared with either.
+
+**`measurement.identifiability`**
+
+An array drawn from `independence`, `sparsity`, `multi_environment`, `cross_layer` — the
+structural assumptions that pick one solution out of an equivalence class of behaviourally
+identical ones. An unknown entry is a load error. An **empty array is the common and honest
+value**: it says the result is a member of a class, not the unique member of it.
 
 `span = clean - corrupted` is derived, not stored. A recovery of 0.9 means "restored 90% of
 the distance from corrupted back to clean"; quoting one without the other is quoting a
@@ -288,6 +336,36 @@ otherwise have to rediscover.
 code that never existed. `git_dirty` is stored beside it and `artifact check` flags it. **An
 artifact whose provenance is confidently wrong is worse than one with none.**
 
+### II.9 `controls` — what the claim was tested against
+
+| Field             | Type           | Status   | Description                                                         |
+| :---------------- | :------------- | :------- | :-------------------------------------------------------------------- |
+| `cross_task`      | Array&lt;Control&gt; | Required | Ablations of this result against tasks it does not claim to explain. |
+| `random_baseline` | Array&lt;Control&gt; | Required | Norm-matched or size-matched random controls at the same site.        |
+
+**`Control`**
+
+| Field    | Type   | Status   | Description                                                                   |
+| :------- | :----- | :------- | :------------------------------------------------------------------------------ |
+| `name`   | String | Required | What was controlled against — the other task, or the control's description.      |
+| `metric` | String | Required | Which metric the value is in.                                                    |
+| `value`  | Float  | Required | What the control returned.                                                       |
+| `notes`  | String | Optional | What was done, when the name does not carry it.                                  |
+
+**Both arrays are always written, including when both are empty.** This is the `edges: []`
+treatment applied to the two checks that decide whether a result means what it says:
+
+- A circuit measured only on its own task is not shown to be *about* that task. Circuits at the
+  attention-head and MLP level overlap heavily across tasks — ablating one task's circuit
+  damages an unrelated task roughly as much as its own — so within-task faithfulness and
+  necessity are consistent with the circuit being general-purpose infrastructure.
+- A steering direction with no norm-matched random control has not been separated from what any
+  vector of that size does at that layer.
+
+An artifact that ran neither and an artifact that ran both must not be byte-identical. `artifact
+check` warns on an empty `cross_task` for a circuit, and on an empty `random_baseline` or empty
+`identifiability` for a steering vector.
+
 ---
 
 ## III. Comparative Schema
@@ -303,6 +381,9 @@ How MIA relates to what is already adopted. Checked August 2026.
 | Site as depth fraction | No                    | Layer index only              | N/A                    | Layer index only        | **Required**                  |
 | Baseline span carried  | No                    | No                            | No                     | No                      | **Required where fractional** |
 | Multiple scores per component | N/A            | N/A                           | One weight per edge    | N/A                     | **Required**                  |
+| Metric definition on the card | No              | N/A                           | No                     | No                      | **Required**                  |
+| Cross-task control recorded | No                | No                            | No                     | No                      | **Slot required, may be empty** |
+| Identifiability assumptions stated | No         | No                            | No                     | No                      | **Required, may be empty**    |
 | Edges                  | N/A                   | N/A                           | **The whole point**    | N/A                     | Slot present, `[]` here       |
 | Adoption               | Real                  | Real (llama.cpp, ollama)      | Real                   | Partial                 | This repository               |
 
@@ -365,10 +446,26 @@ as anything else.
     "method": "direct_logit_attribution + activation_patching, greedy search",
     "span": { "metric": "logit_difference", "clean": 2.959, "corrupted": 0.406 },
     "metrics": {
-      "faithfulness": 0.919, "necessity": 1.160, "n_heads": 7.0,
-      "threshold": 0.05, "attribution_remainder": 1.7e-06
-    }
+      "faithfulness": {
+        "value": 0.919,
+        "definition": "recovery of the clean logit difference when only these heads are restored into the corrupted run; 1.0 is the clean baseline, 0.0 the corrupted one",
+        "units": "recovery"
+      },
+      "necessity": {
+        "value": 1.160,
+        "definition": "1 - the recovery left when these heads alone are corrupted in an otherwise clean run",
+        "units": "recovery"
+      },
+      "attribution_remainder": {
+        "value": 1.7e-06,
+        "definition": "logit difference left over after summing every component's direct write through the frozen unembedding; a receipt on the decomposition, not a result",
+        "units": "logits"
+      }
+    },
+    "identifiability": []
   },
+
+  "controls": { "cross_task": [], "random_baseline": [] },
 
   "graph": {
     "nodes": [
@@ -405,7 +502,7 @@ as anything else.
     "git_commit": "0c248f7", "git_dirty": false, "torch": "2.13.0"
   },
 
-  "notes": "Attribution is the direct path only and patching is causal; where the two disagree the disagreement is the result, so both are stored per head rather than one summary score. No edges were measured."
+  "notes": "Attribution is the direct path only and patching is causal; where the two disagree the disagreement is the result, so both are stored per head rather than one summary score. No edges were measured. No cross-task ablation was run either: every number here is within-task, so this says these heads carry the task and not that they are particular to it."
 }
 ```
 
@@ -531,6 +628,8 @@ downstream.
 | One fraction per layer                          | Bare indices, which cannot be placed in another model                |
 | The kind's required tensors are present         | A different thing wearing the label                                  |
 | `span` present for kinds that report recoveries | A percentage of an unstated whole                                    |
+| Every metric carries a non-empty `definition`   | Two artifacts reporting `faithfulness: 0.9` for different quantities |
+| `identifiability` names only known assumptions  | A claimed constraint that does not break the equivalence class       |
 | One axis name per dimension                     | A bare grid is one the next reader transposes                        |
 | Labels as long as the axis they name            | Labels out of step name the wrong column                             |
 | Widths against `model` and `site`               | A subset of layers read as layer indices; a probe applied at another width |
@@ -543,6 +642,8 @@ downstream.
 python -m src.cli artifact check ioi-abc.mia
 # circuit 'ioi-abc-gpt2-small' on gpt2-small at 12 layers, 5.6 KiB: readable, card and tensors agree
 #   warning: no edges were measured, so this names the parts of a circuit and not its wiring
+#   warning: no cross-task ablation was run, so every number here is within-task; circuits at this
+#            level overlap heavily and this one is not shown to be particular to the task it names
 ```
 
 Exits non-zero if the artifact is unusable, so it is the thing to run over a directory of
@@ -586,13 +687,30 @@ Stated plainly, because a format's limits are load-bearing.
 | **No content hash of the checkpoint** | `hf_name` + `revision` is what is recorded. Two quantizations of one repo are indistinguishable in a v0.1 card. |
 | **One model per artifact**        | Cross-model results — a direction that transfers, a circuit found in two models — need a shape this does not have. |
 | **No signing, no registry**       | This is a file layout, not a hub.                                                                         |
+| **No specificity is measured here** | The `controls.cross_task` slot exists and this repository fills it with `[]`. Running the ablation needs a second task in the same harness, which `data/ioi.py` alone does not provide. Until then every circuit emitted here is a within-task claim that says so. |
+| **No identifiability is imposed here** | Same shape: `measurement.identifiability` exists and every steering vector this repository emits declares `[]`. The format can record that independence, sparsity, multi-environment or cross-layer consistency was assumed; nothing here assumes any of them. |
+| **A definition is prose, not a formula** | `Metric.definition` is checked for being non-empty, not for being right. Two tools can still describe the same computation differently. Machine-comparable metric identities are a v0.3 problem. |
 | **One site per artifact**         | A position map and a head sweep measured over different layers must be packaged separately; `from_circuit` refuses to merge them. |
 
 ---
 
 ## VIII. Changelog
 
-**v0.1 (Current)** — Initial specification.
+**v0.2 (Current)** — Metrics, controls and identifiability. **Breaking.**
+
+- `measurement.metrics` changes from `{name: float}` to `{name: {value, definition, units}}`.
+  `validate()` refuses a metric whose `definition` is empty. This is the breaking change: a v0.1
+  card's metrics do not load, deliberately, because a bare float is the defect being fixed.
+- New required top-level `controls`, with `cross_task` and `random_baseline` arrays that are
+  written even when empty — so "checked" and "never checked" stop being byte-identical.
+- New required `measurement.identifiability`, an array of the structural assumptions imposed on
+  the fit, drawn from `independence`, `sparsity`, `multi_environment`, `cross_layer`. An unknown
+  entry is a load error; `[]` is the honest default.
+- `artifact check` gains three warnings: a circuit with no cross-task ablation, a steering vector
+  with no structural assumption, and a steering vector with no norm-matched random control.
+- `Artifact.score(name)` and `Artifact.metric_values` added for callers that want the number.
+
+**v0.1** — Initial specification.
 
 - Directory layout: `artifact.json` + `tensors.safetensors`, with the header duplicated into
   the tensor file's metadata.
@@ -625,3 +743,5 @@ implement.
 - [SAELens](https://github.com/decoderesearch/SAELens) — the card-beside-tensors shape this borrows
 - [Neuronpedia graph validator](https://www.neuronpedia.org/graph/validator) — the adjacent format for feature-level attribution graphs
 - [repeng](https://github.com/vgel/repeng) — GGUF control vectors, the incumbent for steering
+- Hanna et al., [*Have Faith in Faithfulness*](https://arxiv.org/abs/2403.17806) — why overlap is not faithfulness
+- The faithfulness / specificity / identifiability critique, which §I.3 answers

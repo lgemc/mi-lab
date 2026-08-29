@@ -12,15 +12,29 @@ from src.share.converters.activations import from_activations
 from src.share.converters.probe import from_probe, to_probe
 from src.share.converters.steering import from_steering
 from src.share.loaders import open_probe
-from src.share.schema import FORMAT, VERSION, Artifact, ArtifactError, ModelRef, Node, Payload, Site, Span
+from src.share.schema import (
+    FORMAT,
+    VERSION,
+    Artifact,
+    ArtifactError,
+    Control,
+    Controls,
+    Metric,
+    ModelRef,
+    Node,
+    Payload,
+    Site,
+    Span,
+)
 from src.share.storage import MANIFEST, TENSORS
 
 """
 The artifact format is tested without a checkpoint, because everything that
 can go wrong with it is structural. An artifact is wrong when its card and its
 tensors disagree, when a grid's rows are a subset of layers that nothing wrote
-down, when a recovery ships without the span it is a fraction of, or when a
-probe comes back as something that no longer scores. None of those need a
+down, when a recovery ships without the span it is a fraction of, when a
+number ships without the definition that produced it, or when a probe comes
+back as something that no longer scores. None of those need a
 model to be wrong, and all of them are invisible in the numbers that come out.
 
 The load-bearing test is the probe round trip. A format that cannot hand back
@@ -49,6 +63,7 @@ def tiny_circuit(**overrides) -> Artifact:
         "model": ModelRef.from_config(tiny_config()),
         "site": Site.at(range(LAYERS), LAYERS, component="head_out", position="all"),
         "span": Span(metric="logit_difference", clean=3.0, corrupted=0.5),
+        "metrics": {"faithfulness": Metric(0.9, "recovery when only these heads are restored", "recovery")},
         "nodes": [Node(id="L2H1", component="head", layer=2, head=1, in_circuit=True, scores={"causal": 0.7})],
         "tensors": {
             "head_attribution": Payload(torch.zeros(LAYERS, HEADS), ["layer", "head"], "logits"),
@@ -88,6 +103,8 @@ class TestRoundTrip(TestCase):
         self.assertEqual(reloaded.model, original.model)
         self.assertEqual(reloaded.site, original.site)
         self.assertEqual(reloaded.span, original.span)
+        self.assertEqual(reloaded.metrics, original.metrics)
+        self.assertEqual(reloaded.controls, original.controls)
         self.assertEqual(reloaded.nodes, original.nodes)
         self.assertTrue(torch.allclose(reloaded.tensor("head_effects"), original.tensor("head_effects")))
 
@@ -113,6 +130,7 @@ class TestRoundTrip(TestCase):
         self.assertEqual(manifest["kind"], "circuit")
         self.assertEqual(manifest["tensors"]["head_effects"]["axes"], ["layer", "head"])
         self.assertEqual(manifest["measurement"]["span"]["clean"], 3.0)
+        self.assertIn("definition", manifest["measurement"]["metrics"]["faithfulness"])
 
     def test_the_tensor_file_says_what_it_is_on_its_own(self):
         """A tensors.safetensors separated from its card still identifies itself"""
@@ -174,6 +192,45 @@ class TestValidation(TestCase):
     def test_an_unknown_kind_is_an_error(self):
         with self.assertRaises(ArtifactError):
             tiny_circuit(kind="vibes").validate()
+
+    def test_a_metric_cannot_ship_without_the_definition_that_produced_it(self):
+        """'faithfulness' names two different quantities, so the number alone is not comparable"""
+        artifact = tiny_circuit(metrics={"faithfulness": Metric(0.9, "  ", "recovery")})
+        with self.assertRaises(ArtifactError) as caught:
+            artifact.validate()
+        self.assertIn("definition", str(caught.exception))
+
+    def test_an_unknown_structural_assumption_is_refused(self):
+        """Only assumptions that actually break the equivalence class may be claimed"""
+        with self.assertRaises(ArtifactError) as caught:
+            tiny_circuit(identifiability=["vibes"]).validate()
+        self.assertIn("vibes", str(caught.exception))
+
+class TestControls(TestCase):
+    """Controls ship even when empty, for the reason edges does
+
+    An artifact that ran no cross-task ablation and one that ran three have to
+    be distinguishable. Absence that is written down is a finding; absence
+    that is missing from the card reads as a question nobody thought to ask.
+    """
+
+    def test_an_empty_controls_block_is_still_written(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(storage.save(tiny_circuit(), str(Path(directory) / "demo.mia")))
+            manifest = json.loads((path / MANIFEST).read_text())
+        self.assertEqual(manifest["controls"], {"cross_task": [], "random_baseline": []})
+
+    def test_a_cross_task_ablation_comes_back(self):
+        """The check that a circuit is about its task and not shared infrastructure"""
+        controls = Controls(cross_task=[
+            Control(name="greater-than", metric="recovery", value=0.81, notes="ablating this circuit"),
+        ])
+        with tempfile.TemporaryDirectory() as directory:
+            path = storage.save(tiny_circuit(controls=controls), str(Path(directory) / "demo.mia"))
+            reloaded = storage.load(path)
+        self.assertEqual(reloaded.controls.cross_task[0].name, "greater-than")
+        self.assertAlmostEqual(reloaded.controls.cross_task[0].value, 0.81)
+        self.assertTrue(tiny_circuit().controls.empty)
 
 class TestReading(TestCase):
     def test_a_card_with_unknown_keys_is_refused(self):

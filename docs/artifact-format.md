@@ -1,4 +1,4 @@
-# MIA v0.1 — an envelope for interpretability results
+# MIA v0.2 — an envelope for interpretability results
 
 **Status:** implemented in this repository, proposed for discussion.
 **Reference implementation:** `src/share/schema.py` (the card), `src/share/storage.py` (the disk),
@@ -65,7 +65,7 @@ thing wearing the label, and `validate()` says so.
 ```json
 {
   "format": "mia",
-  "version": "0.1",
+  "version": "0.2",
   "kind": "circuit",
   "id": "ioi-abc-gpt2-small",
   "created_at": "2026-08-26T02:47:10Z",
@@ -82,8 +82,12 @@ thing wearing the label, and `validate()` says so.
   "measurement": {
     "method": "direct_logit_attribution + activation_patching, greedy search",
     "span":   { "metric": "logit_difference", "clean": 2.959, "corrupted": 0.406 },
-    "metrics": { "faithfulness": 0.919, "necessity": 1.160, "attribution_remainder": 1.7e-06 }
+    "metrics": { "faithfulness": { "value": 0.919, "units": "recovery",
+                                   "definition": "recovery of the clean logit difference when only these heads are restored" } },
+    "identifiability": []
   },
+
+  "controls": { "cross_task": [], "random_baseline": [] },
 
   "graph": {
     "nodes": [ { "id": "L9H9", "component": "head", "layer": 9, "head": 9,
@@ -102,7 +106,7 @@ thing wearing the label, and `validate()` says so.
   },
 
   "provenance": { "tool": "mi-lab", "git_commit": "0c248f7", "git_dirty": false,
-                  "torch": "2.13.0", "format_version": "0.1" },
+                  "torch": "2.13.0", "format_version": "0.2" },
 
   "notes": "…"
 }
@@ -111,7 +115,7 @@ thing wearing the label, and `validate()` says so.
 Unknown top-level keys are a load error, not a shrug. A key the reader does not understand
 is a claim it would otherwise silently drop.
 
-## The four decisions that make it loadable
+## The six decisions that make it loadable
 
 Everything above is bookkeeping except these. Each one is enforced by `validate()` and each
 one corresponds to a way a shared result is misread today.
@@ -147,7 +151,34 @@ the span is near zero.
 This generalizes past patching: any normalized score is a share of an interval somebody
 chose, and shipping it without that interval is shipping a percentage of an unstated whole.
 
-### 4. A circuit stores what *both* halves of the study said
+### 4. A metric stores the definition that produced it
+
+`faithfulness` names at least two quantities. Here it is the recovery of the clean logit
+difference when only the circuit's heads are restored into the corrupted run. In the
+faithfulness literature it is a normalized KL reproduction, `1 − E[KL(F‖F_C) / KL(F‖F_∅)]`.
+Both report as a fraction near 0.9. Neither is wrong. An artifact that says `0.919` and
+nothing else cannot be compared with either.
+
+So `metrics` is `{name: {value, definition, units}}` and `validate()` refuses an empty
+definition. `Metric` is to a number what `Payload` is to a tensor — v0.1 enforced this for
+every tensor and then let the headline claim travel as a bare float.
+
+### 5. A check that was not run says it was not run
+
+`controls.cross_task` and `controls.random_baseline` are always written, empty or not.
+
+A circuit measured only on its own task is not shown to be *about* that task: circuits at the
+head and MLP level overlap heavily, and ablating one task's circuit damages an unrelated task
+roughly as much as its own. Within-task faithfulness is therefore consistent with the circuit
+being general-purpose infrastructure. Likewise a steering direction is generically
+non-identifiable — an equivalence class of geometrically distinct directions produces the same
+behaviour — so `measurement.identifiability` names which structural assumptions (independence,
+sparsity, multi-environment, cross-layer consistency) were imposed, and `[]` says none were.
+
+Nothing here runs either check. That is the point of writing the empty list: an artifact that
+ran the ablation and one that never considered it must not be byte-identical.
+
+### 6. A circuit stores what *both* halves of the study said
 
 Direct logit attribution is correlational, exact, and blind to everything but the direct
 path. Activation patching is causal and expensive. **They disagree, and the disagreement is
@@ -196,7 +227,9 @@ from src.share import storage
 from src.share.converters.probe import to_probe
 
 circuit = storage.load("ioi-abc.mia")
-circuit.metrics["faithfulness"]                     # 0.919
+circuit.score("faithfulness")                       # 0.919
+circuit.metrics["faithfulness"].definition          # which faithfulness this is
+circuit.controls.empty                              # True: nothing was controlled for
 [node.id for node in circuit.circuit_heads]         # ['L10H7', 'L11H10', 'L8H6', ...]
 grid = circuit.tensors["residual_patch"]
 grid.values, grid.axes, grid.labels["position"]     # a redrawable heatmap
@@ -209,7 +242,7 @@ probe.score(activations)
 whole thing: a shared artifact that does not come back as a working object has shared
 nothing, whatever its manifest claims.
 
-## What v0.1 does not do
+## What v0.2 does not do
 
 Stated plainly, because a format's limits are load-bearing:
 
@@ -219,10 +252,14 @@ Stated plainly, because a format's limits are load-bearing:
 - **No SAE features.** Neuronpedia is the venue and per-feature dashboards are the payload;
   a `feature` kind belongs here but is not written yet.
 - **No content hash of the checkpoint.** `hf_name` + `revision` is what is recorded. Two
-  quantizations of one repo are indistinguishable in a v0.1 card.
+  quantizations of one repo are indistinguishable in a v0.2 card.
 - **One model per artifact.** Cross-model results (a direction that transfers, a circuit
   found in two models) need a shape this does not have.
 - **No signing, no registry.** This is a file layout, not a hub.
+- **No specificity, and no identifiability.** The slots exist; this repository fills both with
+  the empty list. Running a cross-task ablation needs a second task in the same harness, and
+  imposing a structural assumption on a steering fit is a change to how the direction is found,
+  not to how it is packaged. The format's contribution is that the absence is now legible.
 
 ## Why a directory rather than one file
 

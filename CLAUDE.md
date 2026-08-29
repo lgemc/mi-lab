@@ -279,7 +279,7 @@ get quietly wrong are all guarded:
 ### Sharing results
 
 `ioi_circuit` writes `circuit.mia` into its run directory and that is the artifact meant to leave
-the machine; `run.json` stays the record of what this machine did. Four rules are enforced by
+the machine; `run.json` stays the record of what this machine did. Six rules are enforced by
 `Artifact.validate()` and each one is a way a shared result gets misread:
 
 - **A tensor is never stored without its axes.** `Payload` keeps values, axis names and units
@@ -292,9 +292,21 @@ the machine; `run.json` stays the record of what this machine did. Four rules ar
   `circuits.baselines` refuses a span near zero.
 - **A circuit node keeps both `attribution` and `causal`.** Storing one summary score per
   component throws away the finding the second measurement exists to produce.
+- **A metric carries the definition that produced it.** `metrics` is `Dict[str, Metric]`, never
+  `Dict[str, float]`, and an empty `definition` raises. `faithfulness` here is a logit-difference
+  recovery under restoration; in the faithfulness literature it is a normalized KL reproduction.
+  Both report near 0.9. `Metric` is to a number what `Payload` is to a tensor.
+- **A check that was not run is written down as not run.** `controls.cross_task`,
+  `controls.random_baseline` and `measurement.identifiability` ship empty rather than absent, the
+  same way `edges` does — an artifact that ran a cross-task ablation and one that never considered
+  it must not be byte-identical.
 
 `edges` is in the schema and is empty: this repo measures which heads matter, not which head feeds
 which. An artifact that omitted the field would read as a circuit whose wiring nobody recorded.
+`controls` and `identifiability` are empty for the same reason and mean the same thing: nothing
+here ablates a circuit against a second task, and nothing imposes a structural assumption on a
+steering fit — so every circuit emitted is a within-task claim, and every direction is one member
+of a behaviourally indistinguishable class. `artifact check` warns on each.
 
 `open_probe` takes either a `.pt` or a `.mia`, so nothing that only *applies* a probe has to know
 which it was handed. That round trip is the test of the format — a shared artifact that does not
