@@ -1,11 +1,13 @@
 import json
+import shutil
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 from safetensors.torch import load_file, save_file
 
+from .migrate import explain, needs_upgrade, upgrade
 from .schema.artifact import Artifact
 from .schema.control import Control
 from .schema.controls import Controls
@@ -89,6 +91,11 @@ def from_manifest(manifest: Dict[str, Any], tensors: Dict[str, torch.Tensor]) ->
         )
     if manifest.get("format") != FORMAT:
         raise ArtifactError(f"not a {FORMAT} artifact: format is {manifest.get('format')!r}")
+    # checked before anything is built: an older card fails somewhere inside the
+    # construction otherwise, and the reader gets a TypeError about a mapping rather
+    # than the sentence that names the fix
+    if str(manifest.get("version", VERSION)) != VERSION:
+        raise ArtifactError(explain(manifest))
 
     measurement = manifest.get("measurement") or {}
     graph = manifest.get("graph") or {}
@@ -186,18 +193,54 @@ def load(path: str) -> Artifact:
         raise ArtifactError(f"{card} does not describe a {FORMAT} v{VERSION} artifact: {error}") from error
 
 def find_artifacts(root: str) -> List[Artifact]:
-    """Every artifact under a directory, skipping what does not read as one
+    """Every readable artifact under a directory
 
-    A directory that fails to load is skipped rather than fatal, the same way
-    a half-written run does not make a listing unusable.
+    A directory that fails to load is skipped rather than fatal, the same way a
+    half-written run does not make a listing unusable. Use `scan` when the
+    caller has somewhere to report the ones that were skipped -- silently
+    dropping an artifact that only needs upgrading is how a result goes missing.
+    """
+    return [artifact for artifact, _ in scan(root)[0]]
+
+def scan(root: str) -> Tuple[List[Tuple[Artifact, str]], List[Tuple[str, str]]]:
+    """Every artifact under a directory, and every one that would not read
+
+    Two lists: (artifact, path) for what loaded, and (path, reason) for what did
+    not. The second list is the point. A listing that quietly omits the artifact
+    you are looking for is worse than one that says it cannot read it, and the
+    common reason is a card one version behind, which is fixable in a command.
     """
     base = Path(root)
     if not base.is_dir():
-        return []
-    found = []
+        return [], []
+    found: List[Tuple[Artifact, str]] = []
+    problems: List[Tuple[str, str]] = []
     for directory in sorted(base.rglob(f"*{SUFFIX}")):
         try:
-            found.append(load(str(directory)))
-        except ArtifactError:
-            continue
-    return found
+            found.append((load(str(directory)), str(directory)))
+        except ArtifactError as error:
+            problems.append((str(directory), str(error)))
+    return found, problems
+
+def upgrade_in_place(path: str, out: Optional[str] = None) -> Tuple[str, list]:
+    """Rewrite an older card at the current version, reporting what it changed
+
+    The tensors are copied untouched: a migration moves the card forward and has
+    no business rewriting numbers.
+    """
+    source = Path(path)
+    card = source / MANIFEST
+    if not card.exists():
+        raise ArtifactError(f"no {MANIFEST} in {source}; a {FORMAT} artifact is a directory containing one")
+    manifest = json.loads(card.read_text())
+    if not needs_upgrade(manifest):
+        raise ArtifactError(f"{source} is already v{manifest.get('version')}; nothing to upgrade")
+
+    upgraded, changes = upgrade(manifest)
+    target = Path(out) if out else source
+    if target != source:
+        target.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source / TENSORS, target / TENSORS)
+    (target / MANIFEST).write_text(json.dumps(upgraded, indent=2, sort_keys=True))
+    load(str(target))  # the upgrade is only done if the result reads back
+    return str(target), changes

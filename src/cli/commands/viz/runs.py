@@ -23,7 +23,9 @@ app = typer.Typer(help="What a pile of runs adds up to.", cls=HelpfulGroup)
 def runs_compare(
     root: str = typer.Argument("outputs", help="Directory holding the experiment directories"),
     metric: str = typer.Option("best_auc", help="Metric to compare"),
-    group_by: str = typer.Option("experiment", "--group-by", help="'experiment', or a dotted path into the run's params"),
+    group_by: str = typer.Option(
+        "experiment", "--group-by", help="'experiment', or a dotted path into the run's params"
+    ),
     output: Path = typer.Option(Path("charts/runs-compare.png"), help="Where to save the chart"),
     show: bool = SHOW_OPTION,
 ):

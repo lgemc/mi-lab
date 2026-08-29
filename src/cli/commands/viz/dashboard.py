@@ -130,7 +130,8 @@ def dashboard(
         title=f"mi-lab: {adapter.cfg.id}",
         subtitle=f"{loaded.name} - {len(loaded)} examples, {loaded.balance:.0%} positive",
         provenance=[
-            f"{adapter.cfg.id} via {adapter.cfg.backend}: {adapter.cfg.n_layers} layers, d_model {adapter.cfg.d_model}, {adapter.cfg.dtype}",
+            f"{adapter.cfg.id} via {adapter.cfg.backend}: {adapter.cfg.n_layers} layers,"
+            f" d_model {adapter.cfg.d_model}, {adapter.cfg.dtype}",
             f"best probe: layer {best.layer} at depth {best.frac:.2f}, AUC {best.auc:.3f}",
             f"probe artifact {probe.n_bytes / 1024:.1f} KiB, scoring {cost.ms_per_item * 1000:.1f} us per activation",
         ],

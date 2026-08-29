@@ -1,0 +1,93 @@
+name: ci
+
+# Two signals, kept apart on purpose. `lint` and `tests-offline` need no
+# checkpoint and finish in under a minute; `tests-model` downloads GPT-2 small
+# and is the only job that can be red because Hugging Face was unreachable.
+# Folding them together would make a network blip look like a broken repo.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # --frozen everywhere: CI resolving something the lockfile does not name is a
+  # green run for code nobody has.
+  UV_FROZEN: "1"
+  UV_LINK_MODE: copy
+
+jobs:
+  lint:
+    name: ruff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      # Only the dev group, and not the project itself: ruff is the whole job,
+      # and installing torch to run it costs minutes for nothing.
+      - run: uv sync --only-group dev --no-install-project
+      - run: uv run --no-sync ruff check .
+      # `ruff format` has never been run over this repo, so `format --check`
+      # would fail on every file. Formatting is deliberately not a gate here;
+      # see the note in CLAUDE.md before changing that.
+
+  tests-offline:
+    name: tests (no checkpoint)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+      - run: uv sync
+      # Test modules are named after what they test (tests/spec.py, not
+      # tests/test_spec.py), so `unittest discover` finds nothing. The list is
+      # derived from the directory rather than written out, because a module
+      # missing from a hand-kept list does not fail — it silently never runs.
+      - name: The subset that needs no weights
+        run: |
+          uv run --no-sync python -m unittest \
+            tests.config tests.dataset tests.metrics tests.spec tests.run \
+            tests.prompts tests.torchdata tests.ioi tests.artifact tests.ie
+
+  tests-model:
+    name: tests (full, loads GPT-2 small)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+      - run: uv sync
+      - name: Cache the checkpoint
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-gpt2-small-${{ runner.os }}
+      - name: Every module under tests/
+        env:
+          HF_HUB_DISABLE_PROGRESS_BARS: "1"
+          TOKENIZERS_PARALLELISM: "false"
+        run: |
+          modules=$(uv run --no-sync python -c "
+          import pathlib
+          print(' '.join(sorted(
+              'tests.' + p.stem
+              for p in pathlib.Path('tests').glob('*.py')
+              if p.stem != '__init__'
+          )))")
+          echo "running: $modules"
+          uv run --no-sync python -m unittest $modules

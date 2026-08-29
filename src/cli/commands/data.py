@@ -35,7 +35,10 @@ def check(
     """
     data = load_labeled(path)
     negative, positive = data.label_names
-    typer.echo(f"{data.name}: {len(data)} examples, {data.positives} {positive} / {len(data) - data.positives} {negative}")
+    typer.echo(
+        f"{data.name}: {len(data)} examples, "
+        f"{data.positives} {positive} / {len(data) - data.positives} {negative}"
+    )
     typer.echo(f"balance: {data.balance:.0%} positive")
 
     if data.groups is not None:
@@ -56,7 +59,10 @@ def check(
 
     train, test = data.split(test_frac=test_frac, seed=seed)
     leaked = set(train.texts) & set(test.texts)
-    typer.echo(f"split at {test_frac}: train {len(train)} ({train.balance:.0%}) / test {len(test)} ({test.balance:.0%})")
+    typer.echo(
+        f"split at {test_frac}: train {len(train)} ({train.balance:.0%})"
+        f" / test {len(test)} ({test.balance:.0%})"
+    )
     if leaked:
         problems.append(f"{len(leaked)} texts appear on both sides of the split")
 

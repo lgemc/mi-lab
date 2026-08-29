@@ -5,6 +5,7 @@ import torch
 from ...core.config import ModelConfig
 from ...data.ioi import IOIDataset
 from ...methods.circuits import Attribution, CircuitReport, HeadEffects, HeadRoles, PatchGrid
+from ..definitions import describe
 from ..schema.artifact import Artifact
 from ..schema.controls import Controls
 from ..schema.metric import Metric
@@ -27,27 +28,6 @@ A common pipe could be: discover | verify | from_circuit | save
 """
 
 LOGIT_DIFFERENCE = "logit_difference"
-
-# What each number in the report actually is. `faithfulness` is the one that
-# has to be spelled out: it names a logit-difference recovery under
-# restoration here and a normalized KL reproduction in the faithfulness
-# literature, both land near 0.9, and they are not the same quantity.
-DEFINITIONS = {
-    "faithfulness": (
-        "recovery of the clean logit difference when only these heads are restored into the "
-        "corrupted run; 1.0 is the clean baseline, 0.0 the corrupted one"
-    ),
-    "necessity": (
-        "1 - the recovery left when these heads alone are corrupted in an otherwise clean run; "
-        "1.0 means the rest of the model does not do this without them"
-    ),
-    "n_heads": "how many heads the greedy search kept",
-    "threshold": "the smallest gain in cumulative recovery for which the search adds another head",
-    "attribution_remainder": (
-        "logit difference left over after summing every component's direct write through the frozen "
-        "unembedding; a receipt on the decomposition, not a result"
-    ),
-}
 
 def from_circuit(
     cfg: ModelConfig,
@@ -156,13 +136,14 @@ def from_circuit(
         },
         method="direct_logit_attribution + activation_patching, greedy search",
         metrics={
-            "faithfulness": Metric(report.faithfulness, DEFINITIONS["faithfulness"], "recovery"),
-            "necessity": Metric(report.necessity, DEFINITIONS["necessity"], "recovery"),
-            "n_heads": Metric(float(len(report.circuit)), DEFINITIONS["n_heads"], "heads"),
-            "threshold": Metric(report.circuit.threshold, DEFINITIONS["threshold"], "recovery"),
-            "attribution_remainder": Metric(
-                attribution.residual, DEFINITIONS["attribution_remainder"], "logits"
-            ),
+            name: Metric(value, *describe(name))
+            for name, value in (
+                ("faithfulness", report.faithfulness),
+                ("necessity", report.necessity),
+                ("n_heads", float(len(report.circuit))),
+                ("threshold", report.circuit.threshold),
+                ("attribution_remainder", attribution.residual),
+            )
         },
         span=span,
         # nothing here ablates this circuit against another task, so both slots ship

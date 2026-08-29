@@ -3,6 +3,7 @@ from typing import ClassVar, Dict, List
 
 from ...experiment.run import Run, RunError
 from ...share import storage
+from ...share.schema.errors import ArtifactError
 from ..view import Detail, Hint, Row, View
 
 """
@@ -40,14 +41,29 @@ def _walk(root: str):
     return sorted(found, key=lambda pair: pair[0].run_id, reverse=True)
 
 def _artifacts_in(directory: str):
-    """The .mia directories a run wrote, loaded so the listing can name them"""
-    found = []
+    """What a run shipped, as (loaded artifacts, ones that would not load)
+
+    The failures are carried rather than swallowed. A run that wrote a circuit
+    the reader cannot open is a different situation from a run that wrote
+    nothing, and telling you it shipped nothing when it shipped something
+    unreadable is the worst of the three answers.
+    """
+    found, problems = [], []
     for path in sorted(Path(directory).glob(f"*{storage.SUFFIX}")):
         try:
             found.append(storage.load(str(path)))
-        except Exception:
-            continue
-    return found
+        except ArtifactError as error:
+            problems.append((str(path), str(error)))
+    return found, problems
+
+def _shipped(found, unreadable) -> str:
+    """What the run produced, counting what will not open separately"""
+    parts = []
+    if found:
+        parts.append(f"{len(found)} .mia")
+    if unreadable:
+        parts.append(f"{len(unreadable)} unreadable")
+    return "  ".join(parts) or "-"
 
 class Runs(View):
     """Every run under the session root, newest first"""
@@ -63,14 +79,14 @@ class Runs(View):
         found = []
         for run, directory in _walk(self.session.root):
             summary = "  ".join(f"{name}={value:.3g}" for name, value in list(run.metrics.items())[:3])
-            shipped = _artifacts_in(directory)
+            shipped, unreadable = _artifacts_in(directory)
             found.append(Row(
                 key=run.run_id,
                 cells=(
                     run.status, run.run_id, run.experiment, run.kind, run.created_at[:19],
-                    f"{len(shipped)} .mia" if shipped else "-", summary,
+                    _shipped(shipped, unreadable), summary,
                 ),
-                payload=(run, directory, shipped),
+                payload=(run, directory, shipped, unreadable),
             ))
         return found
 
@@ -80,8 +96,11 @@ class Runs(View):
         if row is None:
             self.explorer.flash("nothing selected")
             return
-        run, _, shipped = row.payload
+        run, _, shipped, unreadable = row.payload
         if not shipped:
+            if unreadable:
+                self.explorer.flash(f"[!] {unreadable[0][1]}")
+                return
             self.explorer.flash(
                 f"{run.run_id} ({run.kind}) wrote no {storage.SUFFIX} -- only ioi_circuit does so far"
             )
@@ -100,7 +119,7 @@ class Runs(View):
         )
 
     def on_enter_row(self, row: Row) -> None:
-        run, directory, shipped = row.payload
+        run, directory, shipped, unreadable = row.payload
         record = {
             "run_id": run.run_id, "experiment": run.experiment, "kind": run.kind,
             "status": run.status, "spec_hash": run.spec_hash,
@@ -109,6 +128,7 @@ class Runs(View):
             "produced": [f"{ref.kind}:{ref.id}" for ref in run.produced],
             "directory": directory,
             "artifacts": [artifact.id for artifact in shipped] or "none -- press <a> for why",
+            "unreadable": [f"{path}: {reason}" for path, reason in unreadable] or "-",
         }
         record.update({f"param.{name}": value for name, value in run.params.items()})
         record.update({f"metric.{name}": value for name, value in run.metrics.items()})

@@ -58,7 +58,9 @@ def dataset_lengths(
     tokenize = None
     if config:
         tokenizer = tokenizer_of(load_adapter(config))
-        tokenize = lambda text: tokenizer(text)["input_ids"]
+
+        def tokenize(text):
+            return tokenizer(text)["input_ids"]
     save_chart(dataset_viz.plot_length_distribution(loaded, tokenize=tokenize), output, show)
 
 @app.command("tokens", cls=HelpfulCommand)

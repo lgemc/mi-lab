@@ -82,7 +82,8 @@ def plot_length_distribution(dataset, tokenize: Optional[Callable[[str], Sequenc
 
     means = {}
     for label, name in ((0, negative_name), (1, positive_name)):
-        lengths = [len(tokenize(text)) for text, value in zip(dataset.texts, dataset.labels, strict=True) if value == label]
+        pairs = zip(dataset.texts, dataset.labels, strict=True)
+        lengths = [len(tokenize(text)) for text, value in pairs if value == label]
         means[name] = sum(lengths) / len(lengths) if lengths else float("nan")
         sns.histplot(lengths, bins=20, ax=ax, color=colors[name], label=name, alpha=0.55, element="step")
 

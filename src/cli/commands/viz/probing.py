@@ -173,8 +173,12 @@ def probe_pareto(
     seed: int = SEED_OPTION,
     frac: float = typer.Option(0.65, help="Depth to fit every method at"),
     test_frac: float = typer.Option(0.3, help="Fraction held out"),
-    method: List[str] = typer.Option(["logistic", "difference_of_means"], "--method", help="Methods to measure; repeatable"),
-    point: List[str] = typer.Option([], "--point", help="An externally measured method as 'name,ms_per_item,auc'; repeatable"),
+    method: List[str] = typer.Option(
+        ["logistic", "difference_of_means"], "--method", help="Methods to measure; repeatable"
+    ),
+    point: List[str] = typer.Option(
+        [], "--point", help="An externally measured method as 'name,ms_per_item,auc'; repeatable"
+    ),
     output: Path = typer.Option(Path("charts/probe-pareto.png"), help="Where to save the chart"),
     show: bool = SHOW_OPTION,
 ):
@@ -188,7 +192,7 @@ def probe_pareto(
     loaded = load_dataset(data, size, seed)
     points = []
     for name in method:
-        probe, test_activations, test_set = probe_at(adapter, loaded, frac, test_frac, seed, name)
+        probe, test_activations, _ = probe_at(adapter, loaded, frac, test_frac, seed, name)
         cost = measure_scoring_cost(probe, test_activations)
         points.append((name, cost.ms_per_item, probe.metrics["auc"]))
         typer.echo(f"{name:<20} AUC {probe.metrics['auc']:.3f}  {cost.ms_per_item * 1000:.1f} us per activation")

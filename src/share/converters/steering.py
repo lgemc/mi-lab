@@ -3,6 +3,7 @@ from typing import Any, Dict, Optional, Sequence
 import torch
 
 from ...core.config import ModelConfig
+from ..definitions import describe
 from ..schema.artifact import Artifact
 from ..schema.controls import Controls
 from ..schema.metric import Metric
@@ -41,13 +42,7 @@ def from_steering(
     tensors = {
         "vector": Payload(values=vector.float(), axes=["d_model"], units="activation"),
     }
-    metrics: Dict[str, Metric] = {
-        "norm": Metric(
-            float(vector.float().norm()),
-            "L2 norm of the direction as stored, before it is scaled by a strength",
-            "activation",
-        )
-    }
+    metrics: Dict[str, Metric] = {"norm": Metric(float(vector.float().norm()), *describe("norm"))}
     if points:
         tensors["strengths"] = Payload(
             values=torch.tensor([point.strength for point in points]), axes=["point"], units="mean activation norms"
@@ -59,10 +54,7 @@ def from_steering(
             values=torch.tensor([point.fluency for point in points]), axes=["point"], units="non-repeated word share"
         )
         metrics["max_strength"] = Metric(
-            float(max(point.strength for point in points)),
-            "the largest strength the sweep visited, which is a range that was searched and not a ceiling "
-            "that was found",
-            "mean activation norms",
+            float(max(point.strength for point in points)), *describe("max_strength")
         )
 
     return Artifact(

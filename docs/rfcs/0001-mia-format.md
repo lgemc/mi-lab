@@ -767,6 +767,8 @@ Stated plainly, because a format's limits are load-bearing.
 - `artifact check` gains three warnings: a circuit with no cross-task ablation, a steering vector
   with no structural assumption, and a steering vector with no norm-matched random control.
 - `Artifact.score(name)` and `Artifact.metric_values` added for callers that want the number.
+- `share/definitions.py` holds the metric table both the converters and the migration read.
+- `artifact upgrade` moves a v0.1 card forward; `storage.scan` reports what would not load.
 
 **v0.1** — Initial specification.
 
@@ -783,6 +785,31 @@ Stated plainly, because a format's limits are load-bearing.
 - `Edge` — present and empty, so "found none" is distinguishable from "did not look".
 - Provenance carries `git_dirty` beside `git_commit`.
 - Unknown top-level keys are a load error.
+
+### Migration
+
+A version that is refused rather than negotiated strands every artifact written before the
+bump, so the refusal is only defensible with a way forward beside it:
+
+```bash
+python -m src.cli artifact upgrade circuit.mia              # writes circuit-v0.2.mia
+python -m src.cli artifact upgrade circuit.mia --in-place   # rewrites the card where it is
+```
+
+`share/migrate.py` moves a v0.1 card to v0.2 and prints every change. Metric definitions are
+**recovered** from `share/definitions.py` — the same table the converters write from, which is
+why it is a module with no imports rather than a copy inside each converter. A metric name that
+table does not know gets a definition saying the definition was never recorded, which is a true
+statement and the one the gate is actually asking; inventing a plausible sentence would defeat
+the check it is passing.
+
+The tensors are copied untouched: a migration moves the card and has no business rewriting
+numbers. An upgraded card carries `provenance.upgraded_from`, so a circuit that recorded no
+cross-task control stays distinguishable from one that never had the field.
+
+`storage.scan()` returns readable artifacts *and* the ones that would not load with the reason,
+and `artifact list` prints both. A listing that silently omits an artifact one version behind is
+how a result goes missing — which it did, here, until the explorer surfaced it.
 
 ### Compatibility policy
 

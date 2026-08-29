@@ -54,7 +54,8 @@ def _sweep_floor(values: Sequence[float]) -> float:
     """
     return min(0.4, min(values) - 0.05)
 
-def plot_layer_sweep(reports: Sequence, metric: str = "auc", ax=None, label: Optional[str] = None, color: Optional[str] = None):
+def plot_layer_sweep(reports: Sequence, metric: str = "auc", ax=None,
+                     label: Optional[str] = None, color: Optional[str] = None):
     """AUC (or accuracy) against depth, with the winning layer circled
 
     Plotted against depth fraction, not layer index, because that is the axis

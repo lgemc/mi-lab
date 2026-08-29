@@ -153,7 +153,10 @@ def scan(lines: Iterable[str], source: str = "<text>", meta: Optional[Dict[str, 
                     "the header describes the whole file and belongs at the top of it"
                 )
             if key not in HEADER_KEYS:
-                raise DatasetError(f"{source}:{number} sets unknown header '{key}'; known headers are {list(HEADER_KEYS)}")
+                raise DatasetError(
+                    f"{source}:{number} sets unknown header '{key}';"
+                    f" known headers are {list(HEADER_KEYS)}"
+                )
             if key in meta:
                 # the second one would win silently, and the file would say two things
                 raise DatasetError(f"{source}:{number} sets '{key}' twice; it was already set to {meta[key]!r}")

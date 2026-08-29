@@ -316,6 +316,16 @@ here ablates a circuit against a second task, and nothing imposes a structural a
 steering fit — so every circuit emitted is a within-task claim, and every direction is one member
 of a behaviourally indistinguishable class. `artifact check` warns on each.
 
+A version bump strands every artifact written before it, so `share/migrate.py` and
+`artifact upgrade` exist beside the refusal. Definitions are recovered from
+`share/definitions.py` — one table, read by both the converters and the migration — and a metric
+name it does not know gets a definition saying so rather than an invented one.
+
+**A listing must report what it could not read.** `storage.scan` returns the failures alongside
+the artifacts and `artifact list` prints both; `find_artifacts` keeps its skipping shape only for
+callers with nowhere to report. Three `except: continue` in the explorer once hid every v0.1
+artifact in `outputs/`, which looked exactly like a run that had produced nothing.
+
 `open_probe` takes either a `.pt` or a `.mia`, so nothing that only *applies* a probe has to know
 which it was handed. That round trip is the test of the format — a shared artifact that does not
 come back as a working object has shared nothing.

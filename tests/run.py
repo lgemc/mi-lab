@@ -12,7 +12,7 @@ afterwards, because those are the ones worth looking at.
 """
 
 def _run(**overrides) -> Run:
-    fields = dict(experiment="test", kind="probe_train", spec_hash="abc123abc123")
+    fields = {"experiment": "test", "kind": "probe_train", "spec_hash": "abc123abc123"}
     fields.update(overrides)
     return Run.start(**fields)
 

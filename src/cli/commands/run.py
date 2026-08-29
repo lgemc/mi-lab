@@ -72,7 +72,9 @@ def _report(spec, run, root: Optional[str]) -> None:
 def execute(
     preset: Optional[str] = PRESET_OPTION,
     set_: List[str] = SET_OPTION,
-    root: Optional[str] = typer.Option(None, "--root", help="Where to write the run; defaults to the spec's output.root"),
+    root: Optional[str] = typer.Option(
+        None, "--root", help="Where to write the run; defaults to the spec's output.root"
+    ),
 ):
     """Compose an experiment and run it"""
     spec = compose_spec(preset=preset, overrides=set_)

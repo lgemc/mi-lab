@@ -430,3 +430,80 @@ class TestVocabulary(TestCase):
         self.assertEqual(manifest["kind"], "circuit")
         self.assertEqual(manifest["site"]["component"], "head_out")
         self.assertEqual(manifest["graph"]["nodes"][0]["component"], "head")
+
+
+class TestMigration(TestCase):
+    """A version bump strands every artifact written before it, unless there is a way out
+
+    v0.2 refuses a v0.1 card on purpose -- a bare float is the defect it fixes.
+    That is only defensible with a migration beside it, and with a listing that
+    says an artifact needs upgrading rather than quietly omitting it.
+    """
+
+    def _v1_card(self, directory: str) -> Path:
+        """A v0.1 artifact: metrics as bare floats, no controls, no identifiability"""
+        path = Path(directory) / "old.mia"
+        storage.save(tiny_circuit(), str(path))
+        manifest = json.loads((path / MANIFEST).read_text())
+        manifest["version"] = "0.1"
+        manifest["measurement"]["metrics"] = {"faithfulness": 0.919, "homegrown": 0.5}
+        del manifest["measurement"]["identifiability"]
+        del manifest["controls"]
+        (path / MANIFEST).write_text(json.dumps(manifest))
+        return path
+
+    def test_an_old_card_names_the_command_that_fixes_it(self):
+        """The reader used to leak a TypeError about a mapping from inside the build"""
+        with tempfile.TemporaryDirectory() as directory, self.assertRaises(ArtifactError) as caught:
+            storage.load(str(self._v1_card(directory)))
+        message = str(caught.exception)
+        self.assertIn("0.1", message)
+        self.assertIn("artifact upgrade", message)
+
+    def test_upgrading_recovers_the_definitions_this_lab_wrote(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = self._v1_card(directory)
+            written, changes = storage.upgrade_in_place(str(path))
+            upgraded = storage.load(written)
+
+        self.assertEqual(upgraded.version, VERSION)
+        self.assertIn("restored", upgraded.metrics["faithfulness"].definition)
+        self.assertEqual(upgraded.metrics["faithfulness"].units, "recovery")
+        self.assertTrue(any("faithfulness" in line for line in changes))
+
+    def test_a_metric_it_does_not_know_says_the_definition_was_never_recorded(self):
+        """Inventing a plausible sentence would defeat the gate it is passing"""
+        with tempfile.TemporaryDirectory() as directory:
+            written, _ = storage.upgrade_in_place(str(self._v1_card(directory)))
+            upgraded = storage.load(written)
+        self.assertIn("not recorded", upgraded.metrics["homegrown"].definition)
+
+    def test_an_upgraded_card_says_it_was_upgraded(self):
+        """A circuit that recorded no control must stay distinguishable from one that could not"""
+        with tempfile.TemporaryDirectory() as directory:
+            written, _ = storage.upgrade_in_place(str(self._v1_card(directory)))
+            upgraded = storage.load(written)
+        self.assertEqual(upgraded.provenance["upgraded_from"], "0.1")
+        self.assertTrue(upgraded.controls.empty)
+
+    def test_scan_reports_what_it_could_not_read_instead_of_dropping_it(self):
+        with tempfile.TemporaryDirectory() as directory:
+            self._v1_card(directory)
+            storage.save(tiny_circuit(id="current"), str(Path(directory) / "new.mia"))
+            found, problems = storage.scan(directory)
+            # find_artifacts keeps its old shape for callers with nowhere to report;
+            # inside the block, because the directory goes away with it
+            readable = storage.find_artifacts(directory)
+
+        self.assertEqual([artifact.id for artifact, _ in found], ["current"])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("artifact upgrade", problems[0][1])
+        self.assertEqual(len(readable), 1)
+
+    def test_upgrading_something_current_says_there_is_nothing_to_do(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = str(Path(directory) / "new.mia")
+            storage.save(tiny_circuit(), path)
+            with self.assertRaises(ArtifactError) as caught:
+                storage.upgrade_in_place(path)
+        self.assertIn("already", str(caught.exception))

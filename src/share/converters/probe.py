@@ -5,6 +5,7 @@ import torch
 
 from ...core.config import ModelConfig
 from ...methods.probing import LinearProbe
+from ..definitions import describe
 from ..schema.artifact import Artifact
 from ..schema.metric import Metric
 from ..schema.payload import Payload
@@ -22,24 +23,6 @@ back as a working object has shared nothing.
 
 A common pipe could be: train_probe | from_probe | save | load | to_probe
 """
-
-# What a probe's numbers are, so a shared one is comparable with a shared one
-# from somewhere else. Anything a caller added that is not here is packaged
-# with its method named as the definition, which is weak but true -- and
-# visible, which is the point of the field.
-DEFINITIONS = {
-    "auc": ("area under the ROC curve of the probe's score against the held-out labels", "auc"),
-    "accuracy": ("share of held-out examples the probe scores on the correct side of zero", "share"),
-    "n": ("held-out examples the other metrics were measured over", "examples"),
-    "train_loss": ("final training objective on the fitting set, not a held-out number", "loss"),
-}
-
-def _metric(name: str, value: float, method: str) -> Metric:
-    """Package one of a probe's numbers with what it is, refusing to ship a bare float"""
-    definition, units = DEFINITIONS.get(
-        name, (f"unstated by the tool that measured it; recorded by '{method}' as '{name}'", "unspecified")
-    )
-    return Metric(value=float(value), definition=definition, units=units)
 
 def from_probe(probe: LinearProbe, cfg: Optional[ModelConfig] = None, name: Optional[str] = None) -> Artifact:
     """Package a probe as something another lab can actually apply
@@ -66,7 +49,10 @@ def from_probe(probe: LinearProbe, cfg: Optional[ModelConfig] = None, name: Opti
         site=Site.at([probe.layer], depth, position=probe.position),
         task={"name": probe.dataset},
         method=probe.method,
-        metrics={name: _metric(name, value, probe.method) for name, value in probe.metrics.items()},
+        metrics={
+            name: Metric(float(value), *describe(name, probe.method))
+            for name, value in probe.metrics.items()
+        },
         tensors={
             "weight": Payload(values=probe.weight.float(), axes=["d_model"], units="standardized"),
             "bias": Payload(values=torch.tensor(float(probe.bias)), axes=[], units="logits"),

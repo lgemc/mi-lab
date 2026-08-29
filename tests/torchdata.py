@@ -117,9 +117,8 @@ class TestPromptLoader(TestCase):
 
 class TestStreamingPrompts(TestCase):
     def setUp(self):
-        handle = tempfile.NamedTemporaryFile("w", suffix=".prompts", delete=False)
-        handle.write(SET)
-        handle.close()
+        with tempfile.NamedTemporaryFile("w", suffix=".prompts", delete=False) as handle:
+            handle.write(SET)
         self.path = handle.name
 
     def test_it_reads_the_whole_file_in_order(self):

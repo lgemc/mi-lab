@@ -1,6 +1,7 @@
 import tempfile
 from pathlib import Path
-from unittest import TestCase
+from typing import Optional
+from unittest import SkipTest, TestCase
 
 from src.experiment.run import Run, find_runs
 from src.experiment.runner import EXPERIMENTS, register_experiment, run_directory, run_experiment
@@ -16,7 +17,7 @@ The failure path gets the same treatment. A run that raises must still be on
 disk afterwards, marked failed, with the reason recorded.
 """
 
-def _tiny(root: str, overrides: dict = None):
+def _tiny(root: str, overrides: Optional[dict] = None):
     """A spec small enough to run in a unit test, on the cached laptop model
 
     Keyed by dotted path rather than held as a set of strings: with a set, a
@@ -39,7 +40,7 @@ class RunnerTestCase(TestCase):
 
             load_adapter("gpt2-small")
         except Exception:
-            raise cls.skipTest(cls, "gpt2-small is not available; run once with network access")
+            raise SkipTest("gpt2-small is not available; run once with network access") from None
 
 class TestProbeTrain(RunnerTestCase):
     def test_a_completed_run_leaves_everything_needed_to_read_it(self):

@@ -8,6 +8,7 @@ from ...share import storage
 from ...share.converters.probe import from_probe
 from ...share.schema.artifact import Artifact
 from ...share.schema.errors import ArtifactError
+from ...share.schema.version import VERSION
 from ..common import HelpfulCommand, HelpfulGroup
 
 """
@@ -155,12 +156,52 @@ def check(path: str = PATH_ARGUMENT):
 @app.command("list", cls=HelpfulCommand)
 def list_artifacts(root: str = typer.Argument("outputs", help="Directory to search for artifacts")):
     """Every artifact under a directory, one line each"""
-    found = storage.find_artifacts(root)
-    if not found:
+    found, problems = storage.scan(root)
+    if not found and not problems:
         typer.echo(f"no {storage.SUFFIX} artifacts under {root}")
         raise typer.Exit(code=1)
-    for artifact in found:
-        typer.echo(f"{artifact.kind:<16} {artifact.id:<40} {artifact.model.id:<14} {artifact.n_bytes / 1024:>8.1f} KiB")
+    for artifact, _ in found:
+        typer.echo(
+            f"{artifact.kind.value:<16} {artifact.id:<40} {artifact.model.id:<14} "
+            f"{artifact.n_bytes / 1024:>8.1f} KiB"
+        )
+    # reported rather than skipped: an artifact that is one version behind is still
+    # your result, and a listing that quietly omits it is how it goes missing
+    for path, reason in problems:
+        typer.echo(f"{'unreadable':<16} {path}", err=True)
+        typer.echo(f"{'':<16}   {reason}", err=True)
+
+@app.command("upgrade", cls=HelpfulCommand)
+def upgrade(
+    path: str = PATH_ARGUMENT,
+    out: Optional[Path] = typer.Option(
+        None, "--out", help="Where to write the upgraded artifact; defaults beside the original"
+    ),
+    in_place: bool = typer.Option(False, "--in-place", help="Rewrite the card where it is"),
+):
+    """Move an older card forward to the version this reader implements
+
+    The format refuses a version it does not implement rather than guessing,
+    which leaves artifacts written last week unreadable today. This is the way
+    out, and it says what it changed rather than editing a result silently.
+
+    The tensors are copied untouched: a migration moves the card and has no
+    business rewriting numbers.
+    """
+    source = Path(path)
+    beside = source.with_name(f"{source.name.removesuffix(storage.SUFFIX)}-v{VERSION}{storage.SUFFIX}")
+    target = None if in_place else str(out or beside)
+    try:
+        written, changes = storage.upgrade_in_place(path, out=target)
+    except ArtifactError as error:
+        typer.echo(f"error: {error}", err=True)
+        raise typer.Exit(code=1) from error
+
+    for change in changes:
+        typer.echo(f"  {change}")
+    typer.echo(f"wrote {written}")
+    if not in_place:
+        typer.echo(f"the original at {source} is untouched")
 
 @app.command("pack", cls=HelpfulCommand)
 def pack(

@@ -145,9 +145,8 @@ class TestLabelNames(TestCase):
 
 class TestLoadJsonl(TestCase):
     def _write(self, rows) -> str:
-        handle = tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False)
-        handle.write("\n".join(json.dumps(row) for row in rows))
-        handle.close()
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as handle:
+            handle.write("\n".join(json.dumps(row) for row in rows))
         return handle.name
 
     def test_reads_texts_and_labels(self):

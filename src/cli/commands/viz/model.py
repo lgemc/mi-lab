@@ -27,7 +27,9 @@ app = typer.Typer(help="What a config resolves to, and how models compare in sha
 
 @app.command("ruler", cls=HelpfulCommand)
 def model_ruler(
-    config: List[str] = typer.Option([], "--config", "-c", help="Config to include; repeatable, defaults to all presets"),
+    config: List[str] = typer.Option(
+        [], "--config", "-c", help="Config to include; repeatable, defaults to all presets"
+    ),
     frac: List[float] = typer.Option([], "--frac", help="Depth fraction(s) to mark; defaults to six"),
     load: bool = typer.Option(True, help="Load checkpoints to resolve layer counts the configs do not state"),
     output: Path = typer.Option(Path("charts/depth-ruler.png"), help="Where to save the chart"),
@@ -44,7 +46,9 @@ def model_ruler(
 
 @app.command("shape", cls=HelpfulCommand)
 def model_shape(
-    config: List[str] = typer.Option([], "--config", "-c", help="Config to include; repeatable, defaults to all presets"),
+    config: List[str] = typer.Option(
+        [], "--config", "-c", help="Config to include; repeatable, defaults to all presets"
+    ),
     load: bool = typer.Option(True, help="Load checkpoints to resolve sizes the configs do not state"),
     output: Path = typer.Option(Path("charts/model-shape.png"), help="Where to save the chart"),
     show: bool = SHOW_OPTION,

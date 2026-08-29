@@ -118,7 +118,8 @@ def plot_shape(configs: Sequence, ax=None):
     # area of the residual stream is what a capture actually costs to hold
     sizes = [0.0006 * width * depth for width, depth in zip(widths, depths, strict=True)]
 
-    scatter = ax.scatter(widths, depths, s=sizes, c=[width * depth for width, depth in zip(widths, depths, strict=True)],
+    areas = [width * depth for width, depth in zip(widths, depths, strict=True)]
+    scatter = ax.scatter(widths, depths, s=sizes, c=areas,
                          cmap=SEQUENTIAL, alpha=0.75, edgecolors="white", linewidths=1.5)
     for cfg in configs:
         ax.annotate(cfg.id, (cfg.d_model, cfg.n_layers), textcoords="offset points",

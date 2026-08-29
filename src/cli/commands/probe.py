@@ -71,7 +71,10 @@ def train(
 
     typer.echo(f"layer {layer} of {adapter.cfg.n_layers} (depth {frac})  train={len(train_set)} test={len(test_set)}")
     typer.echo(f"logistic probe     AUC {trained['auc']:.3f}  accuracy {trained['accuracy']:.3f}")
-    typer.echo(f"difference of means AUC {reference['auc']:.3f}  accuracy {reference['accuracy']:.3f}  (baseline, no training)")
+    typer.echo(
+        f"difference of means AUC {reference['auc']:.3f}"
+        f"  accuracy {reference['accuracy']:.3f}  (baseline, no training)"
+    )
     typer.echo(f"artifact: {probe.n_bytes / 1024:.1f} KiB   scoring: {cost.ms_per_item * 1000:.1f} us per activation")
     if trained["auc"] <= reference["auc"]:
         typer.echo("note: the trained probe did not beat the untrained baseline here", err=True)

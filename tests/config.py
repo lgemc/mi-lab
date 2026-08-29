@@ -18,7 +18,7 @@ checkpoint, so they are the ones that must never be slow or skipped.
 """
 
 def _cfg(**overrides) -> ModelConfig:
-    fields = dict(id="test", backend="transformers", hf_name="gpt2", n_layers=12, d_model=768)
+    fields = {"id": "test", "backend": "transformers", "hf_name": "gpt2", "n_layers": 12, "d_model": 768}
     fields.update(overrides)
     return ModelConfig(**fields)
 

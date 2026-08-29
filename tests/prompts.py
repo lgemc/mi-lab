@@ -30,7 +30,10 @@ class TestParse(TestCase):
         self.data = parse(SET)
 
     def test_the_sigil_is_the_label(self):
-        self.assertEqual(["I loved it", "I hated it", "The Golden Gate Bridge is lovely", "The bridge is lovely"], self.data.texts)
+        self.assertEqual(
+            ["I loved it", "I hated it", "The Golden Gate Bridge is lovely", "The bridge is lovely"],
+            self.data.texts,
+        )
         self.assertEqual([1, 0, 1, 0], self.data.labels)
 
     def test_the_header_names_the_set_and_its_labels(self):
@@ -151,9 +154,8 @@ class TestLimit(TestCase):
 
 class TestFiles(TestCase):
     def _write(self, text: str, suffix: str = ".prompts") -> str:
-        handle = tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False)
-        handle.write(text)
-        handle.close()
+        with tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False) as handle:
+            handle.write(text)
         return handle.name
 
     def test_the_filename_names_the_set_when_the_header_does_not(self):

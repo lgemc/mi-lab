@@ -38,7 +38,9 @@ app = typer.Typer(help="What came out of capture: norms, geometry, drift.", cls=
 @app.command("norms", cls=HelpfulCommand)
 def act_norms(
     config: str = CONFIG_ARGUMENT,
-    prompt: List[str] = typer.Option([], "--prompt", "-p", help="Prompt to capture; repeatable, defaults to the dataset"),
+    prompt: List[str] = typer.Option(
+        [], "--prompt", "-p", help="Prompt to capture; repeatable, defaults to the dataset"
+    ),
     data: Optional[str] = DATA_OPTION,
     size: int = typer.Option(40, "--size", help="Examples to use when falling back to the synthetic set"),
     seed: int = SEED_OPTION,
@@ -125,7 +127,9 @@ def act_pca(
 @app.command("similarity", cls=HelpfulCommand)
 def act_similarity(
     config: str = CONFIG_ARGUMENT,
-    prompt: List[str] = typer.Option([], "--prompt", "-p", help="Prompt to capture; repeatable, defaults to the dataset"),
+    prompt: List[str] = typer.Option(
+        [], "--prompt", "-p", help="Prompt to capture; repeatable, defaults to the dataset"
+    ),
     data: Optional[str] = DATA_OPTION,
     size: int = typer.Option(40, "--size", help="Examples to use when falling back to the synthetic set"),
     seed: int = SEED_OPTION,
@@ -146,8 +150,12 @@ def act_similarity(
 @app.command("drift", cls=HelpfulCommand)
 def act_drift(
     config: str = CONFIG_ARGUMENT,
-    against: str = typer.Option(..., "--against", help="The config to compare it with, same prompts, same layers"),
-    prompt: List[str] = typer.Option([], "--prompt", "-p", help="Prompt to capture; repeatable, defaults to the dataset"),
+    against: str = typer.Option(
+        ..., "--against", help="The config to compare it with, same prompts, same layers"
+    ),
+    prompt: List[str] = typer.Option(
+        [], "--prompt", "-p", help="Prompt to capture; repeatable, defaults to the dataset"
+    ),
     data: Optional[str] = DATA_OPTION,
     size: int = typer.Option(40, "--size", help="Examples to use when falling back to the synthetic set"),
     seed: int = SEED_OPTION,

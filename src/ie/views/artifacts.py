@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import ClassVar, Dict, List
 
 from ...share import storage
+from ...share.schema.errors import ArtifactError
 from ..view import Detail, Hint, Row, View
 
 """
@@ -28,11 +29,18 @@ class Artifacts(View):
     keys: ClassVar[Dict[str, str]] = {"n": "open_nodes", "t": "open_tensors"}
 
     def rows(self) -> List[Row]:
-        found = []
-        for artifact in self._found():
+        found, problems = self._found()
+        # an artifact that will not read is listed with the reason rather than dropped:
+        # the common reason is a card one version behind, which is fixable in a command,
+        # and a listing that quietly omits your result is how it goes missing
+        rows = [
+            Row(key=path, cells=("[!]", Path(path).name, "-", "-", "-", _why(reason)), tone="error")
+            for path, reason in problems
+        ]
+        for artifact in found:
             site = artifact.site
             where = f"{site.component.value} x{len(site.layers)}L" if site.layers else "-"
-            found.append(Row(
+            rows.append(Row(
                 key=artifact.id,
                 cells=(
                     artifact.kind.value, artifact.id, artifact.model.id, where,
@@ -40,18 +48,20 @@ class Artifacts(View):
                 ),
                 payload=artifact,
             ))
-        return found
+        return rows
 
     def _found(self):
-        """Artifacts under the root, plus any sitting in the working directory"""
-        seen = storage.find_artifacts(self.session.root)
-        here = [path for path in Path().glob(f"*{storage.SUFFIX}") if path.is_dir()]
-        for path in here:
+        """Artifacts under the root and in the working directory, readable or not"""
+        scanned, problems = storage.scan(self.session.root)
+        seen = [artifact for artifact, _ in scanned]
+        for path in Path().glob(f"*{storage.SUFFIX}"):
+            if not path.is_dir():
+                continue
             try:
                 seen.append(storage.load(str(path)))
-            except Exception:
-                continue
-        return seen
+            except ArtifactError as error:
+                problems.append((str(path), str(error)))
+        return seen, problems
 
     def _empty_note(self) -> str:
         if self.filter:
@@ -84,6 +94,10 @@ class Artifacts(View):
 
     def detail(self, row: Row):
         return None if row.payload is None else _card(row.payload)
+
+def _why(reason: str) -> str:
+    """The reason a card would not read, short enough for a column"""
+    return reason.split(";")[0] if ";" in reason else reason[:70]
 
 def _flags(artifact) -> List[str]:
     """The `artifact check` warnings, as short marks that fit in a column"""

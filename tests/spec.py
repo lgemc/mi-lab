@@ -21,9 +21,8 @@ rather than a line that quietly did nothing.
 """
 
 def _write(text: str) -> str:
-    handle = tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False)
-    handle.write(text)
-    handle.close()
+    with tempfile.NamedTemporaryFile("w", suffix=".yaml", delete=False) as handle:
+        handle.write(text)
     return handle.name
 
 class TestComposition(TestCase):
