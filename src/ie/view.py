@@ -123,8 +123,14 @@ class View(Vertical):
 
         shown = [row for row in self._rows if self._matches(row)]
         self._table.clear()
-        for row in shown:
-            self._table.add_row(*[cell_text(cell) for cell in row.cells], key=row.key)
+        for index, row in enumerate(shown):
+            # the position is what makes the table key unique, not the row's own key: an
+            # artifact id is derived from its dataset and model, so two runs of one
+            # experiment produce the same id, and a DataTable refuses a duplicate key by
+            # raising. Selection is by cursor position anyway, so nothing here needs the
+            # row's identity -- and no view should be able to take the app down by having
+            # two of something.
+            self._table.add_row(*[cell_text(cell) for cell in row.cells], key=f"{index}:{row.key}")
         self.set_note(self._error or ("" if shown else self._empty_note()))
         if shown and cursor is not None:
             self._table.move_cursor(row=min(cursor, len(shown) - 1))

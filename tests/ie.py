@@ -334,6 +334,75 @@ class TestReachingTheNumbers(TestCase):
             grid.rows()
         self.assertIn("3 axes", str(caught.exception))
 
+class TestDuplicateIds(TestCase):
+    """Two runs of one experiment ship two artifacts with the same id
+
+    The id is <dataset>-<model>, so it is not unique and was never meant to be.
+    A table keyed on it raises DuplicateKey and takes the whole app down on the
+    second row -- which is what happened the first time this was pointed at a
+    real outputs directory with two ioi-circuit runs in it.
+    """
+
+    def _two_runs(self, directory: str) -> str:
+        import torch
+
+        from src.core.config import ModelConfig
+        from src.share import storage
+        from src.share.schema.artifact import Artifact
+        from src.share.schema.model import ModelRef
+        from src.share.schema.payload import Payload
+        from src.share.schema.site import Site
+        from src.share.schema.span import Span
+        from src.share.schema.vocabulary import Component, Kind, Position
+
+        cfg = ModelConfig(id="tiny", backend="transformers", hf_name="none/tiny",
+                          n_layers=4, d_model=6, n_heads=3)
+        for run in ("20260826-aaa", "20260827-bbb"):
+            where = Path(directory) / "ioi-circuit" / run
+            where.mkdir(parents=True)
+            (where / "run.json").write_text(json.dumps({
+                "run_id": run, "experiment": "ioi-circuit", "kind": "ioi_circuit",
+                "spec_hash": "abc", "status": "completed", "params": {}, "metrics": {},
+                "produced": [], "created_at": f"{run}Z", "finished_at": None, "error": None,
+            }))
+            storage.save(Artifact(
+                kind=Kind.CIRCUIT, id="ioi-abc-tiny", model=ModelRef.from_config(cfg),
+                site=Site.at(range(4), 4, component=Component.HEAD_OUT, position=Position.ALL),
+                span=Span("logit_difference", 3.0, 0.5),
+                tensors={
+                    "head_attribution": Payload(torch.zeros(4, 3), ["layer", "head"], "logits"),
+                    "head_effects": Payload(torch.zeros(4, 3), ["layer", "head"], "recovery"),
+                },
+            ), str(where / "circuit.mia"))
+        return directory
+
+    def test_two_artifacts_with_one_id_both_list(self):
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=self._two_runs(directory)), start="artifacts")
+                async with app.run_test(size=(170, 40)) as pilot:
+                    await pilot.pause()
+                    view = app.current()
+                    return view.count, [row.cells[-1] for row in view.visible]
+        count, where = _run(drive())
+        self.assertEqual(count, "2")
+        # the run directory is what tells them apart, and it is on the row
+        self.assertEqual(where, ["20260826-aaa", "20260827-bbb"])
+
+    def test_a_view_with_repeated_keys_does_not_take_the_app_down(self):
+        """The table key is the position, so a view cannot crash it by having two"""
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=directory), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    view = app.current()
+                    view.rows = lambda: [Row(key="same", cells=("a",)), Row(key="same", cells=("b",))]
+                    view.reload()
+                    await pilot.pause()
+                    return view.count
+        self.assertEqual(_run(drive()), "2")
+
 class TestCells(TestCase):
     def test_an_enum_renders_as_its_wire_value(self):
         """(str, Enum) formats as 'Kind.CIRCUIT'; the artifacts table shipped that once"""

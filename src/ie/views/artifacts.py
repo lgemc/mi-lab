@@ -24,7 +24,7 @@ class Artifacts(View):
     """Every .mia under the session root, and what a reader could not trust about it"""
 
     title = "artifacts"
-    columns = ("kind", "id", "model", "site", "size", "flags")
+    columns = ("kind", "id", "model", "site", "size", "flags", "where")
     hints = (Hint("enter", "card"), Hint("n", "nodes"), Hint("t", "tensors"))
     keys: ClassVar[Dict[str, str]] = {"n": "open_nodes", "t": "open_tensors"}
 
@@ -34,17 +34,21 @@ class Artifacts(View):
         # the common reason is a card one version behind, which is fixable in a command,
         # and a listing that quietly omits your result is how it goes missing
         rows = [
-            Row(key=path, cells=("[!]", Path(path).name, "-", "-", "-", _why(reason)), tone="error")
+            Row(key=path, cells=("[!]", Path(path).name, "-", "-", "-", _why(reason), _where(path)),
+                tone="error")
             for path, reason in problems
         ]
-        for artifact in found:
+        for artifact, path in found:
             site = artifact.site
             where = f"{site.component.value} x{len(site.layers)}L" if site.layers else "-"
+            # keyed by path, not id: the id is <dataset>-<model>, so every run of one
+            # experiment produces the same one and a listing of them by id is a list of
+            # rows nobody can tell apart
             rows.append(Row(
-                key=artifact.id,
+                key=path,
                 cells=(
                     artifact.kind.value, artifact.id, artifact.model.id, where,
-                    f"{artifact.n_bytes / 1024:.1f}K", " ".join(_flags(artifact)),
+                    f"{artifact.n_bytes / 1024:.1f}K", " ".join(_flags(artifact)), _where(path),
                 ),
                 payload=artifact,
             ))
@@ -52,13 +56,12 @@ class Artifacts(View):
 
     def _found(self):
         """Artifacts under the root and in the working directory, readable or not"""
-        scanned, problems = storage.scan(self.session.root)
-        seen = [artifact for artifact, _ in scanned]
+        seen, problems = storage.scan(self.session.root)
         for path in Path().glob(f"*{storage.SUFFIX}"):
             if not path.is_dir():
                 continue
             try:
-                seen.append(storage.load(str(path)))
+                seen.append((storage.load(str(path)), str(path)))
             except ArtifactError as error:
                 problems.append((str(path), str(error)))
         return seen, problems
@@ -94,6 +97,11 @@ class Artifacts(View):
 
     def detail(self, row: Row):
         return None if row.payload is None else _card(row.payload)
+
+def _where(path: str) -> str:
+    """The run this artifact came out of, which is what tells two of them apart"""
+    parent = Path(path).parent.name
+    return parent or str(Path(path).parent)
 
 def _why(reason: str) -> str:
     """The reason a card would not read, short enough for a column"""
