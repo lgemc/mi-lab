@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, ClassVar, Dict, List, Optional, Sequence
 
 from textual.containers import Vertical
 from textual.widgets import DataTable, Static
@@ -53,6 +53,12 @@ class View(Vertical):
     columns: Sequence[str] = ()
     needs_model = False
     hints: Sequence[Hint] = ()
+
+    # key -> method on this view. Declared rather than bound on the app, because a
+    # key that means something here and nothing elsewhere belongs to the view that
+    # answers it -- and because the footer hints were advertising keys that no code
+    # implemented, which is worse than not offering them.
+    keys: ClassVar[Dict[str, str]] = {}
 
     DEFAULT_CSS = """
     View { height: 1fr; }
@@ -149,6 +155,39 @@ class View(Vertical):
     @property
     def visible(self) -> List[Row]:
         return [row for row in self._rows if self._matches(row)]
+
+    def drill(self) -> None:
+        """Act on the selected row, whatever asked -- a keypress or the table itself
+
+        Enter arrives here as a DataTable.RowSelected message rather than as a
+        key binding, because the focused DataTable binds enter to its own
+        select_cursor and consumes it. An app-level binding for enter looks
+        right, shows up in the footer, and never fires.
+        """
+        row = self.selected()
+        if row is None:
+            self.explorer.flash("nothing selected")
+            return
+        try:
+            self.on_enter_row(row)
+        except Exception as error:  # same promise as reload: report, never take the app down
+            self.explorer.flash(f"[!] {error}")
+
+    def on_key(self, event) -> None:
+        """Dispatch this view's own keys, which bubble up from the focused table"""
+        handler = self.keys.get(event.key)
+        if handler is None:
+            return
+        event.stop()
+        try:
+            getattr(self, handler)()
+        except Exception as error:  # a view key must report a failure, never take the app down
+            self.explorer.flash(f"[!] {error}")
+
+    def on_data_table_row_selected(self, event: DataTable.RowSelected) -> None:
+        """Enter on the table, which is the only way enter actually reaches a view"""
+        event.stop()
+        self.drill()
 
     def selected(self) -> Optional[Row]:
         """The row under the cursor, or None when the table is empty"""

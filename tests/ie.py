@@ -10,6 +10,7 @@ from src.ie.command import parse
 from src.ie.session import Session
 from src.ie.stack import PageStack
 from src.ie.view import Row, View, cell_text
+from src.ie.views.grid import Grid
 
 """
 The explorer is tested without a checkpoint, because everything structural
@@ -130,13 +131,20 @@ class TestExplorer(TestCase):
         self.assertEqual(_run(drive()), "help")
 
     def test_a_run_shows_up_and_drills_into_its_record(self):
+        """Driven by the actual keypress: enter reaches a view by a route worth testing
+
+        The first version of this called on_enter_row directly and passed while
+        pressing enter in a real terminal did nothing at all -- the focused
+        DataTable binds enter to its own action and consumes it.
+        """
         async def drive():
             with tempfile.TemporaryDirectory() as directory:
                 app = Explorer(session=Refuses(root=_outputs(directory)), start="runs")
                 async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()   # the table is focused a frame after the mount
                     view = app.current()
                     self.assertEqual(len(view.visible), 1)
-                    view.on_enter_row(view.visible[0])
+                    await pilot.press("enter")
                     await pilot.pause()
                     return app.stack.breadcrumb(), dict(app.current().record)
         crumb, record = _run(drive())
@@ -168,6 +176,26 @@ class TestExplorer(TestCase):
                     return app.last_flash
         self.assertIn("artifacts", _run(drive()))
 
+    def test_every_key_the_footer_advertises_actually_fires(self):
+        """A binding that is shadowed by a focused widget still shows in the footer"""
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=_outputs(directory)), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()   # the table is focused a frame after the mount
+                    await pilot.press("y")            # the record behind the row
+                    await pilot.pause()
+                    opened = app.stack.breadcrumb()
+                    await pilot.press("escape")       # back out of it
+                    await pilot.pause()
+                    await pilot.press("r")            # refresh in place
+                    await pilot.pause()
+                    return opened, app.stack.breadcrumb(), app.last_flash
+        opened, crumb, flash = _run(drive())
+        self.assertIn("runs/", opened)
+        self.assertEqual(crumb, "runs")
+        self.assertIn("reloaded", flash)
+
     def test_a_filter_narrows_and_escape_clears_it(self):
         async def drive():
             with tempfile.TemporaryDirectory() as directory:
@@ -184,6 +212,127 @@ class TestExplorer(TestCase):
         self.assertEqual(narrowed, "0/1")
         self.assertEqual(restored, "1")
         self.assertEqual(crumb, "runs")
+
+class TestReachingTheNumbers(TestCase):
+    """A run has to reach what it produced, and an artifact has to show its grids
+
+    These are the paths that were missing: a circuit run wrote a .mia beside its
+    run.json and the explorer could list the run, list the artifact, and never
+    connect the two -- and the tensor view described a layer-by-head grid
+    without ever showing one.
+    """
+
+    def _with_artifact(self, directory: str) -> str:
+        """A run directory holding a run and the circuit artifact it shipped"""
+        import torch
+
+        from src.core.config import ModelConfig
+        from src.share import storage
+        from src.share.schema.artifact import Artifact
+        from src.share.schema.metric import Metric
+        from src.share.schema.model import ModelRef
+        from src.share.schema.node import Node
+        from src.share.schema.payload import Payload
+        from src.share.schema.site import Site
+        from src.share.schema.span import Span
+        from src.share.schema.vocabulary import Component, Kind, NodeComponent, Position
+
+        root = _outputs(directory)
+        run = next(Path(root).rglob("run.json")).parent
+        cfg = ModelConfig(id="tiny", backend="transformers", hf_name="none/tiny",
+                          n_layers=4, d_model=6, n_heads=3)
+        storage.save(Artifact(
+            kind=Kind.CIRCUIT, id="demo-circuit", model=ModelRef.from_config(cfg),
+            site=Site.at(range(4), 4, component=Component.HEAD_OUT, position=Position.ALL),
+            span=Span("logit_difference", 3.0, 0.5),
+            metrics={"faithfulness": Metric(0.9, "recovery under restoration", "recovery")},
+            nodes=[Node(id="L2H1", component=NodeComponent.HEAD, layer=2, head=1,
+                        in_circuit=True, scores={"attribution": 2.6, "causal": 0.23})],
+            tensors={
+                "head_attribution": Payload(torch.zeros(4, 3), ["layer", "head"], "logits"),
+                "head_effects": Payload(torch.arange(12).float().reshape(4, 3),
+                                        ["layer", "head"], "recovery"),
+            },
+        ), str(run / "circuit.mia"))
+        return root
+
+    def test_a_run_reaches_the_artifact_it_shipped(self):
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=self._with_artifact(directory)), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    await pilot.press("a")
+                    await pilot.pause()
+                    return app.stack.breadcrumb(), app.session.artifact.id
+        crumb, artifact = _run(drive())
+        self.assertEqual(crumb, "runs > nodes")
+        self.assertEqual(artifact, "demo-circuit")
+
+    def test_a_run_that_shipped_nothing_says_so_rather_than_nothing(self):
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=_outputs(directory)), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    await pilot.press("a")
+                    await pilot.pause()
+                    return app.last_flash
+        self.assertIn("wrote no", _run(drive()))
+
+    def test_a_tensor_drills_into_its_actual_numbers(self):
+        """The point of an artifact is the grid, not another description of its shape"""
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=self._with_artifact(directory)), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    await pilot.press("a")
+                    await pilot.pause()
+                    app.run_command("tensors")
+                    await pilot.pause()
+                    view = app.current()
+                    view._table.move_cursor(row=[r.key for r in view.visible].index("head_effects"))
+                    await pilot.press("enter")
+                    await pilot.pause()
+                    grid = app.current()
+                    return grid.title, list(grid.columns), [list(row.cells) for row in grid.visible]
+        title, columns, rows = _run(drive())
+        self.assertEqual(title, "grid head_effects")
+        self.assertEqual(columns[0], "layer \\ head")
+        self.assertEqual(columns[1:4], ["h0", "h1", "h2"])
+        # the site's layers, not the row index: a grid over a subset is not 0..n
+        self.assertEqual([row[0] for row in rows], ["L0", "L1", "L2", "L3"])
+        self.assertEqual(rows[1][1:4], ["+3.000", "+4.000", "+5.000"])
+        self.assertEqual(rows[1][-1], "h2 +5.000")
+
+    def test_the_artifact_keys_the_footer_advertises_work(self):
+        """<n> and <t> were in the hints and implemented nowhere"""
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=self._with_artifact(directory)), start="artifacts")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    await pilot.press("n")
+                    await pilot.pause()
+                    reached = app.current().title
+                    await pilot.press("escape")
+                    await pilot.pause()
+                    await pilot.press("t")
+                    await pilot.pause()
+                    return reached, app.current().title
+        self.assertEqual(_run(drive()), ("nodes", "tensors"))
+
+    def test_a_grid_of_more_than_two_axes_says_so_instead_of_guessing(self):
+        import torch
+
+        from src.share.schema.payload import Payload
+
+        grid = Grid(None, None, "role_weights",
+                    Payload(torch.zeros(2, 3, 4), ["layer", "head", "role"], "attention"))
+        with self.assertRaises(ValueError) as caught:
+            grid.rows()
+        self.assertIn("3 axes", str(caught.exception))
 
 class TestCells(TestCase):
     def test_an_enum_renders_as_its_wire_value(self):

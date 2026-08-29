@@ -112,6 +112,10 @@ class Explorer(App):
         for covered in self._body.children:
             covered.display = False
         self._body.mount(view)
+        # focus after the mount lands, not during the push: on_show focuses the table,
+        # and focusing a widget that is not mounted yet quietly does nothing -- which
+        # is a keyboard that ignores you on the view you just opened
+        self.call_after_refresh(view.on_show)
 
     def _show_top(self) -> None:
         """Unmount whatever left the stack and reveal what it was covering"""
@@ -222,14 +226,14 @@ class Explorer(App):
         self._show_top()
 
     def action_drill(self) -> None:
+        """Enter, for the case where the table does not have focus
+
+        The table almost always does, and then it handles enter itself and
+        this never runs -- see View.drill. Both roads end in the same method.
+        """
         view = self.current()
-        if view is None:
-            return
-        row = view.selected()
-        if row is None:
-            self.flash("nothing selected")
-            return
-        view.on_enter_row(row)
+        if view is not None:
+            view.drill()
 
     def action_record(self) -> None:
         """`y`: the record behind the selected row, which is k9s's YAML view"""

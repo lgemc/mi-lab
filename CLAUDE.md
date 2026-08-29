@@ -352,16 +352,34 @@ computed; `ie` is where what was computed is navigated.
   documents and which shipped once as a table reading `Kind.CIRCUIT`.
 - `registry.py` — resource name to view class, so adding one is a module under `views/` plus an
   entry, never an edit to the parser or the app.
+- `views/grid.py` — the one view that shows a *measurement* rather than a list of things. A
+  payload's values laid out by its axes, with the tick labels as column headers (so a
+  position-indexed grid reads as tokens) and the site's layers as row headers (because a grid
+  measured over a subset of layers has rows that are **not** layer indices — the same misreading
+  `Artifact._check_shapes` guards). `:runs` → `a` → `:tensors` → enter is the path from "what
+  ran" to the numbers.
 - `session.py` — **the checkpoint is loaded lazily and that is the point.** Runs and artifacts
   are readable with no torch and no weights, so the explorer opens instantly on them; only a
   view with `needs_model = True` pays. `tests/ie.py` drives the no-model path with a session
   that raises if anything asks for an adapter, because the way this breaks is one view quietly
   reaching for `session.adapter()`.
 
-A title is set in `__init__`, never in `on_mount`: the stack compares titles when a page is
-pushed, and a mount happens after that. And note `capture(layers=None)` means *the config's
-probe layer*, not every layer — the activations view names all of them explicitly, and asking
-for "the activations" without doing so returns exactly one row.
+Four things that are easy to get wrong here, all of which were:
+
+- **Enter reaches a view as a `DataTable.RowSelected` message, not as a key binding.** The
+  focused `DataTable` binds `enter` to its own `select_cursor` and consumes it, so an app-level
+  binding looks right, appears in the footer, and never fires.
+- **A title is set in `__init__`, never in `on_mount`.** The stack compares titles when a page is
+  pushed, and a mount happens after that — so a view that renamed itself later silently replaced
+  the view it was drilled from.
+- **`on_show` focuses the table, so it runs after the mount** (`call_after_refresh`). Focusing an
+  unmounted widget quietly does nothing, and the result is a keyboard that ignores you.
+- **A key in `View.hints` must be in `View.keys`.** The footer advertised `<n>` and `<t>` on the
+  artifacts view for a while with nothing behind them; `tests/ie.py` presses the keys it claims.
+
+And note `capture(layers=None)` means *the config's probe layer*, not every layer — the
+activations view names all of them explicitly, and asking for "the activations" without doing so
+returns exactly one row.
 
 ### Charts
 

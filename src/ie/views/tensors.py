@@ -1,6 +1,6 @@
 from typing import List
 
-from ..view import Detail, Hint, Row, View
+from ..view import Hint, Row, View
 
 """
 What an artifact actually carries, with the axes that say what it means.
@@ -19,7 +19,7 @@ class Tensors(View):
 
     title = "tensors"
     columns = ("name", "shape", "axes", "units", "dtype", "labels")
-    hints = (Hint("enter", "tensor detail"),)
+    hints = (Hint("enter", "the numbers"), Hint("y", "shape and axes"))
 
     def rows(self) -> List[Row]:
         artifact = self.session.artifact
@@ -41,6 +41,19 @@ class Tensors(View):
         return found
 
     def on_enter_row(self, row: Row) -> None:
+        """Show the values, not another description of them
+
+        Enter used to open a record of the shape and the dtype, which is the
+        thing you already read off this table. The numbers are what an artifact
+        is for, and `y` still gives the metadata.
+        """
+        from .grid import Grid
+
+        name, payload = row.payload
+        site = self.session.artifact.site if self.session.artifact is not None else None
+        self.explorer.push(Grid(self.explorer, self.session, name, payload, site=site))
+
+    def detail(self, row: Row):
         name, payload = row.payload
         values = payload.values
         record = {
@@ -54,7 +67,7 @@ class Tensors(View):
             record["max"] = float(values.max())
             record["mean"] = float(values.float().mean())
             record["strongest"] = _strongest(payload)
-        self.explorer.push(Detail(self.explorer, self.session, f"tensor {name}", record))
+        return record
 
 def _strongest(payload) -> str:
     """Where the largest magnitude sits, named by the axes rather than by index

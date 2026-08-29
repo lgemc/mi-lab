@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import List
+from typing import ClassVar, Dict, List
 
 from ...share import storage
 from ..view import Detail, Hint, Row, View
@@ -25,6 +25,7 @@ class Artifacts(View):
     title = "artifacts"
     columns = ("kind", "id", "model", "site", "size", "flags")
     hints = (Hint("enter", "card"), Hint("n", "nodes"), Hint("t", "tensors"))
+    keys: ClassVar[Dict[str, str]] = {"n": "open_nodes", "t": "open_tensors"}
 
     def rows(self) -> List[Row]:
         found = []
@@ -64,6 +65,22 @@ class Artifacts(View):
         artifact = row.payload
         self.session.artifact = artifact
         self.explorer.push(Detail(self.explorer, self.session, f"card {artifact.id}", _card(artifact)))
+
+    def open_nodes(self) -> None:
+        """`n`: the circuit's heads. Advertised in the footer, so it has to work."""
+        self._select_then("nodes")
+
+    def open_tensors(self) -> None:
+        """`t`: the payloads under the selected artifact"""
+        self._select_then("tensors")
+
+    def _select_then(self, resource: str) -> None:
+        row = self.selected()
+        if row is None:
+            self.explorer.flash("nothing selected")
+            return
+        self.session.artifact = row.payload
+        self.explorer.run_command(resource)
 
     def detail(self, row: Row):
         return None if row.payload is None else _card(row.payload)
