@@ -269,6 +269,53 @@ class TestReachingTheNumbers(TestCase):
         self.assertEqual(crumb, "runs > nodes")
         self.assertEqual(artifact, "demo-circuit")
 
+    def test_enter_on_the_run_detail_artifacts_field_opens_it(self):
+        """A detail row is a leaf, but the one naming an artifact has to open it
+
+        The field rendered as a bare list and Enter reported it had nothing
+        under it, so a run that shipped an artifact read as one that shipped
+        none twice over.
+        """
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=self._with_artifact(directory)), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    await pilot.press("enter")           # runs list -> run detail
+                    await pilot.pause()
+                    detail = app.current()
+                    fields = [row.cells[0] for row in detail.rows()]
+                    shown = dict(zip(fields, [row.cells[1] for row in detail.rows()], strict=True))
+                    detail._table.move_cursor(row=fields.index("artifacts"))
+                    await pilot.pause()
+                    await pilot.press("enter")           # artifacts field -> the artifact
+                    await pilot.pause()
+                    return shown["artifacts"], app.stack.breadcrumb(), app.session.artifact.id
+        rendered, crumb, artifact = _run(drive())
+        self.assertEqual(rendered, "[demo-circuit]")
+        self.assertTrue(crumb.endswith("nodes"), crumb)
+        self.assertEqual(artifact, "demo-circuit")
+
+    def test_a_detail_field_naming_nothing_is_still_a_leaf(self):
+        """Only the fields a producer wired up drill; the rest say so"""
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=self._with_artifact(directory)), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    await pilot.press("enter")
+                    await pilot.pause()
+                    detail = app.current()
+                    fields = [row.cells[0] for row in detail.rows()]
+                    detail._table.move_cursor(row=fields.index("spec_hash"))
+                    await pilot.pause()
+                    await pilot.press("enter")
+                    await pilot.pause()
+                    return app.current().title, app.last_flash
+        title, flash = _run(drive())
+        self.assertTrue(title.startswith("run "), title)
+        self.assertIn("nothing under it", flash)
+
     def test_a_run_that_shipped_nothing_says_so_rather_than_nothing(self):
         async def drive():
             with tempfile.TemporaryDirectory() as directory:
@@ -322,6 +369,92 @@ class TestReachingTheNumbers(TestCase):
                     await pilot.pause()
                     return reached, app.current().title
         self.assertEqual(_run(drive()), ("nodes", "tensors"))
+
+    def test_v_swaps_the_grid_for_a_heat_map_and_back(self):
+        """The mode is a keypress, and the title must survive it
+
+        The page stack compares titles, so a view that renamed itself on a mode
+        change would replace the page it was drilled from.
+        """
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=self._with_artifact(directory)), start="artifacts")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    await pilot.press("t")                 # the artifact's payloads
+                    await pilot.pause()
+                    tensors = app.current()
+                    names = [row.cells[0] for row in tensors.rows()]
+                    tensors._table.move_cursor(row=names.index("head_effects"))
+                    await pilot.pause()
+                    await pilot.press("enter")             # into the grid
+                    await pilot.pause()
+                    grid = app.current()
+                    def line(index):
+                        return [cell_text(cell) for cell in grid.rows()[index].cells]
+                    numbers, title = line(3), grid.title
+                    await pilot.press("v")
+                    await pilot.pause()
+                    heat, faint, note = line(3), line(0), grid.note()
+                    await pilot.press("v")
+                    await pilot.pause()
+                    return numbers, heat, faint, note, title, app.current().title, line(3)
+        numbers, heat, faint, note, title, after, back = _run(drive())
+        self.assertEqual(numbers[1:4], ["+9.000", "+10.000", "+11.000"])
+        # the top row of the grid saturates, the bottom one stays faint: one scale over
+        # the whole grid is what makes those two rows look different at all
+        self.assertEqual(heat[1:4], ["\u2588\u2588", "\u2588\u2588", "\u2588\u2588"])
+        self.assertEqual(faint[1:4], [" \u00b7", "\u2591\u2591", "\u2591\u2591"])
+        self.assertEqual(heat[0], numbers[0])
+        self.assertEqual(heat[-1], numbers[-1])
+        self.assertIn("11", note)
+        self.assertIn("towards", note)
+        self.assertEqual(title, after)          # a mode is not a new page
+        self.assertEqual(back, numbers)
+
+    def test_a_grid_of_token_positions_survives_a_repeated_token(self):
+        """Two columns are both ' Sam', because IOI repeats the name on purpose
+
+        The header is not the key: a DataTable refuses a duplicate one by
+        raising, and it raised on mount -- taking the whole app down on the one
+        grid the circuit study exists to show.
+        """
+        import torch
+
+        from src.share.schema.payload import Payload
+
+        async def drive():
+            with tempfile.TemporaryDirectory() as directory:
+                app = Explorer(session=Refuses(root=_outputs(directory)), start="runs")
+                async with app.run_test(size=(140, 40)) as pilot:
+                    await pilot.pause()
+                    payload = Payload(torch.arange(6).float().reshape(2, 3),
+                                      ["layer", "position"], "recovery",
+                                      labels={"position": [" Sam", " to", " Sam"]})
+                    app.push(Grid(app, app.session, "residual_patch", payload))
+                    await pilot.pause()
+                    grid = app.current()
+                    return list(grid.columns), [cell_text(cell) for cell in grid.rows()[1].cells]
+        columns, second = _run(drive())
+        # the repeat is kept rather than deduplicated: position 0 and position 2 are
+        # different sites that happen to carry the same token
+        self.assertEqual(columns[1:4], ["_Sam", "_to", "_Sam"])
+        self.assertEqual(second[1:4], ["+3.000", "+4.000", "+5.000"])
+
+    def test_the_heat_scale_is_the_whole_grid_not_the_row(self):
+        """A per-row scale draws a weak layer's best head like the strongest overall"""
+        import torch
+
+        from src.share.schema.payload import Payload
+
+        grid = Grid(None, None, "head_effects",
+                    Payload(torch.tensor([[0.01, 0.02], [1.0, 4.0]]), ["layer", "head"], "recovery"))
+        grid.heat = True
+        self.assertEqual(grid._limit(), 4.0)
+        rows = grid.rows()
+        # the near-zero row reads as near zero rather than as its own maximum
+        self.assertEqual([cell_text(cell) for cell in rows[0].cells[1:3]], [" \u00b7", " \u00b7"])
+        self.assertEqual(cell_text(rows[1].cells[2]), "\u2588\u2588")
 
     def test_a_grid_of_more_than_two_axes_says_so_instead_of_guessing(self):
         import torch

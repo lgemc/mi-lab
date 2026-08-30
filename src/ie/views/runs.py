@@ -97,9 +97,34 @@ class Runs(View):
             self.explorer.flash("nothing selected")
             return
         run, _, shipped, unreadable = row.payload
+        self.open_shipped(run, shipped, unreadable)
+
+    def open_shipped(self, run, shipped, unreadable) -> None:
+        """Open the first artifact a run shipped, or say why there is not one
+
+        Shared by `a` on this list and by Enter on the run detail's `artifacts`
+        field, because two ways in that decide separately what a run shipped
+        are two ways in that will eventually disagree.
+        """
         if not shipped:
             if unreadable:
                 self.explorer.flash(f"[!] {unreadable[0][1]}")
+                return
+            # a run of a kind that does ship artifacts, with none on disk, wrote one in
+            # an older shape -- its produced refs still name it. Telling an ioi_circuit
+            # run that only ioi_circuit writes artifacts is the answer that sends you
+            # looking for a bug in the explorer instead of at the date on the run
+            # a run that did not finish has an obvious reason for shipping nothing, and
+            # it is the one already recorded on the run
+            if run.status == "failed" or run.error:
+                self.explorer.flash(f"{run.run_id} failed -- {run.error or 'no reason recorded'}")
+                return
+            legacy = [ref.id for ref in run.produced if not ref.id.endswith(storage.SUFFIX)]
+            if legacy:
+                self.explorer.flash(
+                    f"{run.run_id} wrote {', '.join(legacy)}, which predates {storage.SUFFIX} -- "
+                    "re-run the experiment to get one"
+                )
                 return
             self.explorer.flash(
                 f"{run.run_id} ({run.kind}) wrote no {storage.SUFFIX} -- only ioi_circuit does so far"
@@ -132,7 +157,14 @@ class Runs(View):
         }
         record.update({f"param.{name}": value for name, value in run.params.items()})
         record.update({f"metric.{name}": value for name, value in run.metrics.items()})
-        self.explorer.push(Detail(self.explorer, self.session, f"run {run.run_id}", record))
+        # `artifacts` names something the explorer can open, so Enter on it opens it
+        # rather than reporting that a detail row is a leaf -- which is the answer that
+        # reads as "this run shipped nothing" when it shipped something
+        self.explorer.push(Detail(
+            self.explorer, self.session, f"run {run.run_id}", record,
+            hints=(Hint("enter", "open the artifacts field"),),
+            actions={"artifacts": lambda: self.open_shipped(run, shipped, unreadable)},
+        ))
 
     def detail(self, row: Row):
         run = row.payload[0] if row.payload else None
