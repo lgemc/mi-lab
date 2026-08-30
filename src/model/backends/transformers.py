@@ -124,7 +124,11 @@ def _normalizer(norm, residual: torch.Tensor) -> Tuple[torch.Tensor, torch.Tenso
     for a normalization this framework has never seen.
     """
     with torch.no_grad():
-        probe = residual[:1]
+        # everything below this stays on CPU on purpose, but the norm is a live module
+        # on the model's device -- so the two probes, and only they, have to be moved to
+        # it. Handing a CPU residual to a norm with CUDA weights is the failure.
+        parameter = next(norm.parameters(), None)
+        probe = residual[:1] if parameter is None else residual[:1].to(parameter.device)
         centers = bool(torch.allclose(norm(probe), norm(probe + 1.0), atol=1e-3, rtol=1e-3))
 
     width = residual.shape[-1]
