@@ -459,3 +459,206 @@ uv run python -m src.cli probe score gpt2-small --probe probe.mia -p "I adored t
 
 `probe score` and `steer probe` take either the `.pt` or the `.mia`, and give identical numbers.
 `docs/artifact-format.md` is the format itself.
+
+## Comparing the ways of finding a circuit
+
+The `ioi` group answers "which heads do this task". This group answers the three questions that come
+after it: do the techniques agree about which heads, is it the same circuit on every example, and
+would that circuit have cost another task any less. Nothing here needs a model until you ask it to:
+
+```bash
+uv run python -m src.cli compare list
+```
+
+```
+tasks:
+  agreement      which verb form the subject takes, across an attractor
+  greater_than   a year later than the one just named (Hanna et al., 2023)
+  induction      copy what followed this token last time (Olsson et al., 2022)
+  ioi            which of two names the sentence has not used yet (Wang et al., 2023)
+
+techniques:
+  ablation       how much of the clean behaviour is lost when each head alone is knocked out
+                 in recovery, one forward pass per head, plus three for the baselines
+  attribution    what each head wrote towards the answer along the direct path to the unembedding
+                 in logits, two forward passes, whatever the model's size
+  eap            a gradient estimate of what patching each head would have recovered
+                 in recovery (first order), one backward pass and four forward passes
+  patching       how much of the corruption's span each head restores when written back on its own
+                 in recovery, one forward pass per head, plus three for the baselines
+  random         a seeded shuffle, so a circuit's numbers can be read against a circuit of the same size
+```
+
+### Does the model do the other tasks at all
+
+A circuit for a task the model fails is a circuit for failing, and the span is what every later
+number is a fraction of. Check both before anything expensive:
+
+```bash
+uv run python -m src.cli compare tasks gpt2-small --size 16
+```
+
+```
+task             n  accuracy    clean  corrupted    span
+agreement       16     100%    +2.61      -3.86   +6.47
+greater_than    16     100%    +5.46      -1.69   +7.15
+induction       16     100%    +4.21      -0.18   +4.40
+ioi             16     100%    +2.96      +0.41   +2.55
+```
+
+### Five techniques, one task, one circuit size
+
+Same size for all of them, because faithfulness climbs with the head count and a comparison at
+different sizes is a comparison of sizes:
+
+```bash
+uv run python -m src.cli compare techniques gpt2-small --task ioi --size 16 --count 8
+```
+
+```
+technique      faithful  necessity  incomplete  passes  seconds
+ablation         +0.966     +1.237       0.237     147     25.5
+attribution      +0.526     +0.459       1.426       2      0.4
+eap              +1.007     +1.270       0.270       5      0.9
+patching         +1.007     +1.270       0.270     147     30.9
+random           -0.193     -0.047       1.195       0      0.0
+
+  ablation     L10H7, L8H10, L8H6, L5H5, L11H10, L7H9, L9H9, L3H0
+  attribution  L9H9, L10H7, L9H6, L11H10, L10H1, L10H10, L8H10, L10H6
+  eap          L10H7, L8H10, L11H10, L8H6, L7H9, L9H9, L5H5, L7H3
+  patching     L10H7, L8H10, L11H10, L8H6, L5H5, L7H9, L9H9, L7H3
+  random       L4H3, L5H9, L11H10, L11H8, L8H4, L9H5, L2H2, L6H9
+
+circuit overlap (intersection over union):
+                  ablation  attribution          eap     patching       random
+ablation              1.00         0.33         0.78         0.78         0.07
+attribution           0.33         1.00         0.33         0.33         0.07
+eap                   0.78         0.33         1.00         1.00         0.07
+patching              0.78         0.33         1.00         1.00         0.07
+random                0.07         0.07         0.07         0.07         1.00
+
+rank correlation:
+                  ablation  attribution          eap     patching       random
+attribution           0.20         1.00         0.21         0.22         0.03
+eap                   0.73         0.21         1.00         1.00         0.11
+```
+
+The `seconds` column is CPU wall-clock; `passes` is not device-dependent, which is why the argument
+below is made in passes. With `device: auto` these configs land on a GPU where there is one and every
+second in that column shrinks, while the column beside it does not move.
+
+Three things in that table. **eap selected patching's eight heads exactly**, for five forward passes
+against a hundred and forty-seven — that is the whole argument for the gradient approximation, and
+it is a measurement here rather than a citation. **Direct attribution agrees at 0.22**, and its
+circuit recovers half of what patching's does: the direct path is a different question, not a cheap
+version of the same one. **The random control lands at -0.19**, which is what the other numbers have
+to be read against.
+
+`ablation` sits between them at 0.78 overlap, and it is the one worth staring at: it asks what
+removing a head costs rather than what restoring it recovers, and the two only come apart where the
+model has a second route to the answer.
+
+### Is it the same circuit twice
+
+A circuit found on a batch is an average, and an average can be made of components no single example
+used. So run the technique once per example — which is why the default is the one whose cost does
+not scale with the model:
+
+```bash
+uv run python -m src.cli compare consistency gpt2-small --task ioi --size 16 --count 8
+```
+
+```
+eap on ioi-abc: 16 per-example circuits of 8, 8 shared at P=0.5, reuse 0.81 (chance 0.03)
+
+how often each head was selected:
+  L8  H10   100%  shared
+  L7  H9     94%  shared
+  L10 H7     94%  shared
+  L11 H10    88%  shared
+  L8  H6     81%  shared
+  L5  H5     75%  shared
+  L9  H9     69%  shared
+  L5  H9     50%  shared
+  L9  H6     25%
+  L3  H0     19%
+```
+
+Reuse 0.81 against a chance line of 0.03: on this task the batch-level circuit is a real description
+of what happens example by example, and the tail below 25% is where the averaging was hiding
+something.
+
+### Is it about the task
+
+The check the diagonal cannot make. Find a circuit on every task with the same technique at the same
+size, then ablate each on all of them:
+
+```bash
+uv run python -m src.cli compare specificity gpt2-small --size 16 --count 8
+```
+
+```
+  agreement     L7H4, L10H9, L8H5, L10H5, L11H10, L5H2, L6H0, L6H5
+  greater_than  L9H1, L7H10, L8H11, L5H5, L5H1, L6H9, L8H8, L10H7
+  induction     L6H9, L10H7, L9H6, L7H10, L5H5, L9H9, L11H10, L10H1
+  ioi           L10H7, L8H10, L11H10, L8H6, L7H9, L9H9, L5H5, L7H3
+
+damage (row = measured on, column = circuit ablated), as a share of the clean logit difference:
+                   agreement  greater_than     induction           ioi        random
+agreement               0.90         -0.00          0.09          0.07         -0.04
+greater_than            0.01          0.18          0.01          0.01          0.01
+induction              -0.02          0.27          0.54          0.01         -0.02
+ioi                    -0.24          0.30          0.38          1.18          0.07
+
+  ioi            own +1.18  others +0.15  margin +1.04
+  agreement      own +0.90  others +0.05  margin +0.85
+  induction      own +0.54  others +0.09  margin +0.45
+  greater_than   own +0.18  others +0.01  margin +0.17
+
+circuit overlap between tasks (two independent picks of this size share 0.03):
+  greater_than   vs induction      0.33
+  induction      vs ioi            0.33
+  agreement      vs ioi            0.07
+```
+
+The greater-than circuit is L5H5, L6H9, L7H10, L8H11, L9H1 and three others — the heads Hanna et al.
+name, found here by a gradient and eight forward passes.
+
+Two readings that are easy to get backwards. The margins are large, so **at this size and at this
+granularity these circuits do look specific** — which is not what the cross-task literature reports,
+and the difference is the setup rather than the result: eight attention heads is 6% of this model's
+144, the recent comparisons select 10–30% of components *including MLP layers*, and it is the shared
+MLPs they attribute the overlap to. Nothing here selects an MLP, so this measures the specificity of
+the attention circuit and says nothing about the rest.
+
+And `greater_than` losing only 0.18 to its own circuit is the second reading: mean ablation removes
+only what *varied across the batch*, and every task here is one frame with one slot changing. A
+near-zero diagonal is that as often as it is a task the attention heads do not carry — Hanna et al.
+found greater-than runs largely through MLPs, so here it is probably both.
+
+### The whole thing as a run
+
+```bash
+uv run python -m src.cli run exec --preset circuit-comparison
+```
+
+The preset runs all five techniques on IOI, consistency at P=0.5, and the cross-task sweep over all
+four tasks, then writes `comparison.mia` beside `run.json`. That artifact is the first one this repo
+produces with its **control slots full**: `random_baseline` carries the same-size random circuit's
+faithfulness and `cross_task` carries one entry per other task. Every other artifact here ships them
+empty and means it — nobody checked — and `artifact check` says so:
+
+```bash
+uv run python -m src.cli artifact check outputs/circuit-comparison/*/comparison.mia
+```
+
+The charts follow the same shape, all six measured off one comparison so the panels are about each
+other:
+
+```bash
+uv run python -m src.cli viz compare dashboard gpt2-small --size 16 --count 8
+```
+
+Six panels land in `charts/compare/`, and `cost.png` is the one to look at first: forward passes
+across on a log scale, agreement with patching up. A technique in the top left is one to run on a
+model where patching cannot be run at all.

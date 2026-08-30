@@ -1,7 +1,7 @@
 import time
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterator, List, Sequence, Tuple
+from typing import Iterable, Iterator, List, Sequence, Tuple
 
 import torch
 
@@ -155,6 +155,49 @@ def recovery(patched: float, clean: float, corrupted: float) -> float:
     if span == 0:
         return 0.0
     return (patched - corrupted) / span
+
+def spearman(first: Sequence[float], second: Sequence[float]) -> float:
+    """Rank correlation between two scorings of the same things
+
+    Two circuit-finding techniques disagree about magnitudes by construction:
+    one reports logits along the direct path, the next reports a fraction of a
+    corruption's span, and a third reports a first-order estimate of the
+    second. None of those are on the same scale, so the question that can
+    honestly be asked of all of them is whether they put the components in the
+    same order.
+
+    Ties share a rank, which is what stops a technique that scores half the
+    heads at exactly zero from being credited with an ordering it never made.
+    """
+    left = torch.as_tensor(first, dtype=torch.float64).flatten()
+    right = torch.as_tensor(second, dtype=torch.float64).flatten()
+    if left.numel() != right.numel():
+        raise MetricError(f"{left.numel()} scores against {right.numel()}; a correlation ranks the same things")
+    if left.numel() < 2:
+        raise MetricError("a rank correlation needs at least two items to order")
+    ranked_left = _average_ranks(left) - _average_ranks(left).mean()
+    ranked_right = _average_ranks(right) - _average_ranks(right).mean()
+    scale = ranked_left.norm() * ranked_right.norm()
+    if scale == 0:
+        raise MetricError("one of the scorings is constant, so it states no order to correlate against")
+    return float((ranked_left * ranked_right).sum() / scale)
+
+def jaccard(first: Iterable, second: Iterable) -> float:
+    """How much two sets share, as the intersection over the union
+
+    The overlap number for two circuits. It is reported rather than a raw
+    intersection count because two techniques that each keep eight heads and
+    two that each keep eighty are not the same claim about agreement.
+
+    Read it against what chance would give: two independent selections of a
+    K share of the same components overlap at about K / (2 - K), which is
+    ~5% at K = 10%. An overlap that beats chance is the finding; one that
+    does not is two techniques agreeing only that a model has heads.
+    """
+    left, right = set(first), set(second)
+    if not left and not right:
+        raise MetricError("both sets are empty, so their overlap is 0/0 rather than 1")
+    return len(left & right) / len(left | right)
 
 @dataclass(frozen=True)
 class Cost:

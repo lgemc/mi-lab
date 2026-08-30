@@ -1,11 +1,11 @@
 from contextlib import contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import torch
 
 from ...core.config import ConfigError, ModelConfig, Position
-from ..adapter import DTYPES, Decomposition, ModelAdapter, Unembedding, register_backend
+from ..adapter import DTYPES, Decomposition, ModelAdapter, Unembedding, register_backend, resolve_device
 
 """
 The HuggingFace backend: the correctness oracle every faster backend is
@@ -180,10 +180,16 @@ class TransformersAdapter:
         self.blocks = _blocks(model)
         self.projections = [_attention_projection(block, index) for index, block in enumerate(self.blocks)]
         self.mlps = [_mlp(block, index) for index, block in enumerate(self.blocks)]
-        self.cfg = cfg.with_sizes(
-            n_layers=len(self.blocks),
-            d_model=model.config.hidden_size,
-            n_heads=getattr(model.config, "num_attention_heads", None),
+        self.cfg = replace(
+            cfg.with_sizes(
+                n_layers=len(self.blocks),
+                d_model=model.config.hidden_size,
+                n_heads=getattr(model.config, "num_attention_heads", None),
+            ),
+            # stamped in the way the sizes are, and for the same reason: "auto" is a
+            # question, and everything downstream that prints or records a device wants
+            # the answer. The weights are already on it by the time this runs
+            device=str(model.device).split(":")[0],
         )
         self._patch: Optional[_Patch] = None
 
@@ -403,14 +409,21 @@ class TransformersAdapter:
         return torch.cat(chunks, dim=0)
 
     @contextmanager
-    def _record_heads(self, layers: Sequence[int]) -> Iterator[Dict[int, torch.Tensor]]:
-        """Collect what each head wrote, before the projection mixed them together"""
+    def _record_heads(self, layers: Sequence[int], detach: bool = True) -> Iterator[Dict[int, torch.Tensor]]:
+        """Collect what each head wrote, before the projection mixed them together
+
+        detach=False keeps the recorded tensors attached to the graph that
+        produced them, which is what a gradient at this site needs. It is off
+        by default because everything else here reads activations under
+        no_grad, and a capture that quietly held a backward graph would keep
+        the whole forward pass alive in memory.
+        """
         captured: Dict[int, torch.Tensor] = {}
         handles = []
 
         def make_hook(index: int):
             def hook(module, args):
-                captured[index] = args[0].detach()
+                captured[index] = args[0].detach() if detach else args[0]
             return hook
 
         for index in layers:
@@ -442,6 +455,58 @@ class TransformersAdapter:
             with self._record_heads(layers) as captured, torch.no_grad():
                 self.model(ids, attention_mask=mask, use_cache=False)
             stacked = torch.stack([self._split_heads(captured[index]) for index in layers], dim=1)
+            chunks.append(stacked.permute(0, 1, 3, 2, 4).float().cpu())
+        return torch.cat(chunks, dim=0)
+
+    def head_gradients(
+        self,
+        prompts: Sequence[str],
+        positive: Sequence[int],
+        negative: Sequence[int],
+        layers: Optional[Sequence[int]] = None,
+    ) -> torch.Tensor:
+        """The logit difference's gradient at each head's output, as [batch, layer, head, seq, d_head]
+
+        The gradient is taken at the projection's input -- the same site
+        head_outputs reads and patch writes -- so a gradient and an activation
+        from two runs multiply together into an estimate of what patching that
+        head would have done, without the forward pass per head that measuring
+        it would cost.
+
+        The graph is kept rather than cut at each site: detaching there would
+        silently delete every path an earlier head has to the answer *through*
+        this layer's attention, leaving a gradient that looks fine and answers
+        a different question. torch.autograd.grad asks only for these tensors,
+        so no parameter gradient is accumulated on the way past.
+        """
+        if not prompts:
+            raise ConfigError("head_gradients needs at least one prompt")
+        if len(positive) != len(prompts) or len(negative) != len(prompts):
+            raise ConfigError(
+                f"{len(prompts)} prompts but {len(positive)} positive and {len(negative)} negative "
+                "token ids; they index the same batch"
+            )
+        layers = self._resolve_layers(layers if layers is not None else range(self.cfg.n_layers))
+        input_ids, attention_mask = self._encode(prompts, padding_side="right")
+        answers = torch.tensor(list(positive)), torch.tensor(list(negative))
+
+        chunks = []
+        start = 0
+        for ids, mask in self._chunks(input_ids, attention_mask):
+            rows = slice(start, start + ids.shape[0])
+            start += ids.shape[0]
+            with self._record_heads(layers, detach=False) as captured, torch.enable_grad():
+                output = self.model(ids, attention_mask=mask, use_cache=False).logits
+                final = _last_real(output, mask)
+                batch = torch.arange(final.shape[0], device=final.device)
+                # summed over the batch because each row's answer depends on its own
+                # activations alone, so one backward pass carries every row's gradient
+                objective = (
+                    final[batch, answers[0][rows].to(final.device)]
+                    - final[batch, answers[1][rows].to(final.device)]
+                ).sum()
+                gradients = torch.autograd.grad(objective, [captured[layer] for layer in layers])
+            stacked = torch.stack([self._split_heads(gradient) for gradient in gradients], dim=1)
             chunks.append(stacked.permute(0, 1, 3, 2, 4).float().cpu())
         return torch.cat(chunks, dim=0)
 
@@ -614,7 +679,7 @@ def _build_transformers(cfg: ModelConfig) -> ModelAdapter:
         # GPT-2 and friends ship no pad token, and batching needs one
         tokenizer.pad_token = tokenizer.eos_token
     model = AutoModelForCausalLM.from_pretrained(cfg.hf_name, dtype=DTYPES[cfg.dtype])
-    model.to(cfg.device)
+    model.to(resolve_device(cfg.device))
     model.eval()
     return TransformersAdapter(cfg, model, tokenizer)
 

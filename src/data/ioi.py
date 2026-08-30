@@ -93,6 +93,25 @@ class IOIDataset:
             return 0.0
         return sum(example.order == "ABBA" for example in self.examples) / len(self.examples)
 
+    def subset(self, indices: Sequence[int]) -> "IOIDataset":
+        """The same dataset over a chosen few of its examples
+
+        Consistency is measured by finding a circuit per example and asking
+        which heads recur, so cutting a dataset down to one example is what
+        that question is made of. The frame and the corruption come along
+        unchanged -- a subset is the same task asked of fewer prompts, and its
+        prompts still line up position for position because they came from
+        one frame.
+        """
+        chosen = list(indices)
+        outside = [index for index in chosen if not 0 <= index < len(self.examples)]
+        if outside:
+            raise IOIError(f"examples {outside} are outside the {len(self.examples)} this dataset holds")
+        return IOIDataset(
+            examples=[self.examples[index] for index in chosen],
+            frame=self.frame, corruption=self.corruption, name=self.name,
+        )
+
     def answers(self, adapter) -> Tuple[List[int], List[int]]:
         """Token ids of the indirect object and the subject, one pair per example
 

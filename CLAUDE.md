@@ -22,14 +22,14 @@ Everything under `src/` is a namespace package except `src/cli/commands/viz/`, w
 modules explicitly:
 
 ```bash
-# everything: 262 tests, ~30s (probing/runner/adapter/circuits load GPT-2 small)
+# everything: 373 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.artifact tests.ie tests.probing tests.runner \
-    tests.adapter tests.circuits
+    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.ie tests.probing \
+    tests.runner tests.adapter tests.circuits tests.discovery tests.comparison
 
-# offline subset: 207 tests, no checkpoint needed, seconds
+# offline subset: 258 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.artifact
+    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact
 
 # one module / class / method
 uv run python -m unittest tests.spec
@@ -46,7 +46,21 @@ never to make a failing test pass:
 uv run python -m tests.stubs.refresh
 ```
 
-Adapter/probing/runner tests skip loudly rather than fail if the checkpoint is unreachable offline.
+Adapter/probing/runner/discovery/comparison tests skip loudly rather than fail if the checkpoint is
+unreachable offline, and they all take it from `tests/stubs/model.py` — **one GPT-2 per process, not
+one per TestCase**. That is not a speed optimization: a checkpoint is half a gigabyte resident, a
+dozen of them exhaust a 6 GB card partway through the run, and every one of those `setUpClass`
+handlers turns a failure into "gpt2-small is not available" — so the suite reported an out-of-memory
+GPU as a machine with no checkpoint and passed with a third of its tests skipped. `shared_adapter`
+re-raises an OOM rather than disguising it, for that reason.
+
+`tests/adapter.py::test_chunking_does_not_change_the_result` asserts a *relative* drift, not an
+absolute tolerance: bit-exactness across batch shapes is a CPU-only property, because cuBLAS picks
+its kernel by shape and a batch of 3 reduces in a different order than a batch of 64 (~5e-7
+relative, which is float32 noise). A real chunking bug shows up there at relative order 1. `tests/discovery.py` holds the second receipt after the golden capture:
+`head_gradients` is checked against a finite difference -- perturb one head's output and the change
+in the logit difference has to be the one the gradient predicted -- because everything `eap` reports
+is that inner product, and a gradient taken at the wrong site produces a plausible wrong ranking.
 
 `tests/config.py::TestNoHardcodedModelFacts` greps every file under `src/` for `768`, `1600`,
 `2048`, `4096`, `5120`. It reads raw text, so **a size named in a docstring or comment fails it too** —
@@ -77,10 +91,11 @@ side effect of another change.
 ### The packages are a dependency order, and it is one-way
 
 ```
-core        config, metrics                    imports nothing
-model       adapter, backends/                 -> core
-data        dataset, prompts, torchdata, ioi   -> core
-methods     probing, steering, circuits        -> core, model, data
+core        config, metrics                          imports nothing
+model       adapter, backends/                       -> core
+data        dataset, prompts, torchdata, ioi, tasks  -> core
+methods     probing, steering, circuits,             -> core, model, data
+            discovery, comparison
 share       schema/, storage, converters/      -> core, data, methods
 experiment  spec, run, runner                  -> core, model, data, methods, share
 viz                                            -> core
@@ -102,6 +117,13 @@ scores a logit difference while `methods/circuits.py` builds on `data/ioi.py`; p
 
 - **`configs/*.yaml` → `ModelConfig`** (`src/core/config.py`): what a *model* is. The only place a
   model fact is allowed to live. Loaded by name (`gpt2-small`) or path; unknown keys raise.
+  `device` is the one field here that is not a model fact but a placement, so it defaults to `auto`
+  and is resolved by `resolve_device` in `model/adapter.py` — the best accelerator present, falling
+  back to the CPU. Any other value is passed through untouched and is therefore a demand: `cuda` on
+  a machine without one should fail where the weights are placed, because somebody wrote it on
+  purpose. The backend stamps the resolved device back into `cfg` the way it stamps the sizes, so
+  everything that prints or records a device gets the answer rather than the question. `core/config.py`
+  imports no torch and must not start: a config has to stay readable where there is no GPU at all.
 - **`specs/` → `ExperimentSpec`** (`src/experiment/spec.py`): what an *experiment* is, composed by Hydra
   from group directories (`model/`, `data/`, `method/`, `preset/`) against `specs/config.yaml`.
   A `specs/model/*.yaml` is a one-liner naming a `configs/` entry — it does not restate model facts.
@@ -124,9 +146,13 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   here and no architecture is named. `ModelAdapter` is a `Protocol`; backends register a factory
   under a string key via `@register_backend("name")`, and a config names that key.
   `CircuitAdapter` is a **second** protocol on top of it (`logits`, `attention`, `head_outputs`,
-  `decompose`, `patch`, `single_token`, `tokens`) — a backend behind an inference API can honestly
-  capture and steer and honestly cannot patch a head, so circuit code calls `require_circuits()`
-  and gets a message naming the backend rather than an `AttributeError` halfway through.
+  `head_gradients`, `decompose`, `patch`, `single_token`, `tokens`) — a backend behind an inference
+  API can honestly capture and steer and honestly cannot patch a head, so circuit code calls
+  `require_circuits()` and gets a message naming the backend rather than an `AttributeError` halfway
+  through. `head_gradients` differentiates the logit difference at the *same* site `head_outputs`
+  reads and `patch` writes, and keeps the graph rather than detaching there: cutting it would delete
+  every path an earlier head has to the answer through this layer's attention, leaving a gradient
+  that looks fine and answers a different question.
 - `model/backends/` — one module per implementation. `transformers.py` is the only one;
   `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not implemented, and
   adding it is a new file here rather than an edit to `adapter.py`. All architecture knowledge is
@@ -136,9 +162,10 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   repo whose position is load-bearing: registration has to happen when `adapter` is imported, and
   the backend imports the protocols above it, so anywhere else is a cycle.
 - `experiment/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
-  (`probe_sweep`, `probe_train`, `ioi_circuit`). Adding an experiment type is a registration, not an
-  edit to `ExperimentSpec` or the runner body — `ioi_circuit` shares none of the probing pipeline
-  and is still just an entry in `EXPERIMENTS`.
+  (`probe_sweep`, `probe_train`, `ioi_circuit`, `circuit_comparison`). Adding an experiment type is a
+  registration, not an edit to `ExperimentSpec` or the runner body — `ioi_circuit` shares none of the
+  probing pipeline and is still just an entry in `EXPERIMENTS`, and `circuit_comparison` does not run
+  a circuit study at all.
 - `experiment/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
 - `share/schema/` + `share/storage.py` — the shareable form of a result (`.mia`: a JSON card
@@ -284,6 +311,63 @@ get quietly wrong are all guarded:
   chunk they fire in. Handing a hook the full donor patches the wrong prompts the moment one batch
   becomes two.
 
+### Comparing techniques
+
+The field's question moved from "what is the circuit for this task" to "which way of finding one
+should anybody believe", so the technique became the thing under test. `methods/discovery.py` is a
+registry of techniques the way `model/adapter.py` is a registry of backends: each scores every head
+on a task, and adding one is a `@register_technique` rather than an edit to anything that measures.
+
+- `attribution` — direct logit attribution, exact, two passes, blind to indirect paths.
+- `patching` — activation patching, causal, one forward pass per head. The reference.
+- `ablation` — the same intervention from the other side: what removing a head costs rather than
+  what restoring it recovers. The two come apart wherever the model has a second route.
+- `eap` — attribution patching, patching's first-order expansion at a constant five passes. The
+  gradient is taken on the **corrupted** run, because the quantity approximated is what happens when
+  the corrupted activation is moved to the clean one; expanding around the clean run quietly answers
+  a different question. Divided by the span, so it lands in patching's units and can be subtracted
+  rather than merely ranked. On GPT-2 small it reaches rho 0.99 against patching for 5 passes
+  against 147, and direct attribution reaches 0.15 — that gap is the argument for both of them.
+- `random` — the control. Not a straw man: a model spreads a task widely enough that an arbitrary
+  handful of heads recovers a real fraction of the span.
+
+Ranking is by **absolute** score everywhere, so a selected set can restore *less* than a random one
+— the top of a late-layer IOI sweep is mostly heads that write against the answer. That is the
+ranking being right and faithfulness being the wrong question to ask of it.
+
+`data/tasks.py` is the matching registry for tasks, because specificity has no meaning with one.
+`CircuitTask` is a Protocol -- clean prompts, corrupted twins, two answer ids, positions, `subset` --
+and `IOIDataset` satisfied it before the module existed. Everything in `methods/circuits.py` is typed
+against it now; `classify_heads` is the one exception, because it names the four attention movements
+IOI in particular is built out of. The other three tasks (`greater_than`, `induction`, `agreement`)
+are single-frame, single-token-answer, length-aligned and all above chance on GPT-2 small.
+
+`methods/comparison.py` asks the three questions finding a circuit does not answer:
+
+- `compare_techniques` — every technique on one task at **one circuit size**, because faithfulness
+  climbs with the head count and a comparison at different sizes is a comparison of sizes. Compared
+  as orderings (`spearman`) and as sets (`jaccard`), never by subtracting scores that are not in the
+  same units. `Payload` refuses a tensor without its axes for the same reason a comparison refuses
+  a subtraction without matching units, so the artifact stores one payload per technique.
+- `consistency` — the technique run once per example, the shared set at presence P, and `reuse@P`.
+  A circuit found on a batch is an average and an average can be made of components no single
+  example used. Defaults to `eap` because this pays the technique's cost again for every example.
+- `specificity` — every task's circuit ablated on every task, plus a random circuit of the same size
+  as the floor. Measured in **damage** (a share of the clean logit difference) rather than recovery,
+  because a recovery is a fraction of one task's own corruption span and the other task does not
+  have it. Mean ablation, for the same reason: a corruption belongs to the task it was written for.
+
+`circuits.completeness` is the fourth check, beside faithfulness/necessity/minimality: take a subset
+K out of the circuit and the *same* K out of the model, and see whether they break together. Sampled
+rather than exhaustive, and the subsets are kept so the number ships with its evidence. A faithful
+incomplete circuit reproduces the behaviour by a route the model does not use.
+
+Two traps that are real and are written down where they bite: mean ablation only removes what
+*varied across the batch*, so on a single-frame task a near-zero diagonal can be the ablation rather
+than the model; and the cross-task sweep keys a task by its registry name while an IOI dataset names
+itself after its corruption (`ioi` vs `ioi-abc`), which used to write an artifact whose cross-task
+controls were silently empty — `from_comparison` now refuses a `task_key` it cannot find.
+
 ### Sharing results
 
 `ioi_circuit` writes `circuit.mia` into its run directory and that is the artifact meant to leave
@@ -309,6 +393,12 @@ the machine; `run.json` stays the record of what this machine did. Six rules are
   same way `edges` does — an artifact that ran a cross-task ablation and one that never considered
   it must not be byte-identical.
 
+`share/converters/comparison.py` writes the comparison as a circuit artifact — same kind, same
+required grids — and it is the first thing in this repo that fills `controls`. `random_baseline`
+gets the same-size random circuit's faithfulness and `cross_task` gets one entry per other task.
+That was the point of those slots: an artifact that ran a cross-task ablation and one that never
+considered it must not be byte-identical.
+
 `edges` is in the schema and is empty: this repo measures which heads matter, not which head feeds
 which. An artifact that omitted the field would read as a circuit whose wiring nobody recorded.
 `controls` and `identifiability` are empty for the same reason and mean the same thing: nothing
@@ -333,7 +423,9 @@ come back as a working object has shared nothing.
 ### CLI
 
 `src/cli/main.py` aggregates one Typer app per group: `model`, `capture`, `data`, `probe`, `steer`,
-`ioi`, `artifact`, `run`, `viz`. Command modules only format what `core` returns — anything doable from the shell must
+`ioi`, `compare`, `artifact`, `run`, `viz`. `ioi` answers "which heads do this task"; `compare`
+answers the three that come after it, and its commands are ordered by what they cost — `compare
+list` loads no model at all. Command modules only format what `core` returns — anything doable from the shell must
 be doable by importing the same core function. `HelpfulCommand`/`HelpfulGroup` in `cli/common.py`
 print full help on a parse error; note that Typer 0.27 vendors its own Click fork, so the
 `UsageError` caught there is `typer._click.exceptions.UsageError`.
@@ -394,7 +486,7 @@ returns exactly one row.
 ### Charts
 
 `src/viz/` is one module per subject (`dataset`, `model`, `activations`, `probing`, `steering`,
-`circuits`, `runs`) over `style.py`. Two rules:
+`circuits`, `comparison`, `runs`) over `style.py`. Two rules:
 
 - **The palette is keyed by meaning, not colour.** `PALETTE["baseline"]`, never `"steelblue"` — so
   the positive class is the same green in every chart.
@@ -410,7 +502,9 @@ about the data they were drawn from. `dashboard.py` is the exception that spans 
 
 `viz circuit dashboard` does the same for the IOI battery, measuring every chart off one dataset and
 one pair of baselines so the panels on the page are comparable with each other — which stops being
-true the moment they are made one command at a time.
+true the moment they are made one command at a time. `viz compare dashboard` does it for the
+technique comparison; its `cost` panel — forward passes across on a log scale, agreement with the
+reference up — is the one the others exist to set up.
 
 `viz dashboard` assembles a run's charts into one self-contained HTML page with images inlined as
 data URIs, so the file survives being moved or attached. Every `viz` command takes `--output` and
@@ -425,4 +519,5 @@ data URIs, so the file survives being moved or attached. Every `viz` command tak
 - Comments explain the trap, not the mechanics — they exist where a reasonable reading of the code
   would be wrong.
 - Everything must run on `gpt2-small` on a CPU laptop first; a result that needs a big model to
-  appear is a result that cannot be debugged.
+  appear is a result that cannot be debugged. `device: auto` is what keeps that true while still
+  using the GPU where there is one — never hardcode `cuda` into a shipped config.

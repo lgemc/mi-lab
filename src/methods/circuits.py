@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -6,6 +7,7 @@ import torch
 from ..core.config import Position
 from ..core.metrics import logit_difference, recovery
 from ..data.ioi import IOIDataset
+from ..data.tasks import CircuitTask
 from ..model.adapter import require_circuits
 
 """
@@ -31,7 +33,17 @@ attribution, and patching says the model needs them.
 
 Everything here is measured against two baselines from the same prompts, so
 every number is a fraction of the span the corruption opened. A result quoted
-without that span is a number with no scale.
+without that span is a number with no scale. Ablation is the exception and
+exists for that reason: a recovery is a fraction of one task's corruption and
+means nothing about a second task whose corruption is a different operation,
+while damage is a fraction of the clean behaviour, which every task has. That
+is the number a cross-task claim is made of.
+
+Nothing here is about indirect object identification. Every measurement takes
+a CircuitTask -- clean prompts, corrupted twins, two answer ids -- so the same
+functions run on the other tasks in data/tasks.py. classify_heads is the one
+exception, because it names the four attention movements IOI in particular is
+built out of.
 
 A common pipe could be: build_ioi | direct_logit_attribution | patch_heads | discover | verify
 """
@@ -63,7 +75,7 @@ def _mean_difference(adapter, prompts: Sequence[str], io: Sequence[int], subject
     """The mean logit difference over a batch of prompts"""
     return float(logit_difference(adapter.logits(list(prompts)), io, subject).mean())
 
-def baselines(adapter, dataset: IOIDataset) -> Baselines:
+def baselines(adapter, dataset: CircuitTask) -> Baselines:
     """Measure the clean and corrupted behaviour this dataset opens up
 
     A span near zero is fatal rather than merely disappointing: every later
@@ -110,7 +122,7 @@ class Attribution:
         width = self.heads.shape[1]
         return [((int(index) // width, int(index) % width), float(flat[index])) for index in order]
 
-def direct_logit_attribution(adapter, dataset: IOIDataset, corrupted: bool = False) -> Attribution:
+def direct_logit_attribution(adapter, dataset: CircuitTask, corrupted: bool = False) -> Attribution:
     """Split the logit difference into what each head and MLP directly contributed
 
     One forward pass answers for every component, because the residual stream
@@ -162,7 +174,7 @@ class PatchGrid:
         width = self.effects.shape[1]
         return self.layers[index // width], index % width, float(self.effects.flatten()[index])
 
-def patch_residual(adapter, dataset: IOIDataset, layers: Optional[Sequence[int]] = None) -> PatchGrid:
+def patch_residual(adapter, dataset: CircuitTask, layers: Optional[Sequence[int]] = None) -> PatchGrid:
     """Restore the clean residual stream at one (layer, position) at a time, into the corrupted run
 
     This is the map that says *where and when* the model commits: a bright cell
@@ -222,7 +234,7 @@ class HeadEffects:
         chosen = order[: count if count is not None else len(order)]
         return [((self.layers[int(index) // width], int(index) % width), float(flat[index])) for index in chosen]
 
-def patch_heads(adapter, dataset: IOIDataset, layers: Optional[Sequence[int]] = None) -> HeadEffects:
+def patch_heads(adapter, dataset: CircuitTask, layers: Optional[Sequence[int]] = None) -> HeadEffects:
     """Restore one head's output at a time from the clean run into the corrupted one
 
     The causal answer to "which heads do this task". A head scoring near 1
@@ -321,7 +333,7 @@ class Circuit:
         names = ", ".join(f"L{layer}H{head}" for layer, head in self.heads)
         return f"{len(self.heads)} heads: {names}" if self.heads else "empty circuit"
 
-def _restore(adapter, dataset: IOIDataset, reference: Baselines, heads: Sequence[HeadId], donors) -> float:
+def _restore(adapter, dataset: CircuitTask, reference: Baselines, heads: Sequence[HeadId], donors) -> float:
     """Recovery when this whole set of heads is written into the corrupted run at once
 
     donors is a full [batch, layer, head, seq, d_head] capture, so a layer
@@ -338,7 +350,7 @@ def _restore(adapter, dataset: IOIDataset, reference: Baselines, heads: Sequence
     return reference.recovery(patched)
 
 def discover(
-    adapter, dataset: IOIDataset, threshold: float = 0.8, max_heads: int = 12,
+    adapter, dataset: CircuitTask, threshold: float = 0.8, max_heads: int = 12,
     effects: Optional[HeadEffects] = None,
 ) -> Circuit:
     """Grow a circuit greedily until restoring it alone reproduces the clean behaviour
@@ -388,7 +400,7 @@ class CircuitReport:
             f"necessity {self.necessity:.2f}  spare {self.spare()}"
         )
 
-def verify(adapter, dataset: IOIDataset, circuit: Circuit) -> CircuitReport:
+def verify(adapter, dataset: CircuitTask, circuit: Circuit) -> CircuitReport:
     """Check a circuit three ways: sufficient, needed, and free of passengers
 
     - faithfulness: restore only these heads into the corrupted run. 1.0 means
@@ -432,3 +444,204 @@ def verify(adapter, dataset: IOIDataset, circuit: Circuit) -> CircuitReport:
         minimality=minimality,
         baselines=reference,
     )
+
+# ---------------------------------------------------------- ablation and subsets
+
+ABLATIONS = ("mean", "corrupted")
+
+@dataclass(frozen=True)
+class Behaviour:
+    """What a model does on a task before anything is taken away from it"""
+    logit_difference: float
+    accuracy: float
+    n: int
+
+def behaviour(adapter, dataset: CircuitTask, prompts: Optional[Sequence[str]] = None) -> Behaviour:
+    """Score the clean run: how far apart the two answers are, and how often the right one wins"""
+    adapter = require_circuits(adapter)
+    io, subject = dataset.answers(adapter)
+    scores = logit_difference(adapter.logits(list(prompts if prompts is not None else dataset.clean)), io, subject)
+    return Behaviour(
+        logit_difference=float(scores.mean()),
+        accuracy=float((scores > 0).to(torch.float64).mean()),
+        n=len(io),
+    )
+
+@dataclass(frozen=True)
+class Ablation:
+    """What a task's behaviour looks like once a set of heads is taken away
+
+    This is the number a cross-task claim is made of, and it is deliberately
+    not a recovery. A recovery is a fraction of one task's corruption span, so
+    it is undefined for a second task whose corruption is a different
+    operation on different prompts; damage is a fraction of the clean
+    behaviour itself, which every task has. That is what makes "ablating IOI's
+    circuit costs the greater-than task 60% of its logit difference" a
+    sentence with a meaning.
+    """
+    heads: List[HeadId]
+    clean: float
+    ablated: float
+    accuracy: float
+    clean_accuracy: float
+    donor: str
+
+    @property
+    def damage(self) -> float:
+        """Share of the clean logit difference this ablation removed, 1.0 for all of it"""
+        if self.clean == 0:
+            return 0.0
+        return (self.clean - self.ablated) / self.clean
+
+    def __str__(self) -> str:
+        return (
+            f"{len(self.heads)} heads {self.donor}-ablated: logit difference {self.clean:+.3f} -> "
+            f"{self.ablated:+.3f} (damage {self.damage:.0%}), accuracy {self.clean_accuracy:.0%} -> "
+            f"{self.accuracy:.0%}"
+        )
+
+def donor_bank(adapter, dataset: CircuitTask, donor: str) -> torch.Tensor:
+    """The activations an ablation writes in, as a full [batch, layer, head, seq, d_head] bank
+
+    'mean' averages each head's output over the task's own clean prompts and
+    hands every row the same value, which removes what the head *knew about
+    this example* while leaving the model in the distribution it was measured
+    in. 'corrupted' writes the twin run's values, which is the same operation
+    verify's necessity column performs and is only defined when the second
+    task's corruption is the one being asked about.
+
+    What a mean ablation removes is only what *varied across the batch*, and
+    every task here is built from one frame -- so on a task whose prompts
+    differ in one slot, the mean is close to every row and the ablation is
+    close to a no-op. A diagonal near zero in a cross-task sweep is that, as
+    often as it is a task the attention heads do not carry.
+    """
+    if donor not in ABLATIONS:
+        raise CircuitError(f"unknown ablation donor '{donor}'; known donors are {sorted(ABLATIONS)}")
+    if donor == "corrupted":
+        return adapter.head_outputs(dataset.corrupted)
+    clean = adapter.head_outputs(dataset.clean)
+    return clean.mean(dim=0, keepdim=True).expand_as(clean).contiguous()
+
+def ablate(
+    adapter,
+    dataset: CircuitTask,
+    heads: Sequence[HeadId],
+    donor: str = "mean",
+    donors: Optional[torch.Tensor] = None,
+    clean: Optional[Behaviour] = None,
+) -> Ablation:
+    """Take a set of heads out of the clean run and see what the task loses
+
+    `donors` and `clean` are here so that a sweep over many head sets pays for
+    the donor bank and the clean baseline once. Passing a bank measured on a
+    different task is the mistake they make possible, and it is the reason
+    both are keyword arguments with honest defaults rather than a cache.
+    """
+    adapter = require_circuits(adapter)
+    chosen = [(int(layer), int(head)) for layer, head in heads]
+    reference = clean if clean is not None else behaviour(adapter, dataset)
+    if not chosen:
+        return Ablation(
+            heads=[], clean=reference.logit_difference, ablated=reference.logit_difference,
+            accuracy=reference.accuracy, clean_accuracy=reference.accuracy, donor=donor,
+        )
+
+    bank = donors if donors is not None else donor_bank(adapter, dataset, donor)
+    patch: Dict[int, Dict[int, torch.Tensor]] = {}
+    for layer, head in chosen:
+        patch.setdefault(layer, {})[head] = bank[:, layer, head]
+    with adapter.patch(heads=patch):
+        after = behaviour(adapter, dataset)
+    return Ablation(
+        heads=chosen, clean=reference.logit_difference, ablated=after.logit_difference,
+        accuracy=after.accuracy, clean_accuracy=reference.accuracy, donor=donor,
+    )
+
+@dataclass
+class Completeness:
+    """How closely the circuit stands in for the model when the same parts leave both
+
+    Faithfulness asks whether the circuit is enough and minimality asks
+    whether any one head is spare. Completeness asks the harder question
+    between them: take some subset K out of the circuit, take the *same* K out
+    of the whole model, and see whether the two break together. A circuit that
+    is faithful and incomplete is one that reproduces the behaviour by a route
+    the model does not use -- the gap is where a component the circuit left
+    out is doing work.
+
+    Sampled rather than exhaustive: 2^n subsets is not a thing to run, and the
+    subsets that were drawn are kept so the number can be quoted with the
+    evidence behind it. `incompleteness` is the worst gap found, which is the
+    direction the claim has to survive.
+    """
+    subsets: List[List[HeadId]]
+    circuit_scores: List[float]
+    model_scores: List[float]
+
+    @property
+    def gaps(self) -> List[float]:
+        """How far the circuit and the model drifted apart on each subset"""
+        return [abs(left - right) for left, right in zip(self.circuit_scores, self.model_scores, strict=True)]
+
+    @property
+    def incompleteness(self) -> float:
+        """The worst gap any sampled subset opened, which is what the claim has to survive"""
+        return max(self.gaps) if self.gaps else 0.0
+
+    @property
+    def mean_gap(self) -> float:
+        return sum(self.gaps) / len(self.gaps) if self.gaps else 0.0
+
+    def __str__(self) -> str:
+        return f"{len(self.subsets)} subsets  worst gap {self.incompleteness:.3f}  mean {self.mean_gap:.3f}"
+
+def completeness(
+    adapter, dataset: CircuitTask, circuit: Circuit, samples: int = 8, seed: int = 0,
+    reference: Optional[Baselines] = None,
+) -> Completeness:
+    """Sample subsets of the circuit and check that removing one hurts circuit and model alike
+
+    For each drawn subset K: restore the circuit minus K into the corrupted
+    run, and separately knock K out of the clean run. Both land on the same
+    recovery scale and both sit near 1.0 when K did not matter, so the gap
+    between them is the quantity of interest and nothing has to be rescaled to
+    compare them.
+
+    The empty subset is always drawn first, because that pair is the circuit's
+    own faithfulness against an untouched model and it is the anchor the rest
+    of the curve is read against.
+    """
+    adapter = require_circuits(adapter)
+    if not circuit.heads:
+        raise CircuitError("an empty circuit has no subsets to check for completeness")
+    if samples < 1:
+        raise CircuitError(f"completeness needs at least one subset to sample, got samples={samples}")
+    measured = reference or baselines(adapter, dataset)
+    clean_donors = adapter.head_outputs(dataset.clean)
+    corrupted_donors = adapter.head_outputs(dataset.corrupted)
+    rng = random.Random(seed)
+
+    subsets: List[List[HeadId]] = [[]]
+    while len(subsets) < samples:
+        size = rng.randint(1, len(circuit.heads))
+        drawn = sorted(rng.sample(circuit.heads, size))
+        if drawn not in subsets:
+            subsets.append(drawn)
+        elif len(subsets) >= 2 ** len(circuit.heads):
+            break
+
+    circuit_scores, model_scores = [], []
+    for removed in subsets:
+        kept = [head for head in circuit.heads if head not in removed]
+        circuit_scores.append(_restore(adapter, dataset, measured, kept, clean_donors))
+        if not removed:
+            model_scores.append(1.0)
+            continue
+        knocked: Dict[int, Dict[int, torch.Tensor]] = {}
+        for layer, head in removed:
+            knocked.setdefault(layer, {})[head] = corrupted_donors[:, layer, head]
+        with adapter.patch(heads=knocked):
+            damaged = _mean_difference(adapter, dataset.clean, measured.io, measured.subject)
+        model_scores.append(measured.recovery(damaged))
+    return Completeness(subsets=subsets, circuit_scores=circuit_scores, model_scores=model_scores)

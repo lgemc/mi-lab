@@ -7,10 +7,12 @@ from src.core.metrics import (
     MetricError,
     accuracy,
     best_threshold,
+    jaccard,
     logit_difference,
     measure,
     recovery,
     roc_auc,
+    spearman,
 )
 
 """
@@ -114,3 +116,38 @@ class TestRecovery(TestCase):
     def test_no_span_is_zero_rather_than_an_infinity(self):
         """A corruption that corrupted nothing cannot be divided by"""
         self.assertEqual(0.0, recovery(patched=2.0, clean=1.0, corrupted=1.0))
+
+class TestSpearman(TestCase):
+    def test_the_same_order_correlates_perfectly_whatever_the_scale(self):
+        """Two techniques report in different units; only the order is comparable"""
+        self.assertAlmostEqual(1.0, spearman([1.0, 2.0, 3.0], [10.0, 200.0, 3000.0]))
+
+    def test_the_opposite_order_is_minus_one(self):
+        self.assertAlmostEqual(-1.0, spearman([1.0, 2.0, 3.0], [3.0, 2.0, 1.0]))
+
+    def test_ties_share_a_rank(self):
+        """A technique that scores half the heads at zero states no order between them"""
+        self.assertAlmostEqual(1.0, spearman([1.0, 1.0, 2.0], [5.0, 5.0, 9.0]))
+
+    def test_a_constant_scoring_has_no_order_to_correlate(self):
+        with self.assertRaises(MetricError):
+            spearman([1.0, 1.0, 1.0], [1.0, 2.0, 3.0])
+
+    def test_two_scorings_have_to_rank_the_same_things(self):
+        with self.assertRaises(MetricError):
+            spearman([1.0, 2.0], [1.0, 2.0, 3.0])
+
+class TestJaccard(TestCase):
+    def test_the_same_set_overlaps_completely(self):
+        self.assertEqual(1.0, jaccard({(9, 9), (10, 7)}, {(10, 7), (9, 9)}))
+
+    def test_disjoint_sets_overlap_at_zero(self):
+        self.assertEqual(0.0, jaccard({(0, 0)}, {(1, 1)}))
+
+    def test_it_is_the_union_and_not_the_smaller_set(self):
+        """Otherwise a circuit of two heads inside one of eighty would score 1.0"""
+        self.assertAlmostEqual(0.25, jaccard({1, 2}, {1, 2, 3, 4, 5, 6, 7, 8}))
+
+    def test_two_empty_sets_are_not_a_perfect_overlap(self):
+        with self.assertRaises(MetricError):
+            jaccard([], [])

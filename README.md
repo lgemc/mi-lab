@@ -37,10 +37,13 @@ src/data/
   prompts.py        the plain-text dataset format: parse it, write it, check it
   torchdata.py      torch Datasets and DataLoaders over prompts and over activations
   ioi.py            the Indirect Object Identification task, as balanced clean/corrupted data
+  tasks.py          the task registry: what every circuit measurement needs a task to be
 src/methods/
   probing.py        linear probes as self-contained, saveable artifacts
   steering.py       the steering sweep: effect against fluency, with a random control
-  circuits.py       the circuit study: attribution, patching, discovery and three checks
+  circuits.py       the circuit study: attribution, patching, discovery and four checks
+  discovery.py      the techniques for finding a circuit, as a registry: the thing under test
+  comparison.py     do the techniques agree, is it the same circuit twice, is it about the task
 src/share/
   artifact.py       the shareable form of a result: a JSON card plus one safetensors file
   sharing.py        converters between what this lab measures and that format
@@ -88,6 +91,11 @@ python -m src.cli run exec -e sentiment-sweep
 python -m src.cli run exec -e sentiment-sweep -s model=pythia-70m -s method.lr=0.1
 python -m src.cli run list                                   # every run under outputs/
 python -m src.cli run replay outputs/sentiment-sweep/20260824-221404-0a25479a452e
+
+python -m src.cli compare list                                # the tasks and the techniques
+python -m src.cli compare techniques gpt2-small --count 8    # five ways of finding one circuit
+python -m src.cli compare consistency gpt2-small             # the same circuit example by example?
+python -m src.cli compare specificity gpt2-small             # or is it machinery for everything?
 
 python -m src.cli ioi circuit gpt2-small --size 8 --save ioi-abc.mia   # replicate, then share it
 python -m src.cli artifact show ioi-abc.mia                  # read one without loading a model
@@ -311,7 +319,7 @@ does not make it look like a different experiment. A run that raises is still
 written out, marked failed with the reason, because those are the ones worth
 looking at.
 
-## Two things this has already turned up
+## Three things this has already turned up
 
 **The best reader is the worst writer.** On the synthetic set at depth 0.65 of
 GPT-2 small, the logistic probe reaches AUC 1.000 against difference-of-means'
@@ -320,6 +328,15 @@ weaker difference-of-means direction steers cleanly into actual positive
 sentiment. A discriminative direction and a generative one are not the same
 object, and AUC does not rank them. `probe train --method difference_of_means`
 saves the one that steers.
+
+**A gradient buys the whole circuit for five forward passes.** On IOI with
+GPT-2 small at eight heads, attribution patching selects exactly the eight
+heads activation patching does -- five forward passes against a hundred and
+forty-seven, rank correlation 0.99 over all 144 heads. Direct logit
+attribution, which is cheaper still, correlates at 0.22 and its circuit
+recovers half as much: the direct path is a different question, not a cheap
+version of the same one. `compare techniques` is that table, and the random
+control is in it because a circuit's numbers mean nothing without one.
 
 **Depth 0.65 wins on both models tested.** The best layer is 8 of 12 on GPT-2
 small and 4 of 6 on Pythia-70m — the same two-thirds depth, which is the part

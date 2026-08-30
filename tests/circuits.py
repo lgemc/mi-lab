@@ -13,7 +13,9 @@ from src.methods.circuits import (
     patch_heads,
     verify,
 )
-from src.model.adapter import load_adapter, require_circuits
+from src.model.adapter import require_circuits
+
+from .stubs.model import shared_adapter
 
 """
 Circuit tests need a real checkpoint and skip loudly without one.
@@ -45,10 +47,10 @@ class CircuitTestCase(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        try:
-            cls.adapter = require_circuits(load_adapter("gpt2-small"))
-        except Exception:
-            raise cls.skipTest(cls, "gpt2-small is not available; run once with network access") from None
+        adapter = shared_adapter()
+        if adapter is None:
+            raise cls.skipTest(cls, "gpt2-small is not available; run once with network access")
+        cls.adapter = require_circuits(adapter)
         cls.dataset = build_ioi(cls.adapter, size=8, seed=0)
 
 class TestDecomposition(CircuitTestCase):

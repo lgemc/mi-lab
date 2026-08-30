@@ -1,0 +1,24 @@
+# @package _global_
+# The field's question moved from "what is the circuit" to "which way of
+# finding one should anybody believe", so this preset runs five techniques over
+# one task and then asks the two things a faithfulness number cannot answer:
+# does the same circuit turn up example after example, and does it cost the
+# other tasks any less than its own.
+#
+# ioi comes first because it is the task the comparison is read on; the three
+# after it are what its circuit gets ablated against. Patching costs a forward
+# pass per head and consistency re-runs a technique once per example, which is
+# why size stays small and consistency runs on eap.
+experiment: circuit-comparison
+kind: circuit_comparison
+compare:
+  tasks: [ioi, greater_than, induction, agreement]
+  methods: [attribution, patching, ablation, eap, random]
+  size: 16
+  count: 8
+  reference: patching
+  consistency_method: eap
+  presence: 0.5
+  examples: 8
+  samples: 6
+  check: true

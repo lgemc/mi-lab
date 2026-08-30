@@ -20,6 +20,13 @@ Sizes are optional here: a backend that has loaded the checkpoint already
 knows n_layers and d_model, and resolve() stamps them back into the config.
 Write them down explicitly only when you want the framework to assert them.
 
+`device` is the one field here that is not a fact about the model. It is where
+this machine can put it, so it defaults to "auto" and is resolved by the
+backend that has to place the weights -- see resolve_device in
+model/adapter.py, which is also where torch lives. Nothing in this module
+imports torch, so a config stays readable on a machine with no CUDA, no GPU
+and no model library at all.
+
 A common pipe could be: load_config | resolve | layer
 """
 
@@ -66,7 +73,7 @@ class ModelConfig:
     n_heads: Optional[int] = None
     probe_layer_frac: float = 0.65
     batch_size: int = 8
-    device: str = "cpu"
+    device: str = "auto"
     dtype: str = "float32"
     max_new_tokens: int = 32
     sae: Optional[SAEConfig] = None

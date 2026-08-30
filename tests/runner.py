@@ -35,12 +35,12 @@ def _tiny(root: str, overrides: Optional[dict] = None):
 class RunnerTestCase(TestCase):
     @classmethod
     def setUpClass(cls):
-        try:
-            from src.model.adapter import load_adapter
+        # the shared adapter rather than a fresh one: the runner builds its own
+        # adapters anyway, and this only asks whether the checkpoint is reachable
+        from .stubs.model import shared_adapter
 
-            load_adapter("gpt2-small")
-        except Exception:
-            raise SkipTest("gpt2-small is not available; run once with network access") from None
+        if shared_adapter() is None:
+            raise SkipTest("gpt2-small is not available; run once with network access")
 
 class TestProbeTrain(RunnerTestCase):
     def test_a_completed_run_leaves_everything_needed_to_read_it(self):

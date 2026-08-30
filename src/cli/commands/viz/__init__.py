@@ -5,7 +5,7 @@ matplotlib.use("Agg")  # the CLI writes files; a notebook importing src.viz keep
 import typer
 
 from ...common import CONTEXT_SETTINGS, HelpfulCommand, HelpfulGroup
-from . import activations, circuits, dataset, model, probing, runs, steering
+from . import activations, circuits, comparison, dataset, model, probing, runs, steering
 from . import dashboard as dashboard_command
 
 """
@@ -42,6 +42,7 @@ app.add_typer(activations.app, name="act")
 app.add_typer(probing.app, name="probe")
 app.add_typer(steering.app, name="steer")
 app.add_typer(circuits.app, name="circuit")
+app.add_typer(comparison.app, name="compare")
 app.add_typer(runs.app, name="runs")
 
 # Registered rather than decorated: the dashboard spans every group, so it imports

@@ -6,6 +6,8 @@ import torch
 from src.core.config import ConfigError, Position, load_config
 from src.model.adapter import BACKENDS, load_adapter
 
+from .stubs.model import shared_adapter
+
 """
 Adapter tests need a real checkpoint, so they load GPT-2 small once for the
 whole class and skip (loudly) if it is not available offline.
@@ -25,19 +27,13 @@ GOLDEN_PROMPTS = [
 ]
 GOLDEN_FRACS = [0.1, 0.65]
 
-def _adapter():
-    """Load GPT-2 small, or None if this machine cannot reach the checkpoint"""
-    try:
-        return load_adapter("gpt2-small")
-    except Exception:
-        return None
 
 class AdapterTestCase(TestCase):
     adapter = None
 
     @classmethod
     def setUpClass(cls):
-        cls.adapter = _adapter()
+        cls.adapter = shared_adapter()
         if cls.adapter is None:
             raise cls.skipTest(cls, "gpt2-small is not available; run once with network access")
 
@@ -85,12 +81,22 @@ class TestCaptureShapes(AdapterTestCase):
 
 class TestBatching(AdapterTestCase):
     def test_chunking_does_not_change_the_result(self):
-        """batch_size is a memory knob, not a numerical one"""
+        """batch_size is a memory knob, not a numerical one
+
+        Asserted as a *relative* drift rather than with an absolute tolerance,
+        because bit-exactness across batch shapes is a CPU-only property. cuBLAS
+        picks a kernel by shape, so a batch of 3 and a batch of 64 reduce in
+        different orders and land about 3e-5 apart on activations of order 60 --
+        a relative 5e-7, which is float32 noise. A chunking bug is not subtle
+        and would show up here as a relative drift of order 1.
+        """
         prompts = [f"prompt number {index}" for index in range(20)]
         from dataclasses import replace
 
-        chunked = load_adapter(replace(load_config("gpt2-small"), batch_size=3))
-        self.assertTrue(torch.allclose(self.adapter.capture(prompts), chunked.capture(prompts), atol=1e-5))
+        chunked = load_adapter(replace(self.adapter.cfg, batch_size=3))
+        whole, split = self.adapter.capture(prompts), chunked.capture(prompts)
+        drift = float((whole - split).abs().max() / whole.abs().max())
+        self.assertLess(drift, 1e-5, f"chunking moved the capture by {drift:.2e} of its scale")
 
 class TestPadding(AdapterTestCase):
     def test_a_short_prompt_is_unaffected_by_a_long_neighbour(self):

@@ -4,11 +4,14 @@ from typing import Callable, Dict, Optional
 from ..core.metrics import measure
 from ..data.ioi import build_ioi
 from ..data.ioi import evaluate as evaluate_ioi
+from ..data.tasks import build_task
 from ..methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
+from ..methods.comparison import compare_techniques, consistency, discover_across, specificity
 from ..methods.probing import difference_of_means, evaluate, sweep, train_probe
 from ..model.adapter import load_adapter, require_circuits
 from ..share import storage
 from ..share.converters.circuit import from_circuit
+from ..share.converters.comparison import from_comparison
 from .run import Run
 from .spec import ExperimentSpec, SpecError, save_spec
 
@@ -18,7 +21,9 @@ of operations -- resolve the model, build the data, split it, fit, evaluate,
 write -- and every experiment type is a function registered against a kind,
 so adding one is a registration rather than an edit here. ioi_circuit is the
 proof of that: a circuit study shares none of the probing pipeline and is
-still just another entry in EXPERIMENTS.
+still just another entry in EXPERIMENTS. circuit_comparison is the second
+proof, and it does not even run one circuit -- it runs five techniques over
+four tasks and compares them.
 
 Every run gets its own directory containing the resolved spec it ran, the
 run.json describing what happened, and whatever artifacts it produced. A run
@@ -156,6 +161,76 @@ def _ioi_circuit(spec: ExperimentSpec, run: Run, directory: Path) -> None:
             adapter.cfg, dataset, attribution, effects, report, roles=roles, grid=grid,
             tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
             name=f"{dataset.name}-{adapter.cfg.id}",
+        ),
+        str(directory / name),
+    )
+    run.produce("artifact", name)
+
+@register_experiment("circuit_comparison")
+def _circuit_comparison(spec: ExperimentSpec, run: Run, directory: Path) -> None:
+    """Ask every technique the same question on the same task, then ask whether the answer is about the task
+
+    Three measurements, in the order their costs go up. The techniques are
+    compared on the first task listed: same size circuit, same three checks,
+    so a difference between two faithfulness numbers is a difference between
+    techniques. Consistency then re-runs one technique per example, because a
+    circuit found on a batch is an average and an average can be made of
+    components no single example used. Specificity finds a circuit on every
+    task listed and ablates each on all of them, which is the check that
+    decides whether "the IOI circuit" was ever a statement about IOI.
+
+    The artifact is the shareable half and it is the first one this repository
+    writes with its control slots filled.
+    """
+    adapter = require_circuits(load_adapter(spec.model.resolve()))
+    tasks = {
+        name: build_task(name, adapter, size=spec.compare.size, seed=spec.seed) for name in spec.compare.tasks
+    }
+    primary = spec.compare.tasks[0]
+    task = tasks[primary]
+
+    comparison = compare_techniques(
+        adapter, task, methods=spec.compare.methods, count=spec.compare.count,
+        check=spec.compare.check, samples=spec.compare.samples, seed=spec.seed,
+    )
+    recurrence = consistency(
+        adapter, task, method=spec.compare.consistency_method, count=spec.compare.count,
+        presence=spec.compare.presence, examples=spec.compare.examples,
+    )
+    circuits = discover_across(adapter, tasks, method=spec.compare.reference, count=spec.compare.count)
+    across = specificity(adapter, tasks, circuits, seed=spec.seed) if len(tasks) > 1 else None
+
+    # run.metrics holds numbers only, and which task this was is already in the spec
+    # the run was started from -- so it is recorded as a count, not as a name
+    run.record(
+        n_tasks=len(tasks), n_prompts=len(task), n_heads=spec.compare.count,
+        reuse=recurrence.reuse, reuse_chance=recurrence.chance, n_shared=len(recurrence.shared),
+    )
+    for result in comparison.results:
+        run.record(**{
+            f"faithfulness_{result.method}": result.faithfulness,
+            f"necessity_{result.method}": result.necessity,
+            f"incompleteness_{result.method}": result.incompleteness,
+            f"passes_{result.method}": result.ranking.passes,
+            f"seconds_{result.method}": result.ranking.seconds,
+        })
+    for (left, right), value in comparison.order.items():
+        run.record(**{f"rho_{left}_{right}": value})
+    if across is not None:
+        run.record(margin=across.margin(primary), own_damage=across.own(primary), other_damage=across.others(primary))
+        # named for the task the damage was measured *on*, because the other reading --
+        # the damage this task took from that task's circuit -- is the transpose and
+        # they are not the same number
+        for name in across.tasks:
+            run.record(**{f"damage_on_{name}": across.damage[(name, primary)].damage})
+
+    name = f"comparison{storage.SUFFIX}"
+    storage.save(
+        from_comparison(
+            adapter.cfg, task, comparison, reference=spec.compare.reference,
+            consistency=recurrence, specificity=across, task_key=primary,
+            tokens=task.token_labels(adapter), landmarks=task.landmarks(adapter),
+            name=f"{task.name}-comparison-{adapter.cfg.id}",
         ),
         str(directory / name),
     )

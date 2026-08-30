@@ -39,6 +39,47 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
         "unembedding; a receipt on the decomposition, not a result",
         "logits",
     ),
+    "incompleteness": (
+        "the worst gap, over sampled subsets K of the circuit, between the recovery of the circuit "
+        "without K and the recovery of the whole model without K; 0 means the circuit breaks the way "
+        "the model breaks",
+        "recovery",
+    ),
+    "minimality": (
+        "the smallest recovery any one head in the circuit is worth, measured as the faithfulness lost "
+        "when it alone is dropped; near zero means the set carries a passenger",
+        "recovery",
+    ),
+    "reuse": (
+        "mean share of a per-example circuit lying inside the set of components that appear in at least "
+        "P of them; 1.0 means every example used the same components",
+        "share",
+    ),
+    "damage": (
+        "share of the clean logit difference lost when a set of heads is replaced by its mean over the "
+        "task's own clean prompts; a fraction of the behaviour, not of a corruption's span",
+        "share",
+    ),
+    "margin": (
+        "damage a task takes from its own circuit minus the mean damage it takes from the other tasks' "
+        "circuits; near zero means the circuit is shared machinery rather than this task's",
+        "share",
+    ),
+    "overlap": (
+        "intersection over union of two selected circuits; two independent selections of a K share of "
+        "the components overlap at about K / (2 - K) by chance",
+        "share",
+    ),
+    "rank_correlation": (
+        "Spearman correlation between two techniques' scores over every head, with tied scores sharing "
+        "a rank; the only honest comparison between scores in different units",
+        "correlation",
+    ),
+    "passes": (
+        "forward passes over the whole prompt batch that the technique cost, counting one backward pass "
+        "as one; the number that decides whether a technique survives a larger model",
+        "passes",
+    ),
     "auc": ("area under the ROC curve of the probe's score against the held-out labels", "auc"),
     "accuracy": ("share of held-out examples the probe scores on the correct side of zero", "share"),
     "n": ("held-out examples the other metrics were measured over", "examples"),

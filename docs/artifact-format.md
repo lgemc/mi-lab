@@ -175,8 +175,15 @@ non-identifiable — an equivalence class of geometrically distinct directions p
 behaviour — so `measurement.identifiability` names which structural assumptions (independence,
 sparsity, multi-environment, cross-layer consistency) were imposed, and `[]` says none were.
 
-Nothing here runs either check. That is the point of writing the empty list: an artifact that
-ran the ablation and one that never considered it must not be byte-identical.
+Most things here run neither check, and that is the point of writing the empty list: an artifact
+that ran the ablation and one that never considered it must not be byte-identical.
+
+One producer fills them. `share/converters/comparison.py` packages a technique comparison, and
+it writes `random_baseline` with the faithfulness of a same-size circuit drawn without looking at
+the model, and `cross_task` with one entry per other task -- this circuit mean-ablated there, as a
+share of *that* task's clean logit difference. Damage rather than recovery, because a recovery is
+a fraction of one task's own corruption span and the other task does not have one. So a reader
+can tell the three states apart: no check, a check that held, a check that did not.
 
 ### 6. A circuit stores what *both* halves of the study said
 
@@ -230,6 +237,7 @@ circuit = storage.load("ioi-abc.mia")
 circuit.score("faithfulness")                       # 0.919
 circuit.metrics["faithfulness"].definition          # which faithfulness this is
 circuit.controls.empty                              # True: nothing was controlled for
+                                                    # (a comparison.mia has both lists full)
 [node.id for node in circuit.circuit_heads]         # ['L10H7', 'L11H10', 'L8H6', ...]
 grid = circuit.tensors["residual_patch"]
 grid.values, grid.axes, grid.labels["position"]     # a redrawable heatmap

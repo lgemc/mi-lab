@@ -8,6 +8,8 @@ from ..core.config import ModelConfig, load_config
 from ..data.dataset import LabeledPrompts, load_jsonl, synthetic
 from ..data.ioi import CORRUPTIONS, FRAMES
 from ..data.prompts import load_prompts
+from ..data.tasks import task_names
+from ..methods.discovery import technique_names
 
 """
 An ExperimentSpec is the whole experiment as data: which model, which data,
@@ -128,6 +130,34 @@ class IOISpec:
     residual_patch: bool = True
 
 @dataclass
+class CompareSpec:
+    """The knobs of the technique comparison, which every other kind ignores
+
+    `tasks` is a list because specificity has no meaning with one: a circuit
+    is shown to be about its task only by ablating it on another. The first
+    entry is the task the techniques are compared and the consistency measured
+    on; the rest are what it is ablated against.
+
+    `reference` is the technique whose circuit the cross-task ablation uses
+    and whose selection the artifact's nodes are marked against. It defaults
+    to patching because patching is the measurement the cheaper techniques
+    approximate, and a comparison that quietly took the cheap one as the truth
+    would have nothing left to compare.
+    """
+    tasks: List[str] = field(default_factory=lambda: ["ioi", "greater_than", "induction", "agreement"])
+    methods: List[str] = field(
+        default_factory=lambda: ["attribution", "patching", "ablation", "eap", "random"]
+    )
+    size: int = 16
+    count: int = 8
+    reference: str = "patching"
+    consistency_method: str = "eap"
+    presence: float = 0.5
+    examples: int = 8
+    samples: int = 6
+    check: bool = True
+
+@dataclass
 class OutputSpec:
     """Where the run's artifacts land
 
@@ -153,6 +183,7 @@ class ExperimentSpec:
     data: DataSpec = field(default_factory=DataSpec)
     method: MethodSpec = field(default_factory=MethodSpec)
     ioi: IOISpec = field(default_factory=IOISpec)
+    compare: CompareSpec = field(default_factory=CompareSpec)
     output: OutputSpec = field(default_factory=OutputSpec)
 
     def validate(self) -> "ExperimentSpec":
@@ -181,6 +212,26 @@ class ExperimentSpec:
             raise SpecError(f"ioi.size must be at least one prompt pair, got {self.ioi.size}")
         if self.ioi.max_heads < 1:
             raise SpecError(f"ioi.max_heads must be at least one head, got {self.ioi.max_heads}")
+        unknown_tasks = [name for name in self.compare.tasks if name not in task_names()]
+        if unknown_tasks:
+            raise SpecError(f"unknown compare.tasks {unknown_tasks}; known tasks are {task_names()}")
+        if not self.compare.tasks:
+            raise SpecError("compare.tasks is empty, so there is nothing to compare techniques on")
+        unknown_methods = [name for name in self.compare.methods if name not in technique_names()]
+        if unknown_methods:
+            raise SpecError(f"unknown compare.methods {unknown_methods}; known techniques are {technique_names()}")
+        if self.compare.reference not in self.compare.methods:
+            raise SpecError(
+                f"compare.reference '{self.compare.reference}' is not among compare.methods "
+                f"{self.compare.methods}; the reference has to be one of the techniques that ran"
+            )
+        if self.compare.count < 1:
+            raise SpecError(f"compare.count must select at least one head, got {self.compare.count}")
+        if not 0.0 < self.compare.presence <= 1.0:
+            raise SpecError(
+                f"compare.presence is a share of the examples, so it must be in (0, 1]; "
+                f"got {self.compare.presence}"
+            )
         return self
 
     def as_dict(self) -> Dict[str, Any]:

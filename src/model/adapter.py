@@ -44,6 +44,28 @@ DTYPES = {
     "bfloat16": torch.bfloat16,
 }
 
+def resolve_device(name: str = "auto") -> str:
+    """Turn a config's device into one this machine actually has
+
+    "auto" is the default and it means the best accelerator present, falling
+    back to the CPU. It lives here rather than in core/config.py because the
+    answer is a fact about the machine and needs torch to ask, and config.py
+    imports nothing -- a config has to stay readable where there is no CUDA,
+    no GPU and no model library at all.
+
+    Anything else is passed through untouched and is therefore a demand: a
+    config that says "cuda" on a machine without one should fail loudly when
+    the weights are placed, because it was written by somebody who knew what
+    they wanted. Only "auto" is allowed to settle for less.
+    """
+    if name != "auto":
+        return name
+    if torch.cuda.is_available():
+        return "cuda"
+    if getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
 @runtime_checkable
 class ModelAdapter(Protocol):
     """One interface, any backend: hooks and generation with no model facts baked in"""
@@ -179,6 +201,25 @@ class CircuitAdapter(ModelAdapter, Protocol):
     def head_outputs(self, prompts: Sequence[str], layers: Optional[Sequence[int]] = None) -> torch.Tensor:
         """Each head's output before the projection that mixes them, as [batch, layer, head, seq, d_head]"""
 
+    def head_gradients(
+        self,
+        prompts: Sequence[str],
+        positive: Sequence[int],
+        negative: Sequence[int],
+        layers: Optional[Sequence[int]] = None,
+    ) -> torch.Tensor:
+        """d(logit(positive) - logit(negative)) / d(head output), as [batch, layer, head, seq, d_head]
+
+        The same site head_outputs reads and patch writes, differentiated
+        rather than recorded. One backward pass answers for every head at
+        once, which is what makes a gradient-based approximation of patching
+        cost a constant number of passes instead of one per site.
+
+        The token ids index the batch the way logit_difference's do: one pair
+        per prompt, because a two-answer task asks about a different pair in
+        every row.
+        """
+
     def decompose(self, prompts: Sequence[str]) -> Decomposition:
         """Split the final token's residual stream into the writes that built it"""
 
@@ -201,7 +242,8 @@ def require_circuits(adapter: ModelAdapter) -> CircuitAdapter:
     if not isinstance(adapter, CircuitAdapter):
         raise ConfigError(
             f"backend '{adapter.cfg.backend}' does not implement the circuit surface "
-            "(logits, attention, head_outputs, decompose, patch); circuit experiments need a backend that does"
+            "(logits, attention, head_outputs, head_gradients, decompose, patch); "
+            "circuit experiments need a backend that does"
         )
     return adapter
 
