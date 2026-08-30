@@ -1,5 +1,6 @@
 from typing import ClassVar, List, Optional
 
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal
@@ -267,7 +268,8 @@ class Explorer(App):
         into a rendering to recover a fact.
         """
         self.last_flash = message
-        self._flash.update(message)
+        # same markup trap as the table cells: `[!] ...` is a style tag to a bare string
+        self._flash.update(Text(message))
 
     def refresh_chrome(self) -> None:
         """Redraw the header: the session context, then where you are in it"""

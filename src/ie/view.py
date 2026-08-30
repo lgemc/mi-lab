@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, ClassVar, Dict, List, Optional, Sequence
+from typing import Any, Callable, ClassVar, Dict, List, Optional, Sequence
 
+from rich.text import Text
 from textual.containers import Vertical
 from textual.widgets import DataTable, Static
 
@@ -101,8 +102,14 @@ class View(Vertical):
         # a view is mounted once and hidden when covered, but a remount is cheap to
         # survive and a DataTable refuses a column key it already has
         if not self._table.columns:
-            for column in self.columns:
-                self._table.add_column(column, key=column)
+            # the position is what makes a column key unique, not the header text -- the
+            # same rule the rows follow below, and for a stronger reason: a grid indexed
+            # by token position has one column per position, and the IOI task repeats a
+            # name on purpose, so ' Sam' is two different columns. A DataTable refuses a
+            # duplicate key by raising, which took the whole app down on the one grid the
+            # circuit study exists to show. Text, so a token holding '[' is not markup.
+            for index, column in enumerate(self.columns):
+                self._table.add_column(Text(cell_text(column)), key=f"{index}:{column}")
         self.reload()
 
     # ----------------------------------------------------------------- filling
@@ -130,11 +137,22 @@ class View(Vertical):
             # raising. Selection is by cursor position anyway, so nothing here needs the
             # row's identity -- and no view should be able to take the app down by having
             # two of something.
-            self._table.add_row(*[cell_text(cell) for cell in row.cells], key=f"{index}:{row.key}")
-        self.set_note(self._error or ("" if shown else self._empty_note()))
+            # Text, not str: a bare string is parsed as console markup, and the cells that
+            # matter most here are exactly the bracketed ones -- `[!]` on a row that would
+            # not read, and every list value a Detail renders as `[a, b]`. Those came out
+            # blank, so a run that shipped an artifact looked like a run that shipped none
+            self._table.add_row(*[_cell(cell) for cell in row.cells], key=f"{index}:{row.key}")
+        self.set_note(self._error or (self.note() if shown else self._empty_note()))
         if shown and cursor is not None:
             self._table.move_cursor(row=min(cursor, len(shown) - 1))
         self.explorer.refresh_chrome()
+
+    def note(self) -> str:
+        """A line kept above a table that has rows -- a legend, a scale, a caveat
+
+        Empty for most views: a note that is always there is one nobody reads.
+        """
+        return ""
 
     def _empty_note(self) -> str:
         """What to say when there is nothing, which is a finding and not a blank screen"""
@@ -153,7 +171,7 @@ class View(Vertical):
         self.reload()
 
     def set_note(self, text: str) -> None:
-        self._note.update(text)
+        self._note.update(Text(text))
         self._note.display = bool(text)
 
     # ---------------------------------------------------------------- selection
@@ -229,15 +247,37 @@ class Detail(View):
     title = "detail"
     columns = ("field", "value")
 
-    def __init__(self, app_ref, session, title: str, record: Dict[str, Any], hints=()):
+    def __init__(self, app_ref, session, title: str, record: Dict[str, Any], hints=(),
+                 actions: Optional[Dict[str, Callable[[], None]]] = None):
         super().__init__(app_ref, session)
         self.title = title
         self.record = record
         self.hints = hints
+        # field name -> what Enter on that field means. A record is inert by default,
+        # but a producer that knows one of its fields names something openable says so
+        # here -- which keeps Detail from having to learn what a run or a card is.
+        self.actions: Dict[str, Callable[[], None]] = dict(actions or {})
 
     def rows(self) -> List[Row]:
         return [Row(key=str(name), cells=(str(name), _render(value)), payload=value)
                 for name, value in self.record.items()]
+
+    def on_enter_row(self, row: Row) -> None:
+        """Open what this field names, or say it is a leaf like every other field"""
+        action = self.actions.get(row.key)
+        if action is None:
+            super().on_enter_row(row)
+            return
+        action()
+
+def _cell(value: Any) -> Text:
+    """One cell as a renderable, keeping a style the view already chose
+
+    A view that means something by colour builds its own Text -- the heat map's
+    blocks carry magnitude and sign and nothing else. Everything else gets the
+    plain wrapping that stops `[a, b]` being read as console markup.
+    """
+    return value if isinstance(value, Text) else Text(cell_text(value))
 
 def cell_text(value: Any) -> str:
     """One table cell as a string, unwrapping the enums the schema uses
