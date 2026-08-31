@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Protocol, Sequence, Tuple, runtime_checkable
 
 from .ioi import IOIDataset, build_ioi
+from .translation import build_translation
 
 """
 A circuit is found *on a task*, and the moment there is more than one task the
@@ -246,6 +247,13 @@ def build_task(name: str, adapter, size: int = 16, seed: int = 0, **options) -> 
 def _ioi(adapter, size: int = 16, seed: int = 0, **options) -> IOIDataset:
     """The task the circuit literature is built on, built by data/ioi.py"""
     return build_ioi(adapter, size=size, seed=seed, **options)
+
+@register_task("translation", "the English for a Spanish word (translation-circuit design, Phase 0)")
+def _translation(adapter, size: int = 16, seed: int = 0, **options) -> TemplateTask:
+    """The word-level ES->EN task, built by data/translation.py; sentence-level
+    quality lives in the bitext loaders there rather than in this registry,
+    because natural sentences can never satisfy patching's alignment constraint."""
+    return build_translation(adapter, size=size, seed=seed, **options)
 
 GREATER_THAN_FRAME = "The{noun} lasted from the year 17{start} to the year 17"
 GREATER_THAN_NOUNS = (

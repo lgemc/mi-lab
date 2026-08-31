@@ -1,0 +1,14 @@
+# The translation-circuit target (translation-circuit-sparsity design, Phase 0).
+# Multilingual and instruction-native, loaded through the ordinary transformers
+# backend -- unlike qwen3.5-27b this fits one machine, so nothing about the
+# pipeline changes but this file. bfloat16 is the precision the smoke test
+# validated on the GB10's unified memory; no SAE release is named because none
+# published targets this checkpoint.
+id: qwen3-8b
+backend: transformers
+hf_name: Qwen/Qwen3-8B
+probe_layer_frac: 0.65
+batch_size: 8
+device: auto           # the best accelerator this machine has; name one to demand it
+dtype: bfloat16
+max_new_tokens: 64
