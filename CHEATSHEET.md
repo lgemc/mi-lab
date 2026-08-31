@@ -144,6 +144,28 @@ drops prose -- so the conversion command above is the provenance. Note also that
 `saprmarks/geometry-of-truth` ships no LICENSE file, which by default means all rights reserved:
 fine locally, not something to redistribute.
 
+### The translation bitexts (FLORES / WMT dev)
+
+The ES→EN work reads sentence pairs from the same plain-text format, one group per pair — `- ` the
+Spanish line, `+ ` its indented English twin — written by `scripts/build_translation_data.py` from
+two downloads that stay in `data/external/translation/` (gitignored, like everything converted from
+a download):
+
+```bash
+# FLORES-200 es-en dev (997 pairs; ignacioct/flores200_es_en_dev_test mirrors the gated
+# facebook/flores parquet) — fetched inside the script via huggingface_hub
+# newstest2013 es-en (the Spanish dev set shipped with WMT14), via sacrebleu:
+uv run python -m sacrebleu -t wmt13 -l es-en --echo src ref \
+    > data/external/translation/newstest2013-es-en.tsv
+
+uv run python -m scripts.build_translation_data
+```
+
+`src/data/translation.py::load_pairs` reads a bitext back as `(spanish, english)` tuples and
+refuses a group that is not exactly one of each. The registered `translation` *task* is a different
+thing on purpose: single-token word pairs in one frame, because patching needs aligned positions
+and two FLORES sentences never tokenize to one length.
+
 ### What the sweep looks like on 1496 examples
 
 ```bash
