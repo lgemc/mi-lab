@@ -22,7 +22,6 @@ import json
 import time
 from dataclasses import replace
 from functools import lru_cache
-from pathlib import Path
 
 from scripts.observe import (
     Budget,
@@ -35,11 +34,13 @@ from scripts.observe import (
     set_log_file,
     step,
 )
+from scripts.paths import guard, result
 from scripts.phase1b_ablation import (
     CANDIDATE_LAYERS,
     EVAL_SENTENCES,
     GENERATION_BATCH,
     PROGRESS,
+    _migrate_baseline,
     ablate,
     bleu_of,
     capture_means,
@@ -52,7 +53,7 @@ from scripts.phase1b_ablation import (
 )
 from src.model.adapter import load_adapter
 
-CANDIDATE = Path("results/phase1b-circuit-candidate.json")
+CANDIDATE = result("phase1b-circuit-candidate.json")
 
 COMBOS = {
     "all_candidate_mlps": [f"mlp:{layer}" for layer in CANDIDATE_LAYERS],
@@ -64,7 +65,7 @@ COMBOS = {
 SATURATION_MARGIN = 0.3
 SATURATION_RUNS = 3
 
-FRONTIER = Path("results/phase1b-survival-frontier.json")
+FRONTIER = result("phase1b-survival-frontier.json")
 
 # The pre-registered ceiling, kept because it was pre-registered. It is not a
 # measured quantity and nothing here should read it as one -- see frontier().
@@ -129,7 +130,7 @@ def stage_combo(config: str) -> None:
         state["combos"][name] = {
             "components": components,
             "bleu": bleu,
-            "dbleu": round(state["baseline"]["bleu_200"] - bleu, 2),
+            "dbleu": round(_migrate_baseline(state["baseline"])["bleu_eval"] - bleu, 2),
             "seconds": round(time.time() - start, 1),
             "hypotheses": hypotheses,
         }
@@ -192,7 +193,7 @@ def stage_greedy(config: str, budget: float) -> None:
         "progress": str(PROGRESS),
     })
     adapter, _, prompts, references, means = setup(config)
-    baseline = state["baseline"]["bleu_200"]
+    baseline = _migrate_baseline(state["baseline"])["bleu_eval"]
 
     def saturated() -> bool:
         marginals = [step["marginal_dbleu"] for step in greedy["trajectory"]]
@@ -275,7 +276,7 @@ def _flops_model() -> dict:
     drawn -- thousands of times per seed -- and re-reading the file each time
     made the draw cost more than the forward pass it was setting up.
     """
-    return json.loads(Path("results/phase1b-flops-model.json").read_text())
+    return json.loads(result("phase1b-flops-model.json").read_text())
 
 def flops_share(components) -> float:
     model = _flops_model()
@@ -304,7 +305,8 @@ def stage_comet(config: str) -> None:
 
     chosen = greedy["chosen"]
     evaluations = {
-        "baseline": {"bleu": state["baseline"]["bleu_200"], "comet22": score(state["baseline"]["hypotheses"])},
+        "baseline": {"bleu": _migrate_baseline(state["baseline"])["bleu_eval"],
+                     "comet22": score(state["baseline"]["hypotheses"])},
         "candidate": {"components": chosen, "flops_share": round(flops_share(chosen), 4),
                       "bleu": state["combos"]["full_candidate_set"]["bleu"]
                       if set(chosen) == set(COMBOS["full_candidate_set"]) else None,
@@ -396,6 +398,7 @@ def main() -> None:
 
     config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
     stage = sys.argv[2] if len(sys.argv) > 2 else "combo"
+    guard(config)
     if stage == "combo":
         stage_combo(config)
     elif stage == "greedy":

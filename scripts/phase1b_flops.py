@@ -12,9 +12,10 @@ Run: uv run python -m scripts.phase1b_flops Qwen/Qwen3-8B 160
 
 import json
 import sys
-from pathlib import Path
 
-RESULTS = Path("results/phase1b-flops-model.json")
+from scripts.paths import result
+
+RESULTS = result("phase1b-flops-model.json")
 
 CANDIDATE_LAYERS = list(range(27, 36))
 

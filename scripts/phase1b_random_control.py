@@ -55,7 +55,6 @@ import json
 import random
 import time
 from dataclasses import replace
-from pathlib import Path
 
 from scripts.observe import (
     Budget,
@@ -68,11 +67,12 @@ from scripts.observe import (
     set_log_file,
     step,
 )
+from scripts.paths import guard, result
 from scripts.phase1b_ablation import (
-    CANDIDATE_LAYERS,
     GENERATION_BATCH,
     ablate,
     bleu_of,
+    candidate_layers,
     capture_means,
     eval_data,
     reference_prompts,
@@ -81,8 +81,8 @@ from scripts.phase1b_ablation import (
 from scripts.phase1b_greedy import CANDIDATE, COMBOS, flops_share
 from src.model.adapter import load_adapter
 
-PROGRESS = Path("results/phase1b-random-control-progress.json")
-CONTROL = Path("results/phase1b-random-control.json")
+PROGRESS = result("phase1b-random-control-progress.json")
+CONTROL = result("phase1b-random-control.json")
 
 # A set matched to within this fraction of the discovered set's MACs counts as
 # matched. Components are lumpy -- one MLP costs many heads -- so an exact
@@ -135,7 +135,7 @@ def universe(adapter, scope: str) -> list:
     the draw coarser than the lattice it is matched on.
     """
     if scope == "candidate":
-        layers = list(CANDIDATE_LAYERS)
+        layers = candidate_layers(adapter.cfg)
     elif scope == "model":
         layers = list(range(adapter.cfg.n_layers))
     else:
@@ -249,7 +249,7 @@ def stage_run(config: str, scope: str, target: str, seeds: int, budget: float) -
     log(f"model loaded: {adapter.cfg.n_layers} layers x {adapter.cfg.n_heads} heads · {gpu()}")
 
     # means must cover every layer the control may ablate, not just the candidate band
-    layers = list(CANDIDATE_LAYERS) if scope == "candidate" else list(range(adapter.cfg.n_layers))
+    layers = candidate_layers(adapter.cfg) if scope == "candidate" else list(range(adapter.cfg.n_layers))
     with step(f"counterfactual means over {len(layers)} layers"):
         means = capture_means(adapter, reference_prompts(wmt), layers=layers)
     ensure_baseline(state, adapter, prompts, references)
@@ -307,7 +307,7 @@ def stage_run(config: str, scope: str, target: str, seeds: int, budget: float) -
 # amount of care downstream can recover once the sweep has been scored.
 FRONTIER_SHARES = (0.005, 0.01, 0.02, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.15, 0.20)
 
-FRONTIER = Path("results/phase1b-survival-frontier.json")
+FRONTIER = result("phase1b-survival-frontier.json")
 
 def stage_frontier(config: str, scope: str, seeds: int, budget: float) -> None:
     """How much of the model can be mean-ablated before it stops being a language model
@@ -338,7 +338,7 @@ def stage_frontier(config: str, scope: str, seeds: int, budget: float) -> None:
     adapter = load_adapter(config)
     adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
     wmt, prompts, references = eval_data()
-    layers = list(CANDIDATE_LAYERS) if scope == "candidate" else list(range(adapter.cfg.n_layers))
+    layers = candidate_layers(adapter.cfg) if scope == "candidate" else list(range(adapter.cfg.n_layers))
     with step(f"counterfactual means over {len(layers)} layers"):
         means = capture_means(adapter, reference_prompts(wmt), layers=layers)
     ensure_baseline(state, adapter, prompts, references)
@@ -501,6 +501,7 @@ def main() -> None:
 
     config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
     stage = sys.argv[2] if len(sys.argv) > 2 else "run"
+    guard(config)
     if stage == "run":
         scope = sys.argv[3] if len(sys.argv) > 3 else "model"
         target = sys.argv[4] if len(sys.argv) > 4 else "greedy"

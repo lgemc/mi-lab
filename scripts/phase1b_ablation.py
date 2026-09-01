@@ -42,6 +42,7 @@ Run: uv run python -m scripts.phase1b_ablation qwen3-8b sweep layers
 """
 
 import json
+import os
 import time
 from contextlib import contextmanager
 from dataclasses import replace
@@ -51,17 +52,48 @@ import sacrebleu
 import torch
 
 from scripts.observe import Budget, Progress, banner, duration, gpu, log, preview, set_log_file, step
+from scripts.paths import guard, result
 from scripts.phase0_promptform import SHOTS, clean_completion
 from src.data.translation import default_pairs_path, load_pairs, translation_prompt
 from src.model.adapter import load_adapter
 
-PROGRESS = Path("results/phase1b-ablation-progress.json")
-SWEEP = Path("results/phase1b-ablation-sweep.json")
-MEANS = Path("results/phase1b-counterfactual-means.pt")
+PROGRESS = result("phase1b-ablation-progress.json")
+SWEEP = result("phase1b-ablation-sweep.json")
+MEANS = result("phase1b-counterfactual-means.pt")
 
+# The candidate band as a depth fraction, which is what invariant 1 asks for and
+# what the absolute `range(27, 36)` it replaces could not honour: 27-35 exists on
+# a 36-layer model and nowhere else, so every phase1b script was silently bound to
+# one checkpoint. 0.75-1.0 is the same nine layers on the 8B (cfg.layer(0.75) is
+# 27, cfg.layer(1.0) is the last) and the proportionally equivalent band anywhere
+# else -- seven layers, 21-27, on a 28-layer model.
+CANDIDATE_BAND = (0.75, 1.0)
+
+def candidate_layers(cfg) -> list:
+    """The candidate band resolved against the model actually loaded"""
+    return list(range(cfg.layer(CANDIDATE_BAND[0]), cfg.layer(CANDIDATE_BAND[1]) + 1))
+
+# The 8B band, for the bookkeeping that has no adapter to ask. Anything holding a
+# cfg must call candidate_layers(cfg) instead: this is the old answer, kept only
+# where the new question cannot be asked.
 CANDIDATE_LAYERS = list(range(27, 36))
-EVAL_SENTENCES = 200
-HEAD_SENTENCES = 100
+# How many sentences a score is computed on, and the reason it is settable.
+# At 200 the 95% CI on a 1.35 dBLEU effect is 2.33 -- the interval nearly touches
+# zero, which is why the strongest component in the whole sweep only reached
+# p=0.012 and why nothing survived correction for the 18 tested. The shortlist
+# holds 497 usable pairs and the CI falls as 1/sqrt(n): 497 takes it to 1.48.
+#
+# The default stays at 200 so that every score already on disk keeps its meaning
+# and the analysis stages over them keep running. A better-powered protocol is a
+# different experiment, not a correction to this one, and it gets its own results
+# directory rather than overwriting the numbers it supersedes:
+#
+#   MI_LAB_RESULTS=results/qwen3-1.7b MI_LAB_EVAL_SENTENCES=497 \
+#       uv run python -m scripts.phase1b_ablation qwen3-1.7b sweep layers 3600
+#
+# Heads are scored on half, as they always were.
+EVAL_SENTENCES = int(os.environ.get("MI_LAB_EVAL_SENTENCES", "200"))
+HEAD_SENTENCES = EVAL_SENTENCES // 2
 # One generation pass costs the weights once and the KV cache once per row, and
 # on this GB10 the weights dominate: 15.3 GiB of them against 144 KiB/token of
 # KV. At 32 a 200-sentence pass re-streamed those 15.3 GiB seven times to carry
@@ -137,6 +169,41 @@ def means_path(layers) -> Path:
         return MEANS
     return MEANS.with_name(f"phase1b-counterfactual-means-L{min(layers)}-{max(layers)}.pt")
 
+def _geometry(adapter) -> dict:
+    """What a mean is a mean *of*, so a cache cannot be read onto the wrong model"""
+    return {"id": adapter.cfg.id, "n_layers": adapter.cfg.n_layers,
+            "n_heads": adapter.cfg.n_heads, "d_model": adapter.cfg.d_model}
+
+def _checked(means: dict, adapter, source) -> dict:
+    """A cached mean is only this model's if the model it was captured on matches
+
+    The reuse rule below matches caches by *layer index*, which is a coincidence
+    of numbering rather than a statement about the network: a 36-layer cache
+    covers layer 27 and so does any other model with 28 or more layers. Loading
+    one across models ablates toward activations of a different width and a
+    different head count, and where the widths happen to agree it produces a
+    number instead of an error. The geometry is stamped at capture and checked
+    here so that stops being possible.
+
+    A cache written before the stamp existed has no geometry and is taken on
+    trust with a warning: the alternative is invalidating a capture that is
+    almost certainly fine, and the directory it lives in is now guarded by
+    config anyway.
+    """
+    stored = means.get("model")
+    if stored is None:
+        log(f"warning: {source} predates the model stamp; assuming it belongs to "
+            f"'{adapter.cfg.id}' because {source.parent}/ is stamped for it")
+        return means
+    here = _geometry(adapter)
+    if stored != here:
+        raise SystemExit(
+            f"{source} holds means captured on {stored}, and this is {here}. Ablating toward another "
+            "model's activations is not an experiment with a worse number in it, it is a different "
+            "quantity -- delete the cache or point MI_LAB_RESULTS somewhere else."
+        )
+    return means
+
 def capture_means(adapter, texts, layers=None) -> dict:
     """Mean head output [n_heads, d_head] and mean MLP write [d_model] per layer, over real tokens
 
@@ -148,13 +215,13 @@ def capture_means(adapter, texts, layers=None) -> dict:
     layers = CANDIDATE_LAYERS if layers is None else list(layers)
     cache = means_path(layers)
     if cache.exists():
-        return torch.load(cache, weights_only=True)
+        return _checked(torch.load(cache, weights_only=True), adapter, cache)
     # a cache covering more layers already answers this question: slice it rather
     # than spending another capture pass. It also keeps two scopes comparable --
     # means captured in separate passes over the same prompts are the same number
     # twice, but only one of them is the number the other scope was scored against
     for other in sorted(MEANS.parent.glob("phase1b-counterfactual-means*.pt")):
-        candidate = torch.load(other, weights_only=True)
+        candidate = _checked(torch.load(other, weights_only=True), adapter, other)
         if all(layer in candidate["heads"] and layer in candidate["mlps"] for layer in layers):
             log(f"reusing {other} for layers {min(layers)}-{max(layers)} (superset on disk)")
             return {
@@ -208,6 +275,7 @@ def capture_means(adapter, texts, layers=None) -> dict:
                   for layer in layers},
         "mlps": {layer: (sums["mlps"][layer] / tokens).float() for layer in layers},
         "tokens": tokens,
+        "model": _geometry(adapter),
     }
     bar.finish()
     torch.save(means, cache)
@@ -379,39 +447,72 @@ def translate(adapter, prompts, label: str = "translate"):
 def bleu_of(hypotheses, references):
     return round(sacrebleu.corpus_bleu(hypotheses, [references]).score, 2)
 
-def component_plan(group: str):
+def component_plan(group: str, layers=None, heads: int = 32):
+    layers = list(CANDIDATE_LAYERS) if layers is None else list(layers)
     if group == "layers":
-        return [f"mlp:{layer}" for layer in CANDIDATE_LAYERS] + [f"heads:{layer}" for layer in CANDIDATE_LAYERS]
+        return [f"mlp:{layer}" for layer in layers] + [f"heads:{layer}" for layer in layers]
     if group == "heads32-35":
         # 1a neuron-density order (33: 325 flagged, 34: 317, 35: 210, 32: 180), so a
-        # truncated sweep has done the most promising layers first
-        return [f"head:{layer}:{head}" for layer in (33, 34, 35, 32) for head in range(32)]
+        # truncated sweep has done the most promising layers first. The order is a
+        # fact about the 8B's own 1a scan and does not transfer; on another model
+        # this is the upper half of the band in descending depth, which is the
+        # nearest thing to it that means anything.
+        upper = layers[len(layers) // 2:]
+        return [f"head:{layer}:{head}" for layer in reversed(upper) for head in range(heads)]
     if group == "heads27-31":
-        return [f"head:{layer}:{head}" for layer in range(27, 32) for head in range(32)]
+        return [f"head:{layer}:{head}" for layer in layers[:len(layers) // 2] for head in range(heads)]
     raise SystemExit(f"unknown group '{group}'; groups are layers, heads32-35, heads27-31")
+
+def _migrate_baseline(baseline: dict) -> dict:
+    """Read a baseline written before the counts were part of the record
+
+    The old keys named the numbers they held -- bleu_200, bleu_100 -- which was
+    honest while the counts were constants and became a lie the moment they were
+    not. Everything already on disk was scored at 200/100, so that is what the
+    old names are read as.
+    """
+    if "bleu_eval" not in baseline and "bleu_200" in baseline:
+        baseline = {**baseline, "bleu_eval": baseline["bleu_200"],
+                    "bleu_head": baseline["bleu_100"], "sentences": {"eval": 200, "head": 100}}
+    return baseline
 
 def ensure_baseline(state, adapter, prompts, references):
     if "baseline" in state:
-        log(f"baseline already scored: BLEU {state['baseline']['bleu_200']} (cached)")
+        state["baseline"] = _migrate_baseline(state["baseline"])
+        counts = state["baseline"].get("sentences", {})
+        if counts and (counts["eval"], counts["head"]) != (EVAL_SENTENCES, HEAD_SENTENCES):
+            raise SystemExit(
+                f"the cached baseline was scored on {counts['eval']}/{counts['head']} sentences and this "
+                f"run wants {EVAL_SENTENCES}/{HEAD_SENTENCES}. Every component score in this file is a "
+                f"difference against that baseline, so mixing the two would compare drops measured on "
+                f"different corpora. Point MI_LAB_RESULTS at a fresh directory for the new protocol."
+            )
+        log(f"baseline already scored: BLEU {state['baseline']['bleu_eval']} (cached)")
         return
     start = time.time()
     with step(f"baseline: {len(prompts)} sentences, un-ablated"):
         hypotheses = translate(adapter, prompts, label="baseline")
     state["baseline"] = {
-        "bleu_200": bleu_of(hypotheses, references),
-        "bleu_100": bleu_of(hypotheses[:HEAD_SENTENCES], references[:HEAD_SENTENCES]),
+        "bleu_eval": bleu_of(hypotheses, references),
+        "bleu_head": bleu_of(hypotheses[:HEAD_SENTENCES], references[:HEAD_SENTENCES]),
+        "sentences": {"eval": EVAL_SENTENCES, "head": HEAD_SENTENCES},
         "seconds": round(time.time() - start, 1),
         "hypotheses": hypotheses,
     }
     save_progress(state)
-    log(f"baseline BLEU {state['baseline']['bleu_200']} at 200 / "
-        f"{state['baseline']['bleu_100']} at 100 ({duration(state['baseline']['seconds'])}/pass)")
+    log(f"baseline BLEU {state['baseline']['bleu_eval']} at {EVAL_SENTENCES} / "
+        f"{state['baseline']['bleu_head']} at {HEAD_SENTENCES} "
+        f"({duration(state['baseline']['seconds'])}/pass)")
     preview(hypotheses, "baseline")
 
 def stage_sweep(config: str, group: str, budget: float) -> None:
     set_log_file("results/phase1b-ablation.log")
     allowance = Budget(budget)
     state = load_progress()
+    # the plan is resolved twice: once against the 8B band so the banner can be
+    # printed before a checkpoint load blocks for minutes, and again against the
+    # model once it is up. They agree on the 8B and differ everywhere else, and
+    # the second one is the one that runs.
     whole = component_plan(group)
     plan = [cid for cid in whole if cid not in state["components"]]
     banner("phase1b ablation sweep", {
@@ -427,8 +528,17 @@ def stage_sweep(config: str, group: str, budget: float) -> None:
         return
     adapter = load_adapter(config)
     adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
+    layers = candidate_layers(adapter.cfg)
+    whole = component_plan(group, layers, adapter.cfg.n_heads)
+    plan = [cid for cid in whole if cid not in state["components"]]
+    log(f"candidate band {CANDIDATE_BAND[0]:.2f}-{CANDIDATE_BAND[1]:.2f} of depth on "
+        f"{adapter.cfg.n_layers} layers -> {layers[0]}-{layers[-1]} ({len(layers)} layers, "
+        f"{adapter.cfg.n_heads} heads each) · {len(plan)} components to do")
+    if not plan:
+        log(f"group '{group}' already swept -- nothing to do")
+        return
     wmt, prompts, references = eval_data()
-    means = capture_means(adapter, reference_prompts(wmt))
+    means = capture_means(adapter, reference_prompts(wmt), layers=layers)
     ensure_baseline(state, adapter, prompts, references)
 
     seen = []
@@ -448,7 +558,7 @@ def stage_sweep(config: str, group: str, budget: float) -> None:
             hypotheses = translate(adapter, prompts[:count], label=cid)
         seen.append(time.time() - start)
         bleu = bleu_of(hypotheses, references[:count])
-        base = state["baseline"]["bleu_200"] if count == EVAL_SENTENCES else state["baseline"]["bleu_100"]
+        base = state["baseline"]["bleu_eval"] if count == EVAL_SENTENCES else state["baseline"]["bleu_head"]
         state["components"][cid] = {
             "bleu": bleu,
             "dbleu": round(base - bleu, 2),
@@ -524,6 +634,7 @@ def main() -> None:
 
     config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
     stage = sys.argv[2] if len(sys.argv) > 2 else "sweep"
+    guard(config)
     if stage == "sweep":
         group = sys.argv[3] if len(sys.argv) > 3 else "layers"
         budget = float(sys.argv[4]) if len(sys.argv) > 4 else 420.0

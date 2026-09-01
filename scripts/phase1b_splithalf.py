@@ -43,9 +43,9 @@ import json
 import random
 import time
 from dataclasses import replace
-from pathlib import Path
 
 from scripts.observe import Budget, banner, degeneracy, duration, gpu, log, preview, set_log_file, step
+from scripts.paths import guard, result
 from scripts.phase1b_ablation import (
     EVAL_SENTENCES,
     GENERATION_BATCH,
@@ -60,8 +60,8 @@ from scripts.phase1b_ablation import (
 )
 from src.model.adapter import load_adapter
 
-PROGRESS = Path("results/phase1b-splithalf-progress.json")
-REPORT = Path("results/phase1b-splithalf.json")
+PROGRESS = result("phase1b-splithalf-progress.json")
+REPORT = result("phase1b-splithalf.json")
 
 # The second half: disjoint from the sentences the sweep scored heads on, and
 # the same size, so a dBLEU from here is in the units of a dBLEU from there.
@@ -206,6 +206,7 @@ def main() -> None:
 
     config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
     stage = sys.argv[2] if len(sys.argv) > 2 else "run"
+    guard(config)
     if stage == "run":
         stage_run(config, int(sys.argv[3]) if len(sys.argv) > 3 else 10,
                   float(sys.argv[4]) if len(sys.argv) > 4 else 1800.0)
