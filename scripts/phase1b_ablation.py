@@ -29,7 +29,7 @@ Engineering constraints, all deliberate:
   200 sentences; single heads on 100 -- a solo head rarely moves corpus BLEU
   by more than noise, so the halved pass buys double the coverage and the
   greedy stage re-verifies everything it uses at 200;
-- the EN-control means are captured once and cached beside the progress file.
+- the counterfactual means are captured once and cached beside the progress file.
 
 Stages: sweep (default) walks a component group; assemble writes the ranked
 results/phase1b-ablation-sweep.json; comet adds dCOMET for the top solo
@@ -50,6 +50,7 @@ from pathlib import Path
 import sacrebleu
 import torch
 
+from scripts.observe import Budget, Progress, banner, duration, gpu, log, preview, set_log_file, step
 from scripts.phase0_promptform import SHOTS, clean_completion
 from src.data.translation import default_pairs_path, load_pairs, translation_prompt
 from src.model.adapter import load_adapter
@@ -61,7 +62,29 @@ MEANS = Path("results/phase1b-counterfactual-means.pt")
 CANDIDATE_LAYERS = list(range(27, 36))
 EVAL_SENTENCES = 200
 HEAD_SENTENCES = 100
-GENERATION_BATCH = 32
+# One generation pass costs the weights once and the KV cache once per row, and
+# on this GB10 the weights dominate: 15.3 GiB of them against 144 KiB/token of
+# KV. At 32 a 200-sentence pass re-streamed those 15.3 GiB seven times to carry
+# 1.2 GiB of cache, which is the whole pass paying bandwidth for the model and
+# almost none for the data. 100 makes it two passes at ~3.6 GiB of KV, and the
+# ceiling is not arithmetic but the neighbours: this box shares its unified
+# memory with the sglang and vLLM servers, and MemAvailable sat near 13 GiB
+# while this was chosen. 200 (one pass, ~7.3 GiB) fits the arithmetic and not
+# the margin. Raise it only after reading `gpu()` from a live run.
+#
+# Changing this changes the padding of every batch, and bf16 padding changes
+# generations, so a baseline captured at one value is not the baseline for
+# another: the progress files cache theirs, and the cache has to be dropped
+# with the constant or dBLEU spans two numeric regimes.
+GENERATION_BATCH = 100
+# The mean capture does not get to ride on GENERATION_BATCH. Its hooks hold one
+# activation per layer for every layer at once -- 2 x [batch, 256, 4096] over 36
+# layers -- so its peak scales with the batch where a generation's KV does, only
+# steeper: the whole-stack capture is ~0.14 GiB per row against generation's
+# ~0.036. Inheriting a raised generation batch would silently triple a pass that
+# already sits at 4.5 GiB of live activations, and it buys nothing, because the
+# capture runs once and is cached to disk.
+MEANS_BATCH = 32
 MAX_NEW_TOKENS = 64
 
 def load_progress() -> dict:
@@ -91,10 +114,43 @@ def reference_prompts(wmt):
     shots = wmt[-SHOTS:]
     return [translation_prompt(spanish, form="counterfactual", shots=shots) for spanish, _ in wmt[:-SHOTS]]
 
-def capture_means(adapter, texts) -> dict:
-    """Mean head output [n_heads, d_head] and mean MLP write [d_model] per candidate layer, over real tokens"""
-    if MEANS.exists():
-        return torch.load(MEANS, weights_only=True)
+def means_path(layers) -> Path:
+    """Where a captured mean lands, keyed by the layers it covers
+
+    The candidate band keeps the original filename so the cache captured for
+    the sweep stays valid; any other span gets its own file, because a mean
+    over one set of layers is not a mean over another and silently reusing the
+    cache would ablate a layer toward a number never measured on it.
+    """
+    if list(layers) == CANDIDATE_LAYERS:
+        return MEANS
+    return MEANS.with_name(f"phase1b-counterfactual-means-L{min(layers)}-{max(layers)}.pt")
+
+def capture_means(adapter, texts, layers=None) -> dict:
+    """Mean head output [n_heads, d_head] and mean MLP write [d_model] per layer, over real tokens
+
+    `layers` defaults to the candidate band. The random-component control arm
+    passes the whole stack, because a control drawn only from the layers 1a
+    already flagged asks "are these the right components in the right layers"
+    rather than "is the localization real at all".
+    """
+    layers = CANDIDATE_LAYERS if layers is None else list(layers)
+    cache = means_path(layers)
+    if cache.exists():
+        return torch.load(cache, weights_only=True)
+    # a cache covering more layers already answers this question: slice it rather
+    # than spending another capture pass. It also keeps two scopes comparable --
+    # means captured in separate passes over the same prompts are the same number
+    # twice, but only one of them is the number the other scope was scored against
+    for other in sorted(MEANS.parent.glob("phase1b-counterfactual-means*.pt")):
+        candidate = torch.load(other, weights_only=True)
+        if all(layer in candidate["heads"] and layer in candidate["mlps"] for layer in layers):
+            log(f"reusing {other} for layers {min(layers)}-{max(layers)} (superset on disk)")
+            return {
+                "heads": {layer: candidate["heads"][layer] for layer in layers},
+                "mlps": {layer: candidate["mlps"][layer] for layer in layers},
+                "tokens": candidate["tokens"],
+            }
     sums = {"heads": {}, "mlps": {}}
     tokens = 0
     grabbed = {}
@@ -110,12 +166,16 @@ def capture_means(adapter, texts) -> dict:
             grabbed["mlps", layer] = (output[0] if isinstance(output, tuple) else output).detach()
         return hook
 
-    for layer in CANDIDATE_LAYERS:
+    for layer in layers:
         handles.append(adapter.projections[layer].register_forward_pre_hook(head_hook(layer)))
         handles.append(adapter.mlps[layer].register_forward_hook(mlp_hook(layer)))
+    batches = (len(texts) + MEANS_BATCH - 1) // MEANS_BATCH
+    log(f"capturing counterfactual means: {len(texts)} prompts, layers "
+        f"{min(layers)}-{max(layers)}, {batches} batches of {MEANS_BATCH} -> {cache}")
+    bar = Progress(batches, "means", every=max(1, batches // 10))
     try:
-        for start in range(0, len(texts), adapter.cfg.batch_size):
-            batch = texts[start : start + adapter.cfg.batch_size]
+        for start in range(0, len(texts), MEANS_BATCH):
+            batch = texts[start : start + MEANS_BATCH]
             adapter.tokenizer.padding_side = "right"
             encoded = adapter.tokenizer(batch, return_tensors="pt", padding=True, truncation=True, max_length=256)
             ids = encoded["input_ids"].to(adapter.model.device)
@@ -123,21 +183,25 @@ def capture_means(adapter, texts) -> dict:
             with torch.no_grad():
                 adapter.model(ids, attention_mask=mask, use_cache=False)
             weights = mask[..., None].float()
-            for layer in CANDIDATE_LAYERS:
+            for layer in layers:
                 for kind in ("heads", "mlps"):
                     value = (grabbed[kind, layer].float() * weights).sum(dim=(0, 1)).cpu()
                     sums[kind][layer] = sums[kind].get(layer, torch.zeros_like(value)) + value.double()
             tokens += int(mask.sum())
+            bar.tick(f"{tokens} tokens")
     finally:
         for handle in handles:
             handle.remove()
     means = {
         "heads": {layer: (sums["heads"][layer] / tokens).float().reshape(adapter.cfg.n_heads, adapter.cfg.d_head)
-                  for layer in CANDIDATE_LAYERS},
-        "mlps": {layer: (sums["mlps"][layer] / tokens).float() for layer in CANDIDATE_LAYERS},
+                  for layer in layers},
+        "mlps": {layer: (sums["mlps"][layer] / tokens).float() for layer in layers},
         "tokens": tokens,
     }
-    torch.save(means, MEANS)
+    bar.finish()
+    torch.save(means, cache)
+    log(f"means saved: {tokens} tokens over {len(layers)} layers -> {cache} "
+        f"({cache.stat().st_size / 1024 ** 2:.0f} MiB)")
     return means
 
 def parse_component(cid: str):
@@ -149,7 +213,7 @@ def parse_component(cid: str):
 
 @contextmanager
 def ablate(adapter, means: dict, components):
-    """Replace each named component's activation with its EN-control mean, for the duration"""
+    """Replace each named component's activation with its counterfactual mean, for the duration"""
     handles = []
     by_layer_heads: dict = {}
     mlp_layers = []
@@ -192,8 +256,21 @@ def ablate(adapter, means: dict, components):
         for handle in handles:
             handle.remove()
 
-def translate(adapter, prompts):
-    return [clean_completion(text) for text in adapter.generate(prompts, max_new_tokens=MAX_NEW_TOKENS)]
+def translate(adapter, prompts, label: str = "translate"):
+    """Generate, chunked here rather than inside the adapter, so the pass reports progress
+
+    adapter.generate batches internally and returns only when every prompt is
+    done, which makes a 200-sentence pass a single silent minute. Chunking at
+    this level produces the same completions in the same order and lets the
+    loop say where it is.
+    """
+    chunks = [prompts[start : start + GENERATION_BATCH] for start in range(0, len(prompts), GENERATION_BATCH)]
+    bar = Progress(len(chunks), label, indent=2)
+    done = []
+    for chunk in chunks:
+        done.extend(clean_completion(text) for text in adapter.generate(chunk, max_new_tokens=MAX_NEW_TOKENS))
+        bar.tick(f"{len(done)}/{len(prompts)} sentences")
+    return done
 
 def bleu_of(hypotheses, references):
     return round(sacrebleu.corpus_bleu(hypotheses, [references]).score, 2)
@@ -211,9 +288,11 @@ def component_plan(group: str):
 
 def ensure_baseline(state, adapter, prompts, references):
     if "baseline" in state:
+        log(f"baseline already scored: BLEU {state['baseline']['bleu_200']} (cached)")
         return
     start = time.time()
-    hypotheses = translate(adapter, prompts)
+    with step(f"baseline: {len(prompts)} sentences, un-ablated"):
+        hypotheses = translate(adapter, prompts, label="baseline")
     state["baseline"] = {
         "bleu_200": bleu_of(hypotheses, references),
         "bleu_100": bleu_of(hypotheses[:HEAD_SENTENCES], references[:HEAD_SENTENCES]),
@@ -221,14 +300,26 @@ def ensure_baseline(state, adapter, prompts, references):
         "hypotheses": hypotheses,
     }
     save_progress(state)
-    print(f"baseline BLEU {state['baseline']['bleu_200']} ({state['baseline']['seconds']}s/pass)", flush=True)
+    log(f"baseline BLEU {state['baseline']['bleu_200']} at 200 / "
+        f"{state['baseline']['bleu_100']} at 100 ({duration(state['baseline']['seconds'])}/pass)")
+    preview(hypotheses, "baseline")
 
 def stage_sweep(config: str, group: str, budget: float) -> None:
-    start_all = time.time()
+    set_log_file("results/phase1b-ablation.log")
+    allowance = Budget(budget)
     state = load_progress()
-    plan = [cid for cid in component_plan(group) if cid not in state["components"]]
+    whole = component_plan(group)
+    plan = [cid for cid in whole if cid not in state["components"]]
+    banner("phase1b ablation sweep", {
+        "config": config,
+        "group": group,
+        "components": f"{len(plan)} to do of {len(whole)} in group ({len(state['components'])} already scored)",
+        "budget": duration(budget),
+        "reference": "counterfactual prompt form (eval prompt minus translation logic)",
+        "progress": str(PROGRESS),
+    })
     if not plan:
-        print(f"group '{group}' already swept")
+        log(f"group '{group}' already swept -- nothing to do")
         return
     adapter = load_adapter(config)
     adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
@@ -236,15 +327,22 @@ def stage_sweep(config: str, group: str, budget: float) -> None:
     means = capture_means(adapter, reference_prompts(wmt))
     ensure_baseline(state, adapter, prompts, references)
 
-    for cid in plan:
-        if time.time() - start_all > budget:
-            print(f"budget reached with {len([c for c in plan if c not in state['components']])} left", flush=True)
+    seen = []
+    for index, cid in enumerate(plan):
+        left = [c for c in plan if c not in state["components"]]
+        estimate = sum(seen) / len(seen) if seen else state["baseline"]["seconds"]
+        if not allowance.fits(estimate):
+            log(f"stopping cleanly: {allowance.state()}, next component needs ~{duration(estimate)}")
+            log(f"{len(left)} of {len(plan)} left in group '{group}' -- re-run the same command to resume")
             return
         kind, _, _ = parse_component(cid)
         count = EVAL_SENTENCES if kind in ("mlp", "heads") else HEAD_SENTENCES
         start = time.time()
+        log(f"[{index + 1}/{len(plan)}] {cid} · {count} sentences · {allowance.state()} · "
+            f"eta for group {duration(estimate * len(left))}")
         with ablate(adapter, means, [cid]):
-            hypotheses = translate(adapter, prompts[:count])
+            hypotheses = translate(adapter, prompts[:count], label=cid)
+        seen.append(time.time() - start)
         bleu = bleu_of(hypotheses, references[:count])
         base = state["baseline"]["bleu_200"] if count == EVAL_SENTENCES else state["baseline"]["bleu_100"]
         state["components"][cid] = {
@@ -255,8 +353,9 @@ def stage_sweep(config: str, group: str, budget: float) -> None:
             "hypotheses": hypotheses if kind in ("mlp", "heads") else hypotheses[:0],
         }
         save_progress(state)
-        print(f"{cid}: BLEU {bleu} (d {round(base - bleu, 2)}) in {round(time.time() - start)}s", flush=True)
-    print("group done", flush=True)
+        log(f"{cid}: BLEU {bleu} (d {round(base - bleu, 2)}) in {duration(time.time() - start)} · {gpu()}")
+        preview(hypotheses, cid)
+    log(f"group '{group}' done: {len(plan)} components in {duration(allowance.spent)}")
 
 def stage_assemble(command: str) -> None:
     state = load_progress()

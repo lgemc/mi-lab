@@ -21,12 +21,25 @@ Run: uv run python -m scripts.phase1b_greedy qwen3-8b combo
 import json
 import time
 from dataclasses import replace
+from functools import lru_cache
 from pathlib import Path
 
+from scripts.observe import (
+    Budget,
+    banner,
+    degeneracy,
+    duration,
+    gpu,
+    log,
+    preview,
+    set_log_file,
+    step,
+)
 from scripts.phase1b_ablation import (
     CANDIDATE_LAYERS,
     EVAL_SENTENCES,
     GENERATION_BATCH,
+    PROGRESS,
     ablate,
     bleu_of,
     capture_means,
@@ -52,26 +65,42 @@ SATURATION_MARGIN = 0.3
 SATURATION_RUNS = 3
 
 def setup(config: str):
-    adapter = load_adapter(config)
-    adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
+    with step(f"loading {config}"):
+        adapter = load_adapter(config)
+        adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
     wmt, prompts, references = eval_data()
-    means = capture_means(adapter, reference_prompts(wmt))
+    log(f"eval set: {len(prompts)} sentences · model {adapter.cfg.n_layers}x{adapter.cfg.n_heads} · {gpu()}")
+    with step("counterfactual means over the candidate band"):
+        means = capture_means(adapter, reference_prompts(wmt))
     return adapter, wmt, prompts, references, means
 
-def run_combo(adapter, means, prompts, references, components):
-    with ablate(adapter, means, components):
-        hypotheses = translate(adapter, prompts)
+def run_combo(adapter, means, prompts, references, components, label: str = "combo"):
+    with step(f"{label}: {len(components)} components (share {round(flops_share(components), 4)})") as facts:
+        with ablate(adapter, means, components):
+            hypotheses = translate(adapter, prompts, label=label)
+        facts["BLEU"] = bleu_of(hypotheses, references)
+        facts["degeneracy"] = degeneracy(hypotheses)
+    preview(hypotheses, label)
     return bleu_of(hypotheses, references), hypotheses
 
 def stage_combo(config: str) -> None:
+    set_log_file("results/phase1b-greedy.log")
     state = load_progress()
     state.setdefault("combos", {})
+    banner("phase1b upper-bound combos", {
+        "config": config,
+        "combos": f"{len(COMBOS)} ({', '.join(COMBOS)})",
+        "done": f"{len(state['combos'])} already scored",
+        "reference": "counterfactual prompt form (eval prompt minus translation logic)",
+        "progress": str(PROGRESS),
+    })
     adapter, _, prompts, references, means = setup(config)
     for name, components in COMBOS.items():
         if name in state["combos"]:
+            log(f"{name} already scored: BLEU {state['combos'][name]['bleu']} (cached)")
             continue
         start = time.time()
-        bleu, hypotheses = run_combo(adapter, means, prompts, references, components)
+        bleu, hypotheses = run_combo(adapter, means, prompts, references, components, label=name)
         state["combos"][name] = {
             "components": components,
             "bleu": bleu,
@@ -80,7 +109,8 @@ def stage_combo(config: str) -> None:
             "hypotheses": hypotheses,
         }
         save_progress(state)
-        print(f"{name}: BLEU {bleu} (d {state['combos'][name]['dbleu']})", flush=True)
+        log(f"{name}: BLEU {bleu} · dBLEU {state['combos'][name]['dbleu']} · "
+            f"{duration(state['combos'][name]['seconds'])}")
 
 def solo_ranking(state):
     """Layer-level and single-head components by solo dBLEU, strongest first"""
@@ -98,10 +128,19 @@ def redundant(cid: str, chosen) -> bool:
     return False
 
 def stage_greedy(config: str, budget: float) -> None:
-    start_all = time.time()
+    set_log_file("results/phase1b-greedy.log")
+    allowance = Budget(budget)
     state = load_progress()
     state.setdefault("greedy", {"chosen": [], "trajectory": []})
     greedy = state["greedy"]
+    banner("phase1b greedy set growth", {
+        "config": config,
+        "resuming at": f"{len(greedy['chosen'])} components chosen, "
+                       f"{len(greedy['trajectory'])} steps recorded",
+        "saturation": f"marginal dBLEU < {SATURATION_MARGIN} for {SATURATION_RUNS} consecutive additions",
+        "budget": duration(budget),
+        "progress": str(PROGRESS),
+    })
     adapter, _, prompts, references, means = setup(config)
     baseline = state["baseline"]["bleu_200"]
 
@@ -111,9 +150,12 @@ def stage_greedy(config: str, budget: float) -> None:
             marginal < SATURATION_MARGIN for marginal in marginals[-SATURATION_RUNS:]
         )
 
+    steps = []
     while not saturated():
-        if time.time() - start_all > budget:
-            print("budget reached; rerun to continue greedy", flush=True)
+        estimate = sum(steps) / len(steps) if steps else state["baseline"]["seconds"]
+        if not allowance.fits(estimate):
+            log(f"stopping cleanly: {allowance.state()}, next step needs ~{duration(estimate)}")
+            log(f"{len(greedy['chosen'])} components chosen so far -- re-run the same command to continue")
             return
         candidates = [cid for cid in solo_ranking(state)
                       if cid not in greedy["chosen"] and not redundant(cid, greedy["chosen"])]
@@ -121,7 +163,11 @@ def stage_greedy(config: str, budget: float) -> None:
             break
         cid = candidates[0]
         trial = [*greedy["chosen"], cid]
-        bleu, _ = run_combo(adapter, means, prompts, references, trial)
+        log(f"[step {len(greedy['trajectory']) + 1}] adding {cid} -> {len(trial)} components · "
+            f"{allowance.state()}")
+        started = time.time()
+        bleu, _ = run_combo(adapter, means, prompts, references, trial, label=f"greedy+{cid}")
+        steps.append(time.time() - started)
         cumulative = round(baseline - bleu, 2)
         previous = greedy["trajectory"][-1]["cumulative_dbleu"] if greedy["trajectory"] else 0.0
         greedy["chosen"] = trial
@@ -136,8 +182,18 @@ def stage_greedy(config: str, budget: float) -> None:
               flush=True)
     print("greedy saturated" if saturated() else "greedy exhausted", flush=True)
 
+@lru_cache(maxsize=1)
+def _flops_model() -> dict:
+    """The MAC bookkeeping, read once
+
+    flops_share is called per candidate while a matched random set is being
+    drawn -- thousands of times per seed -- and re-reading the file each time
+    made the draw cost more than the forward pass it was setting up.
+    """
+    return json.loads(Path("results/phase1b-flops-model.json").read_text())
+
 def flops_share(components) -> float:
-    model = json.loads(Path("results/phase1b-flops-model.json").read_text())
+    model = _flops_model()
     head = model["per_component_macs"]["head"]
     mlp = model["per_component_macs"]["mlp"]
     total = model["totals"]["model_macs_per_token"]
