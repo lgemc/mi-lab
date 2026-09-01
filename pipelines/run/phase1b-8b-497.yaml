@@ -1,0 +1,48 @@
+# The 8B at the corpus size the 1.7B run validated. This is the one that
+# answers the question the whole phase has been circling: do mlp:31 and mlp:33
+# survive correction on the model the claim is actually about?
+#
+# They did not at 200 sentences -- p 0.012 and 0.007, q 0.108 for both, nothing
+# past Benjamini-Hochberg across the components screened. The power analysis
+# said the interval, not the effect, was the problem: the 95% CI on a 1.35
+# dBLEU effect is 2.33 at n=200 and 1.48 at n=497. The 1.7B run then showed
+# that prediction holding, four components clearing FDR at 497 where none did
+# at 200, with effect sizes no larger. So this is the same protocol on the
+# bigger model, and the only thing it changes is the number of sentences.
+#
+# Its own root, because results/ holds a 200-sentence baseline and every
+# component score in it is a difference against that baseline. The guard would
+# refuse to mix them, correctly.
+name: phase1b on qwen3-8b at the full shortlist
+config: qwen3-8b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-8b-497
+  MI_LAB_EVAL_SENTENCES: "497"
+
+steps:
+  - name: flops
+    module: scripts.phase1b_flops
+    args: []
+
+  # Layer-level only, matching the 1.7B run so the two are comparable, and
+  # because the 288 single heads are settled: the 200-sentence sweep spent two
+  # hours on them and a split-half came back at rho -0.22. More sentences would
+  # sharpen a ranking already shown not to reproduce.
+  #
+  # Budget is generous and `repeat` is on. A pass costs ~2.5x what it did at
+  # 200 -- call it 130s -- so eighteen components plus a fresh means capture
+  # (this root has no cache to slice) lands near 45 minutes rather than the 25
+  # a naive scaling of the old sweep suggests.
+  - name: sweep-layers
+    module: scripts.phase1b_ablation
+    args: [sweep, layers, 5400]
+    repeat: true
+
+  - name: assemble
+    module: scripts.phase1b_ablation
+    args: [assemble]
+
+  - name: significance
+    module: scripts.phase1b_ablation
+    args: [significance]
