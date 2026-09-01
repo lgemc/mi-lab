@@ -1,0 +1,124 @@
+{
+  "model_smoke": {
+    "config": "qwen3-8b",
+    "hf_name": "Qwen/Qwen3-8B",
+    "dtype": "bfloat16",
+    "device": "cuda",
+    "n_layers": 36,
+    "d_model": 4096,
+    "n_heads": 32,
+    "load_seconds": 88.4,
+    "capture_shape": [
+      1,
+      1,
+      4096
+    ],
+    "capture_seconds": 2.7,
+    "generate_seconds_48_tokens": 4.86,
+    "mem_available_gib_before": 31.7,
+    "mem_available_gib_after": 15.9,
+    "cuda_allocated_gib": 15.3,
+    "prompt": "Translate the following Spanish sentence into English.\nSpanish: El lunes, los científicos de la facultad de medicina de la Universidad de Stanford anunciaron el invento de una nueva herramienta de diagnóstico que puede catalogar las células según su tipo: un pequeñísimo chip que se puede imprimir y fabricar con impresoras de inyección de uso corriente, por un posible costo de, aproximadamente, un centavo de dólar por cada uno.\nEnglish:",
+    "completion": " On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can classify cells by type: a tiny chip that can be printed and manufactured with common inkjet printers, at a possible cost of approximately one",
+    "reference": "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each.",
+    "command": "uv run python -m scripts.phase0_smoke qwen3-8b"
+  },
+  "prompt_form": {
+    "config": "qwen3-8b",
+    "sample_size": 12,
+    "few_shot_shots": 3,
+    "bleu_by_form": {
+      "instruction": 31.02,
+      "few_shot": 39.28
+    },
+    "chosen": "few_shot",
+    "why": "both forms yield fluent English translations; the higher-BLEU form on the same 12 FLORES sentences wins, and its completions are cut at the first newline",
+    "sample_exchange": {
+      "instruction": {
+        "prompt": "Translate the following Spanish sentence into English.\nSpanish: El lunes, los científicos de la facultad de medicina de la Universidad de Stanford anunciaron el invento de una nueva herramienta de diagnóstico que puede catalogar las células según su tipo: un pequeñísimo chip que se puede imprimir y fabricar con impresoras de inyección de uso corriente, por un posible costo de, aproximadamente, un centavo de dólar por cada uno.\nEnglish:",
+        "completion": "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can classify cells by type: a tiny chip that can be printed and manufactured with common inkjet printers, at a possible cost of approximately one cent per unit.",
+        "reference": "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."
+      },
+      "few_shot": {
+        "prompt": "Spanish: La palabra no figuraba en la Constitución anterior.\nEnglish: The word was not included in the previous Constitution.\n\nSpanish: Aunque el presidente egipcio debía salir ayer por la noche en la televisión, se prevén manifestaciones para este mediodía.\nEnglish: While the Egyptian President was speaking yesterday evening on television, demonstrations are planned for this afternoon.\n\nSpanish: Los partidarios del jefe de Estado se manifestaron el sábado.\nEnglish: Supporters of the Head of State will march on Saturday.\n\nSpanish: El lunes, los científicos de la facultad de medicina de la Universidad de Stanford anunciaron el invento de una nueva herramienta de diagnóstico que puede catalogar las células según su tipo: un pequeñísimo chip que se puede imprimir y fabricar con impresoras de inyección de uso corriente, por un posible costo de, aproximadamente, un centavo de dólar por cada uno.\nEnglish:",
+        "completion": "On Monday, scientists from the School of Medicine at Stanford University announced the invention of a new diagnostic tool that can classify cells by type: a tiny chip that can be printed and manufactured with common inkjet printers, at a possible cost of approximately one cent per unit.",
+        "reference": "On Monday, scientists from the Stanford University School of Medicine announced the invention of a new diagnostic tool that can sort cells by type: a tiny printable chip that can be manufactured using standard inkjet printers for possibly about one U.S. cent each."
+      }
+    },
+    "command": "uv run python -m scripts.phase0_promptform qwen3-8b"
+  },
+  "environment": {
+    "host": "GB10, 128 GiB unified CPU+GPU memory, single GPU shared with a resident vLLM serving pod (~5.7 GiB)",
+    "date": "2026-08-31",
+    "model_decision": {
+      "chosen": "Qwen3-8B bfloat16 via the transformers backend (configs/qwen3-8b.yaml)",
+      "why": "~32 GiB unified memory was available at load time; bf16 weights took 15.3 GiB CUDA-allocated and a forward + 48-token generation ran without OOM, so neither the 8-bit retry nor the Qwen2.5-3B fallback from the design doc was needed",
+      "fallbacks_not_used": [
+        "8-bit bitsandbytes",
+        "Qwen2.5-3B bf16"
+      ],
+      "out_of_scope": "qwen3.5-27b config targets the nnsight_vllm backend (not implemented); the served NVFP4 deployment is a different model and Qwen-scope SAEs target the clean checkpoint"
+    },
+    "dependency_note": "uv add unbabel-comet pinned transformers <5, downgrading 5.15.1 -> 4.57.6; pyproject floor is >=4.57.0 and the test suite was rerun to confirm no regression",
+    "data": {
+      "flores": "997 es-en dev pairs (ignacioct/flores200_es_en_dev_test mirror of gated facebook/flores), converted to data/external/translation/flores-es-en-dev.prompts",
+      "wmt": "newstest2013 es-en (the Spanish dev set shipped with WMT14), fetched via sacrebleu, first 500 pairs in data/external/translation/wmt-newstest2013-es-en-500.prompts",
+      "conversion": "uv run python -m scripts.build_translation_data"
+    }
+  },
+  "metrics_baseline": {
+    "config": "qwen3-8b",
+    "dataset": "flores-es-en-dev",
+    "pairs": 200,
+    "prompt_form": "few_shot",
+    "generation_seconds": 239.9,
+    "bleu": 30.88,
+    "bleu_signature": "BLEU = 30.88 62.1/37.4/24.2/16.1 (BP = 1.000 ratio = 1.100 hyp_len = 5375 ref_len = 4887)",
+    "chrf": 61.84,
+    "comet22": {
+      "system_score": 0.8712,
+      "seconds_total": 66.7,
+      "seconds_per_100": 33.4
+    },
+    "comet22_status": "ok",
+    "outputs": "results/phase0-baseline-outputs.json",
+    "command": "uv run python -m scripts.phase0_baseline qwen3-8b 200"
+  },
+  "hooks": {
+    "config": "qwen3-8b",
+    "n_layers": 36,
+    "d_model": 4096,
+    "n_heads": 32,
+    "d_head": 128,
+    "n_kv_heads": 8,
+    "mlp_width": 12288,
+    "mlp_module": [
+      "Qwen3MLP"
+    ],
+    "residual_capture_shape": [
+      2,
+      36,
+      16,
+      4096
+    ],
+    "head_outputs_shape": [
+      2,
+      36,
+      32,
+      16,
+      128
+    ],
+    "decompose_remainder_max_abs": 6.040771484375,
+    "decompose_remainder_relative": 0.0038594345096498728,
+    "decompose_residual_mean_norm": 1905.36,
+    "residual_patch_noop_max_logit_shift": 0.0,
+    "head_patch_noop_max_logit_shift": 0.0,
+    "verdict": {
+      "residual_hookable": true,
+      "heads_hookable": true,
+      "mlps_hookable": true,
+      "round_trip_exact": true
+    },
+    "command": "uv run python -m scripts.phase0_hooks qwen3-8b"
+  }
+}

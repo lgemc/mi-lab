@@ -1,0 +1,1637 @@
+{
+  "model": {
+    "config": "qwen3-8b",
+    "hf_name": "Qwen/Qwen3-8B",
+    "dtype": "bfloat16"
+  },
+  "layer": 35,
+  "neurons": [
+    8136,
+    9490,
+    11333,
+    2972,
+    9307,
+    3436
+  ],
+  "texts_per_condition": 24,
+  "traces": {
+    "es_translation": {
+      "8136": {
+        "mean_abs": 67.089,
+        "max_abs": 202.0,
+        "share_tokens_above_2sigma": 0.0083,
+        "top_firing": [
+          {
+            "activation": -202.0,
+            "token": " acum",
+            "context": " el partido, Nadal acum"
+          },
+          {
+            "activation": -195.0,
+            "token": " las",
+            "context": ".\n\nSpanish: Durante las"
+          },
+          {
+            "activation": -183.0,
+            "token": " una",
+            "context": "a local informó que una"
+          },
+          {
+            "activation": -182.0,
+            "token": " los",
+            "context": ": El lunes, los"
+          },
+          {
+            "activation": -180.0,
+            "token": " Los",
+            "context": " on Saturday.\n\nSpanish: Los"
+          },
+          {
+            "activation": -178.0,
+            "token": " con",
+            "context": ", la cual contaba con"
+          },
+          {
+            "activation": -178.0,
+            "token": " cabo",
+            "context": ": Se llevaron a cabo"
+          },
+          {
+            "activation": -177.0,
+            "token": " Los",
+            "context": " this afternoon.\n\nSpanish: Los"
+          },
+          {
+            "activation": -177.0,
+            "token": " Los",
+            "context": " this afternoon.\n\nSpanish: Los"
+          },
+          {
+            "activation": -177.0,
+            "token": " Los",
+            "context": " this afternoon.\n\nSpanish: Los"
+          },
+          {
+            "activation": -177.0,
+            "token": " Los",
+            "context": " this afternoon.\n\nSpanish: Los"
+          },
+          {
+            "activation": -177.0,
+            "token": " Los",
+            "context": " this afternoon.\n\nSpanish: Los"
+          }
+        ]
+      },
+      "9490": {
+        "mean_abs": 48.346,
+        "max_abs": 251.0,
+        "share_tokens_above_2sigma": 0.056,
+        "top_firing": [
+          {
+            "activation": 251.0,
+            "token": "c",
+            "context": " de cerca de la terc"
+          },
+          {
+            "activation": 242.0,
+            "token": " retro",
+            "context": " a los manifestantes que retro"
+          },
+          {
+            "activation": 221.0,
+            "token": " r",
+            "context": "ados a ocultar r"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          },
+          {
+            "activation": 220.0,
+            "token": "ip",
+            "context": " Aunque el presidente egip"
+          }
+        ]
+      },
+      "11333": {
+        "mean_abs": 49.119,
+        "max_abs": 193.0,
+        "share_tokens_above_2sigma": 0.0369,
+        "top_firing": [
+          {
+            "activation": 193.0,
+            "token": "ño",
+            "context": " abogados panameño"
+          },
+          {
+            "activation": 173.0,
+            "token": " ter",
+            "context": " control de cerca de la ter"
+          },
+          {
+            "activation": 167.0,
+            "token": " retro",
+            "context": " a los manifestantes que retro"
+          },
+          {
+            "activation": 160.0,
+            "token": "id",
+            "context": " millones de dólares estadounid"
+          },
+          {
+            "activation": 153.0,
+            "token": "ados",
+            "context": " despacho de abogados"
+          },
+          {
+            "activation": 148.0,
+            "token": "ri",
+            "context": "yección de uso corri"
+          },
+          {
+            "activation": 146.0,
+            "token": "á",
+            "context": " acumulación de trá"
+          },
+          {
+            "activation": 146.0,
+            "token": "adi",
+            "context": " Nadal contra el canadi"
+          },
+          {
+            "activation": 146.0,
+            "token": " brit",
+            "context": ": El periódico brit"
+          },
+          {
+            "activation": 144.0,
+            "token": " preco",
+            "context": "ir la detección preco"
+          },
+          {
+            "activation": 144.0,
+            "token": " baj",
+            "context": " en pacientes de países de baj"
+          },
+          {
+            "activation": 137.0,
+            "token": " de",
+            "context": "oras de inyección de"
+          }
+        ]
+      },
+      "2972": {
+        "mean_abs": 24.531,
+        "max_abs": 104.5,
+        "share_tokens_above_2sigma": 0.0503,
+        "top_firing": [
+          {
+            "activation": -104.5,
+            "token": "ueva",
+            "context": " en la Universidad de Nueva"
+          },
+          {
+            "activation": -101.5,
+            "token": " primer",
+            "context": ", residencia oficial del primer"
+          },
+          {
+            "activation": -93.5,
+            "token": " de",
+            "context": "oras de inyección de"
+          },
+          {
+            "activation": -85.5,
+            "token": " ",
+            "context": " la primavera de "
+          },
+          {
+            "activation": -84.5,
+            "token": " Kings",
+            "context": "ych y subió por Kings"
+          },
+          {
+            "activation": -84.5,
+            "token": "og",
+            "context": " del despacho de abog"
+          },
+          {
+            "activation": -84.0,
+            "token": "id",
+            "context": " millones de dólares estadounid"
+          },
+          {
+            "activation": -83.5,
+            "token": " n",
+            "context": "hall que va hacia el n"
+          },
+          {
+            "activation": -82.5,
+            "token": " ab",
+            "context": ", la manifestación se ab"
+          },
+          {
+            "activation": -79.0,
+            "token": " preco",
+            "context": "ir la detección preco"
+          },
+          {
+            "activation": -79.0,
+            "token": " T",
+            "context": ", siguió por T"
+          },
+          {
+            "activation": -78.5,
+            "token": " State",
+            "context": " Supporters of the Head of State"
+          }
+        ]
+      },
+      "9307": {
+        "mean_abs": 13.898,
+        "max_abs": 101.5,
+        "share_tokens_above_2sigma": 0.0541,
+        "top_firing": [
+          {
+            "activation": 101.5,
+            "token": " acum",
+            "context": " el partido, Nadal acum"
+          },
+          {
+            "activation": 93.5,
+            "token": " ident",
+            "context": " Saturday.\n\nSpanish: Se ident"
+          },
+          {
+            "activation": -92.0,
+            "token": " cor",
+            "context": " inyección de uso cor"
+          },
+          {
+            "activation": 78.5,
+            "token": " con",
+            "context": " puede imprimir y fabricar con"
+          },
+          {
+            "activation": 76.5,
+            "token": "ar",
+            "context": "alados a ocultar"
+          },
+          {
+            "activation": 76.5,
+            "token": " de",
+            "context": " y los jefes de"
+          },
+          {
+            "activation": 76.0,
+            "token": " «",
+            "context": " La expresión genérica «"
+          },
+          {
+            "activation": 73.0,
+            "token": " a",
+            "context": " acaudalados a"
+          },
+          {
+            "activation": 71.0,
+            "token": " los",
+            "context": "» se refiere a los"
+          },
+          {
+            "activation": 70.0,
+            "token": "Est",
+            "context": "vo declaró: «Est"
+          },
+          {
+            "activation": 68.5,
+            "token": " de",
+            "context": "idenses con el fin de"
+          },
+          {
+            "activation": 68.0,
+            "token": " de",
+            "context": " y en la Escuela de"
+          }
+        ]
+      },
+      "3436": {
+        "mean_abs": 13.777,
+        "max_abs": 99.5,
+        "share_tokens_above_2sigma": 0.0579,
+        "top_firing": [
+          {
+            "activation": -99.5,
+            "token": "óst",
+            "context": " nueva herramienta de diagnóst"
+          },
+          {
+            "activation": -75.0,
+            "token": " de",
+            "context": " y los jefes de"
+          },
+          {
+            "activation": -71.5,
+            "token": " en",
+            "context": " filtraron en los medios en"
+          },
+          {
+            "activation": -69.5,
+            "token": " nivel",
+            "context": " a cabo manifestaciones a nivel"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          },
+          {
+            "activation": -67.0,
+            "token": " el",
+            "context": " de Estado se manifestaron el"
+          }
+        ]
+      }
+    },
+    "raw_es": {
+      "8136": {
+        "mean_abs": 89.477,
+        "max_abs": 189.0,
+        "share_tokens_above_2sigma": 0.0136,
+        "top_firing": [
+          {
+            "activation": -189.0,
+            "token": " acum",
+            "context": " el partido, Nadal acum"
+          },
+          {
+            "activation": -185.0,
+            "token": ",",
+            "context": " y procedente del Sevilla,"
+          },
+          {
+            "activation": -185.0,
+            "token": "9",
+            "context": "idal jugó 49"
+          },
+          {
+            "activation": -182.0,
+            "token": " más",
+            "context": " de la de los países más"
+          },
+          {
+            "activation": -180.0,
+            "token": "oy",
+            "context": " declaró: «Estoy"
+          },
+          {
+            "activation": -177.0,
+            "token": " las",
+            "context": "ación inició cerca de las"
+          },
+          {
+            "activation": -176.0,
+            "token": " expl",
+            "context": "30 UTC) y expl"
+          },
+          {
+            "activation": -175.0,
+            "token": " p",
+            "context": "moda victoria, p"
+          },
+          {
+            "activation": -174.0,
+            "token": " los",
+            "context": ":00 h, los"
+          },
+          {
+            "activation": -172.0,
+            "token": " con",
+            "context": ", la cual contaba con"
+          },
+          {
+            "activation": -171.0,
+            "token": " más",
+            "context": "aria de establecer relaciones más"
+          },
+          {
+            "activation": -170.0,
+            "token": " más",
+            "context": " de los torneos más"
+          }
+        ]
+      },
+      "9490": {
+        "mean_abs": 35.049,
+        "max_abs": 232.0,
+        "share_tokens_above_2sigma": 0.0779,
+        "top_firing": [
+          {
+            "activation": 232.0,
+            "token": " retro",
+            "context": " a los manifestantes que retro"
+          },
+          {
+            "activation": 226.0,
+            "token": "c",
+            "context": " de cerca de la terc"
+          },
+          {
+            "activation": 191.0,
+            "token": "ud",
+            "context": "aron a clientes acaud"
+          },
+          {
+            "activation": 185.0,
+            "token": " superv",
+            "context": " donde la tasa de superv"
+          },
+          {
+            "activation": 182.0,
+            "token": " pan",
+            "context": "acho de abogados pan"
+          },
+          {
+            "activation": 171.0,
+            "token": "ri",
+            "context": "yección de uso corri"
+          },
+          {
+            "activation": 170.0,
+            "token": " ev",
+            "context": "enses con el fin de ev"
+          },
+          {
+            "activation": 162.0,
+            "token": " r",
+            "context": "ados a ocultar r"
+          },
+          {
+            "activation": 156.0,
+            "token": " can",
+            "context": " de Nadal contra el can"
+          },
+          {
+            "activation": 154.0,
+            "token": "na",
+            "context": " en el hotel Grand Conna"
+          },
+          {
+            "activation": 152.0,
+            "token": "adi",
+            "context": " Nadal contra el canadi"
+          },
+          {
+            "activation": 151.0,
+            "token": "se",
+            "context": "ameño Mossack Fonse"
+          }
+        ]
+      },
+      "11333": {
+        "mean_abs": 35.118,
+        "max_abs": 161.0,
+        "share_tokens_above_2sigma": 0.0487,
+        "top_firing": [
+          {
+            "activation": 161.0,
+            "token": " retro",
+            "context": " a los manifestantes que retro"
+          },
+          {
+            "activation": 156.0,
+            "token": "ño",
+            "context": " abogados panameño"
+          },
+          {
+            "activation": 147.0,
+            "token": " ter",
+            "context": " control de cerca de la ter"
+          },
+          {
+            "activation": 144.0,
+            "token": "ri",
+            "context": "yección de uso corri"
+          },
+          {
+            "activation": 138.0,
+            "token": "em",
+            "context": "ar del país en tiem"
+          },
+          {
+            "activation": 135.0,
+            "token": "oun",
+            "context": " de millones de dólares estadoun"
+          },
+          {
+            "activation": 134.0,
+            "token": " baj",
+            "context": " en pacientes de países de baj"
+          },
+          {
+            "activation": 133.0,
+            "token": "id",
+            "context": " millones de dólares estadounid"
+          },
+          {
+            "activation": 130.0,
+            "token": "na",
+            "context": " en el hotel Grand Conna"
+          },
+          {
+            "activation": 129.0,
+            "token": "adi",
+            "context": " Nadal contra el canadi"
+          },
+          {
+            "activation": 127.0,
+            "token": "á",
+            "context": " acumulación de trá"
+          },
+          {
+            "activation": 126.5,
+            "token": " Fon",
+            "context": " panameño Mossack Fon"
+          }
+        ]
+      },
+      "2972": {
+        "mean_abs": 17.517,
+        "max_abs": 84.0,
+        "share_tokens_above_2sigma": 0.0604,
+        "top_firing": [
+          {
+            "activation": -84.0,
+            "token": "ueva",
+            "context": " en la Universidad de Nueva"
+          },
+          {
+            "activation": -82.0,
+            "token": " de",
+            "context": "oras de inyección de"
+          },
+          {
+            "activation": -81.0,
+            "token": " in",
+            "context": "ar con impresoras de in"
+          },
+          {
+            "activation": -77.5,
+            "token": " primer",
+            "context": ", residencia oficial del primer"
+          },
+          {
+            "activation": -77.0,
+            "token": " ren",
+            "context": " como de Pakistán ren"
+          },
+          {
+            "activation": -76.0,
+            "token": " primer",
+            "context": " 76 en el primer"
+          },
+          {
+            "activation": -75.0,
+            "token": " Kings",
+            "context": "ych y subió por Kings"
+          },
+          {
+            "activation": -74.0,
+            "token": "na",
+            "context": " en el hotel Grand Conna"
+          },
+          {
+            "activation": -73.5,
+            "token": " retro",
+            "context": " a los manifestantes que retro"
+          },
+          {
+            "activation": -71.5,
+            "token": " Hol",
+            "context": "ió por Kingsway hacia Hol"
+          },
+          {
+            "activation": -70.0,
+            "token": " de",
+            "context": " fabricar con impresoras de"
+          },
+          {
+            "activation": -68.0,
+            "token": " Ald",
+            "context": " Strand, pasando por Ald"
+          }
+        ]
+      },
+      "9307": {
+        "mean_abs": 21.052,
+        "max_abs": 93.0,
+        "share_tokens_above_2sigma": 0.0477,
+        "top_firing": [
+          {
+            "activation": -93.0,
+            "token": " cor",
+            "context": " inyección de uso cor"
+          },
+          {
+            "activation": 88.5,
+            "token": " acum",
+            "context": " el partido, Nadal acum"
+          },
+          {
+            "activation": 74.0,
+            "token": " los",
+            "context": "» se refiere a los"
+          },
+          {
+            "activation": 72.5,
+            "token": " a",
+            "context": " acaudalados a"
+          },
+          {
+            "activation": 72.0,
+            "token": " documentos",
+            "context": " casi diez millones de documentos"
+          },
+          {
+            "activation": 70.5,
+            "token": " de",
+            "context": " y los jefes de"
+          },
+          {
+            "activation": 70.0,
+            "token": "ar",
+            "context": "alados a ocultar"
+          },
+          {
+            "activation": 70.0,
+            "token": " en",
+            "context": " de residente permanente en"
+          },
+          {
+            "activation": 69.5,
+            "token": " de",
+            "context": " tanto de Islandia como de"
+          },
+          {
+            "activation": 67.5,
+            "token": " con",
+            "context": " puede imprimir y fabricar con"
+          },
+          {
+            "activation": 67.0,
+            "token": "in",
+            "context": ", Hsieh insin"
+          },
+          {
+            "activation": 66.0,
+            "token": " desarroll",
+            "context": " lugar en el que se desarroll"
+          }
+        ]
+      },
+      "3436": {
+        "mean_abs": 23.049,
+        "max_abs": 116.5,
+        "share_tokens_above_2sigma": 0.0419,
+        "top_firing": [
+          {
+            "activation": -116.5,
+            "token": "Desde",
+            "context": "Desde"
+          },
+          {
+            "activation": -101.0,
+            "token": " en",
+            "context": " filtraron en los medios en"
+          },
+          {
+            "activation": -88.0,
+            "token": "El",
+            "context": "El"
+          },
+          {
+            "activation": -88.0,
+            "token": "El",
+            "context": "El"
+          },
+          {
+            "activation": -88.0,
+            "token": "El",
+            "context": "El"
+          },
+          {
+            "activation": -88.0,
+            "token": "El",
+            "context": "El"
+          },
+          {
+            "activation": -79.5,
+            "token": " nivel",
+            "context": " a cabo manifestaciones a nivel"
+          },
+          {
+            "activation": -75.5,
+            "token": "ar",
+            "context": "alados a ocultar"
+          },
+          {
+            "activation": -75.0,
+            "token": "óst",
+            "context": " nueva herramienta de diagnóst"
+          },
+          {
+            "activation": -74.5,
+            "token": "Los",
+            "context": "Los"
+          },
+          {
+            "activation": -74.0,
+            "token": " en",
+            "context": "ca que se filtraron en"
+          },
+          {
+            "activation": -73.0,
+            "token": "1",
+            "context": "erca de las 11"
+          }
+        ]
+      }
+    },
+    "en_only": {
+      "8136": {
+        "mean_abs": 3.606,
+        "max_abs": 58.0,
+        "share_tokens_above_2sigma": 0.0616,
+        "top_firing": [
+          {
+            "activation": -58.0,
+            "token": " Patt",
+            "context": " Squadron Leader Dilokrit Patt"
+          },
+          {
+            "activation": -34.5,
+            "token": "w",
+            "context": " Strand, passing by Aldw"
+          },
+          {
+            "activation": -28.38,
+            "token": " O",
+            "context": " of the Day is Alex O"
+          },
+          {
+            "activation": -25.0,
+            "token": "+",
+            "context": "0 local time (UTC+"
+          },
+          {
+            "activation": -24.62,
+            "token": " V",
+            "context": " to the Catalan-capital, V"
+          },
+          {
+            "activation": -23.88,
+            "token": "ok",
+            "context": " identified as Squadron Leader Dilok"
+          },
+          {
+            "activation": -19.12,
+            "token": " Ra",
+            "context": "He recently lost against Ra"
+          },
+          {
+            "activation": -18.38,
+            "token": " Deutsche",
+            "context": "British newspaper The Guardian suggested Deutsche"
+          },
+          {
+            "activation": -17.38,
+            "token": " Ald",
+            "context": " the Strand, passing by Ald"
+          },
+          {
+            "activation": -17.0,
+            "token": "N",
+            "context": "N"
+          },
+          {
+            "activation": -17.0,
+            "token": "N",
+            "context": "N"
+          },
+          {
+            "activation": -16.38,
+            "token": " Hol",
+            "context": " and up Kingsway towards Hol"
+          }
+        ]
+      },
+      "9490": {
+        "mean_abs": 26.701,
+        "max_abs": 161.0,
+        "share_tokens_above_2sigma": 0.0774,
+        "top_firing": [
+          {
+            "activation": 161.0,
+            "token": "na",
+            "context": " Forum in the Grand Conna"
+          },
+          {
+            "activation": 160.0,
+            "token": " official",
+            "context": ", the Prime Minister's official"
+          },
+          {
+            "activation": 154.0,
+            "token": "se",
+            "context": " law firm Mossack Fonse"
+          },
+          {
+            "activation": 150.0,
+            "token": " Fon",
+            "context": "ian law firm Mossack Fon"
+          },
+          {
+            "activation": 137.0,
+            "token": " Kings",
+            "context": " Aldwych and up Kings"
+          },
+          {
+            "activation": 132.0,
+            "token": " Brisbane",
+            "context": " against Raonic in the Brisbane"
+          },
+          {
+            "activation": 130.0,
+            "token": " Con",
+            "context": " Spring Forum in the Grand Con"
+          },
+          {
+            "activation": 129.0,
+            "token": "N",
+            "context": "N"
+          },
+          {
+            "activation": 129.0,
+            "token": "N",
+            "context": "N"
+          },
+          {
+            "activation": 128.0,
+            "token": " Grand",
+            "context": " their Spring Forum in the Grand"
+          },
+          {
+            "activation": 126.0,
+            "token": " Ald",
+            "context": " the Strand, passing by Ald"
+          },
+          {
+            "activation": 125.5,
+            "token": "H",
+            "context": "H"
+          }
+        ]
+      },
+      "11333": {
+        "mean_abs": 31.722,
+        "max_abs": 212.0,
+        "share_tokens_above_2sigma": 0.0537,
+        "top_firing": [
+          {
+            "activation": 212.0,
+            "token": " firm",
+            "context": " from Panamanian law firm"
+          },
+          {
+            "activation": 145.0,
+            "token": " up",
+            "context": " by Aldwych and up"
+          },
+          {
+            "activation": 143.0,
+            "token": "9",
+            "context": "The JAS 39"
+          },
+          {
+            "activation": 142.0,
+            "token": "na",
+            "context": " Forum in the Grand Conna"
+          },
+          {
+            "activation": 139.0,
+            "token": " Fon",
+            "context": "ian law firm Mossack Fon"
+          },
+          {
+            "activation": 133.0,
+            "token": " along",
+            "context": "rafalgar Square, along"
+          },
+          {
+            "activation": 132.0,
+            "token": " Grand",
+            "context": " their Spring Forum in the Grand"
+          },
+          {
+            "activation": 132.0,
+            "token": "ch",
+            "context": " Day is Alex Ovech"
+          },
+          {
+            "activation": 130.0,
+            "token": "ack",
+            "context": "amanian law firm Mossack"
+          },
+          {
+            "activation": 127.0,
+            "token": " the",
+            "context": "seca, leaked to the"
+          },
+          {
+            "activation": 126.5,
+            "token": "ught",
+            "context": " in the Grand Connaught"
+          },
+          {
+            "activation": 125.0,
+            "token": " Moss",
+            "context": " Panamanian law firm Moss"
+          }
+        ]
+      },
+      "2972": {
+        "mean_abs": 13.181,
+        "max_abs": 91.5,
+        "share_tokens_above_2sigma": 0.0585,
+        "top_firing": [
+          {
+            "activation": -91.5,
+            "token": " Kings",
+            "context": " Aldwych and up Kings"
+          },
+          {
+            "activation": -81.0,
+            "token": " Hol",
+            "context": " and up Kingsway towards Hol"
+          },
+          {
+            "activation": -77.5,
+            "token": "na",
+            "context": " Forum in the Grand Conna"
+          },
+          {
+            "activation": -75.0,
+            "token": " Washington",
+            "context": "vechkin of the Washington"
+          },
+          {
+            "activation": -71.0,
+            "token": " Ald",
+            "context": " the Strand, passing by Ald"
+          },
+          {
+            "activation": -68.0,
+            "token": " official",
+            "context": ", the Prime Minister's official"
+          },
+          {
+            "activation": -67.0,
+            "token": " Gri",
+            "context": "AS 39C Gri"
+          },
+          {
+            "activation": -66.0,
+            "token": " Grand",
+            "context": " their Spring Forum in the Grand"
+          },
+          {
+            "activation": -64.5,
+            "token": " of",
+            "context": " from the Stanford University School of"
+          },
+          {
+            "activation": -61.5,
+            "token": "w",
+            "context": " Strand, passing by Aldw"
+          },
+          {
+            "activation": -59.25,
+            "token": ".",
+            "context": " possibly about one U.S."
+          },
+          {
+            "activation": -59.25,
+            "token": " police",
+            "context": " on Whitehall opposite the police"
+          }
+        ]
+      },
+      "9307": {
+        "mean_abs": 0.836,
+        "max_abs": 6.56,
+        "share_tokens_above_2sigma": 0.019,
+        "top_firing": [
+          {
+            "activation": 6.56,
+            "token": "1",
+            "context": " in spring 201"
+          },
+          {
+            "activation": 2.66,
+            "token": "1",
+            "context": " protest started around 11"
+          },
+          {
+            "activation": -2.17,
+            "token": "+",
+            "context": "0 local time (UTC+"
+          },
+          {
+            "activation": -2.16,
+            "token": " opposite",
+            "context": "1) on Whitehall opposite"
+          },
+          {
+            "activation": -2.06,
+            "token": "0",
+            "context": " around 11:0"
+          },
+          {
+            "activation": -2.0,
+            "token": " Dil",
+            "context": " was identified as Squadron Leader Dil"
+          },
+          {
+            "activation": -1.96,
+            "token": "3",
+            "context": " local time (023"
+          },
+          {
+            "activation": -1.95,
+            "token": " ",
+            "context": "The protest started around "
+          },
+          {
+            "activation": -1.94,
+            "token": "2",
+            "context": " the press in spring 2"
+          },
+          {
+            "activation": -1.88,
+            "token": "3",
+            "context": " at around 9:3"
+          },
+          {
+            "activation": -1.84,
+            "token": "0",
+            "context": " after 11:0"
+          },
+          {
+            "activation": -1.84,
+            "token": " firm",
+            "context": " from Panamanian law firm"
+          }
+        ]
+      },
+      "3436": {
+        "mean_abs": 1.087,
+        "max_abs": 30.25,
+        "share_tokens_above_2sigma": 0.0379,
+        "top_firing": [
+          {
+            "activation": 30.25,
+            "token": "British",
+            "context": "British"
+          },
+          {
+            "activation": 30.25,
+            "token": "Born",
+            "context": "Born"
+          },
+          {
+            "activation": 30.0,
+            "token": "H",
+            "context": "H"
+          },
+          {
+            "activation": 30.0,
+            "token": "H",
+            "context": "H"
+          },
+          {
+            "activation": 28.5,
+            "token": "On",
+            "context": "On"
+          },
+          {
+            "activation": 28.5,
+            "token": "Just",
+            "context": "Just"
+          },
+          {
+            "activation": 27.38,
+            "token": "Around",
+            "context": "Around"
+          },
+          {
+            "activation": 27.25,
+            "token": "The",
+            "context": "The"
+          },
+          {
+            "activation": 27.25,
+            "token": "The",
+            "context": "The"
+          },
+          {
+            "activation": 27.25,
+            "token": "The",
+            "context": "The"
+          },
+          {
+            "activation": 27.25,
+            "token": "N",
+            "context": "N"
+          },
+          {
+            "activation": 27.25,
+            "token": "N",
+            "context": "N"
+          }
+        ]
+      }
+    },
+    "control": {
+      "8136": {
+        "mean_abs": 3.29,
+        "max_abs": 23.62,
+        "share_tokens_above_2sigma": 0.0618,
+        "top_firing": [
+          {
+            "activation": -23.62,
+            "token": "7",
+            "context": "14 = 27"
+          },
+          {
+            "activation": -22.75,
+            "token": "[i",
+            "context": "):\n    return [tmp[i"
+          },
+          {
+            "activation": -22.75,
+            "token": "[i",
+            "context": "):\n    return [tmp[i"
+          },
+          {
+            "activation": -22.38,
+            "token": "[i",
+            "context": "):\n    return [tmp[i"
+          },
+          {
+            "activation": -21.88,
+            "token": "[i",
+            "context": "):\n    return [acc[i"
+          },
+          {
+            "activation": -21.12,
+            "token": "[i",
+            "context": "):\n    return [tmp[i"
+          },
+          {
+            "activation": -21.12,
+            "token": "[i",
+            "context": "):\n    return [acc[i"
+          },
+          {
+            "activation": -19.25,
+            "token": "[i",
+            "context": "):\n    return [x[i"
+          },
+          {
+            "activation": -19.0,
+            "token": "[i",
+            "context": "):\n    return [x[i"
+          },
+          {
+            "activation": -18.38,
+            "token": "[i",
+            "context": "):\n    return [x[i"
+          },
+          {
+            "activation": -17.62,
+            "token": " ",
+            "context": " / 53 = "
+          },
+          {
+            "activation": -17.25,
+            "token": "[i",
+            "context": "):\n    return [buf[i"
+          }
+        ]
+      },
+      "9490": {
+        "mean_abs": 10.954,
+        "max_abs": 124.5,
+        "share_tokens_above_2sigma": 0.0373,
+        "top_firing": [
+          {
+            "activation": 124.5,
+            "token": "1",
+            "context": "893 + 1"
+          },
+          {
+            "activation": 114.5,
+            "token": "0",
+            "context": "93 + 10"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 114.0,
+            "token": "def",
+            "context": "def"
+          }
+        ]
+      },
+      "11333": {
+        "mean_abs": 16.628,
+        "max_abs": 79.5,
+        "share_tokens_above_2sigma": 0.0608,
+        "top_firing": [
+          {
+            "activation": 79.5,
+            "token": "7",
+            "context": "def f7"
+          },
+          {
+            "activation": 73.0,
+            "token": "(len",
+            "context": "8 for i in range(len"
+          },
+          {
+            "activation": 66.5,
+            "token": "(len",
+            "context": "5 for i in range(len"
+          },
+          {
+            "activation": 65.5,
+            "token": "(len",
+            "context": "6 for i in range(len"
+          },
+          {
+            "activation": -63.25,
+            "token": "7",
+            "context": " 44 = 7"
+          },
+          {
+            "activation": -62.0,
+            "token": "6",
+            "context": " 10 = 6"
+          },
+          {
+            "activation": 61.5,
+            "token": "(len",
+            "context": "5 for i in range(len"
+          },
+          {
+            "activation": -60.0,
+            "token": "5",
+            "context": " 64 = 5"
+          },
+          {
+            "activation": -59.25,
+            "token": "4",
+            "context": " 35 = 4"
+          },
+          {
+            "activation": 59.0,
+            "token": "(len",
+            "context": "0 for i in range(len"
+          },
+          {
+            "activation": 58.5,
+            "token": "(len",
+            "context": "1 for i in range(len"
+          },
+          {
+            "activation": 56.25,
+            "token": "def",
+            "context": "def"
+          }
+        ]
+      },
+      "2972": {
+        "mean_abs": 5.875,
+        "max_abs": 37.0,
+        "share_tokens_above_2sigma": 0.0469,
+        "top_firing": [
+          {
+            "activation": 37.0,
+            "token": " ",
+            "context": " / 28 = "
+          },
+          {
+            "activation": -31.88,
+            "token": "1",
+            "context": "893 + 1"
+          },
+          {
+            "activation": 31.75,
+            "token": "1",
+            "context": "23.671"
+          },
+          {
+            "activation": 31.12,
+            "token": "3",
+            "context": " 44 = 3"
+          },
+          {
+            "activation": 30.75,
+            "token": "4",
+            "context": "15.754"
+          },
+          {
+            "activation": 30.25,
+            "token": " ",
+            "context": " / 53 = "
+          },
+          {
+            "activation": 30.12,
+            "token": " ",
+            "context": " / 64 = "
+          },
+          {
+            "activation": 29.62,
+            "token": " ",
+            "context": " / 20 = "
+          },
+          {
+            "activation": 29.12,
+            "token": "1",
+            "context": "14 = 11"
+          },
+          {
+            "activation": 28.38,
+            "token": " ",
+            "context": " / 35 = "
+          },
+          {
+            "activation": -27.12,
+            "token": "(len",
+            "context": "8 for i in range(len"
+          },
+          {
+            "activation": -26.88,
+            "token": "6",
+            "context": " 14 = 6"
+          }
+        ]
+      },
+      "9307": {
+        "mean_abs": 1.516,
+        "max_abs": 13.88,
+        "share_tokens_above_2sigma": 0.0288,
+        "top_firing": [
+          {
+            "activation": 13.88,
+            "token": "1",
+            "context": "28 = 41"
+          },
+          {
+            "activation": 8.38,
+            "token": "4",
+            "context": "10 = 64"
+          },
+          {
+            "activation": 5.25,
+            "token": "5",
+            "context": "44 = 75"
+          },
+          {
+            "activation": 4.97,
+            "token": "[i",
+            "context": "):\n    return [x[i"
+          },
+          {
+            "activation": 4.84,
+            "token": "[i",
+            "context": "):\n    return [buf[i"
+          },
+          {
+            "activation": 4.84,
+            "token": "[i",
+            "context": "):\n    return [tmp[i"
+          },
+          {
+            "activation": 4.78,
+            "token": " ",
+            "context": " / 35 = "
+          },
+          {
+            "activation": 4.59,
+            "token": "2",
+            "context": " 64 = 2"
+          },
+          {
+            "activation": 4.5,
+            "token": "[i",
+            "context": "):\n    return [x[i"
+          },
+          {
+            "activation": 4.47,
+            "token": " range",
+            "context": "64 for i in range"
+          },
+          {
+            "activation": 4.41,
+            "token": "]",
+            "context": " 3 != 0]"
+          },
+          {
+            "activation": 4.34,
+            "token": "[i",
+            "context": "):\n    return [acc[i"
+          }
+        ]
+      },
+      "3436": {
+        "mean_abs": 1.038,
+        "max_abs": 27.12,
+        "share_tokens_above_2sigma": 0.032,
+        "top_firing": [
+          {
+            "activation": -27.12,
+            "token": "1",
+            "context": "14 = 11"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          },
+          {
+            "activation": 27.0,
+            "token": "def",
+            "context": "def"
+          }
+        ]
+      }
+    }
+  },
+  "writeup": "L35 N8136 is a tonic Spanish-language indicator, not a spiky feature detector: mean |activation| is 89.5 on raw Spanish and 67.1 inside few-shot translation prompts (about half of whose tokens are Spanish) versus 3.6 on English and 3.3 on math/code -- a ~25x tonic ratio, with consistently negative polarity. It fires on essentially every Spanish token (the >2-sigma share is *lower* on Spanish, 1.4%, than English, 6.2%, precisely because the Spanish level is uniformly high rather than peaked), hardest on high-frequency function words (las, los, una, mas) and Spanish morphology. Its rare English activations are on non-English-looking proper nouns (Dilokrit Patt, Aldwych, Vic). This matches the late-layer language-identity features of Harrasse et al. rather than a translation-task switch. The neighbours are graded rather than binary: 9490/11333 are elevated on all natural language with a Spanish>English tilt and spike on subword fragments (retro, ud, ño); 2972/9307/3436 sit between, suggesting a small late-layer language-identity subspace with 8136 as its strongest axis.",
+  "command": "uv run python -m scripts.phase1b_outlier qwen3-8b"
+}

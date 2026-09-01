@@ -1,0 +1,297 @@
+{
+  "model": {
+    "config": "qwen3-8b",
+    "hf_name": "Qwen/Qwen3-8B",
+    "dtype": "bfloat16",
+    "n_layers": 36,
+    "d_ff": 12288
+  },
+  "protocol": "Tang et al. 2402.16438: score = mean|act|(ES) - (mean|act|(EN) + mean|act|(control))/2, measured at each MLP down-projection input over real (non-padding) tokens; flag score > 2*sigma",
+  "tokens_per_condition": {
+    "es_translation": 6116,
+    "en_only": 5047,
+    "control": 5300
+  },
+  "score_sigma": 0.8050101813839019,
+  "score_mean": 0.01339284495524194,
+  "flagged_total": 1198,
+  "flagged_share": 0.002708,
+  "flagged_per_layer": {
+    "19": 1,
+    "22": 1,
+    "23": 1,
+    "24": 3,
+    "25": 2,
+    "26": 5,
+    "27": 3,
+    "28": 11,
+    "29": 13,
+    "30": 33,
+    "31": 93,
+    "32": 180,
+    "33": 325,
+    "34": 317,
+    "35": 210
+  },
+  "concentration": {
+    "bottom_quarter_layers": 9,
+    "bottom_quarter_flagged": 0,
+    "top_quarter_flagged": 1185,
+    "middle_flagged": 13,
+    "bottom_plus_top_share": 0.9891
+  },
+  "top50": [
+    {
+      "layer": 35,
+      "neuron": 8136,
+      "score": 63.010343
+    },
+    {
+      "layer": 35,
+      "neuron": 9490,
+      "score": 31.238857
+    },
+    {
+      "layer": 35,
+      "neuron": 11333,
+      "score": 26.786137
+    },
+    {
+      "layer": 30,
+      "neuron": 2910,
+      "score": 24.623347
+    },
+    {
+      "layer": 31,
+      "neuron": 3480,
+      "score": 20.791379
+    },
+    {
+      "layer": 35,
+      "neuron": 2972,
+      "score": 16.181184
+    },
+    {
+      "layer": 33,
+      "neuron": 11716,
+      "score": 16.14425
+    },
+    {
+      "layer": 31,
+      "neuron": 7158,
+      "score": 15.779322
+    },
+    {
+      "layer": 35,
+      "neuron": 9307,
+      "score": 12.597712
+    },
+    {
+      "layer": 35,
+      "neuron": 3436,
+      "score": 12.593602
+    },
+    {
+      "layer": 33,
+      "neuron": 4832,
+      "score": 12.327186
+    },
+    {
+      "layer": 32,
+      "neuron": 7997,
+      "score": 12.030476
+    },
+    {
+      "layer": 35,
+      "neuron": 5927,
+      "score": 11.889637
+    },
+    {
+      "layer": 35,
+      "neuron": 8468,
+      "score": 11.875442
+    },
+    {
+      "layer": 35,
+      "neuron": 4753,
+      "score": 11.758162
+    },
+    {
+      "layer": 35,
+      "neuron": 7104,
+      "score": 11.441309
+    },
+    {
+      "layer": 35,
+      "neuron": 12260,
+      "score": 11.298585
+    },
+    {
+      "layer": 32,
+      "neuron": 3261,
+      "score": 11.150213
+    },
+    {
+      "layer": 35,
+      "neuron": 7384,
+      "score": 9.841089
+    },
+    {
+      "layer": 35,
+      "neuron": 10790,
+      "score": 9.814786
+    },
+    {
+      "layer": 35,
+      "neuron": 11900,
+      "score": 9.666983
+    },
+    {
+      "layer": 34,
+      "neuron": 1228,
+      "score": 9.550158
+    },
+    {
+      "layer": 35,
+      "neuron": 132,
+      "score": 9.211034
+    },
+    {
+      "layer": 35,
+      "neuron": 6631,
+      "score": 9.089625
+    },
+    {
+      "layer": 32,
+      "neuron": 6753,
+      "score": 8.934274
+    },
+    {
+      "layer": 33,
+      "neuron": 10732,
+      "score": 8.908589
+    },
+    {
+      "layer": 31,
+      "neuron": 5473,
+      "score": 8.853972
+    },
+    {
+      "layer": 35,
+      "neuron": 6325,
+      "score": 8.801437
+    },
+    {
+      "layer": 35,
+      "neuron": 8206,
+      "score": 8.394453
+    },
+    {
+      "layer": 34,
+      "neuron": 1722,
+      "score": 8.150735
+    },
+    {
+      "layer": 34,
+      "neuron": 3646,
+      "score": 8.087001
+    },
+    {
+      "layer": 33,
+      "neuron": 6850,
+      "score": 7.745982
+    },
+    {
+      "layer": 35,
+      "neuron": 9672,
+      "score": 7.625504
+    },
+    {
+      "layer": 32,
+      "neuron": 9017,
+      "score": 7.620998
+    },
+    {
+      "layer": 33,
+      "neuron": 9246,
+      "score": 7.515433
+    },
+    {
+      "layer": 35,
+      "neuron": 3294,
+      "score": 7.481985
+    },
+    {
+      "layer": 34,
+      "neuron": 9205,
+      "score": 7.404405
+    },
+    {
+      "layer": 32,
+      "neuron": 7376,
+      "score": 7.099072
+    },
+    {
+      "layer": 35,
+      "neuron": 4647,
+      "score": 7.01323
+    },
+    {
+      "layer": 30,
+      "neuron": 3769,
+      "score": 7.004221
+    },
+    {
+      "layer": 34,
+      "neuron": 4296,
+      "score": 6.999806
+    },
+    {
+      "layer": 34,
+      "neuron": 778,
+      "score": 6.914509
+    },
+    {
+      "layer": 32,
+      "neuron": 12096,
+      "score": 6.794605
+    },
+    {
+      "layer": 35,
+      "neuron": 3212,
+      "score": 6.740699
+    },
+    {
+      "layer": 34,
+      "neuron": 11166,
+      "score": 6.689561
+    },
+    {
+      "layer": 30,
+      "neuron": 12254,
+      "score": 6.686509
+    },
+    {
+      "layer": 35,
+      "neuron": 12086,
+      "score": 6.645119
+    },
+    {
+      "layer": 35,
+      "neuron": 10554,
+      "score": 6.520815
+    },
+    {
+      "layer": 34,
+      "neuron": 980,
+      "score": 6.370662
+    },
+    {
+      "layer": 32,
+      "neuron": 1813,
+      "score": 6.338941
+    }
+  ],
+  "command": "uv run python -m scripts.phase1a_neuron_scan qwen3-8b 5000",
+  "notes": "Top-heavy rather than Tang et al.'s bottom+top: 1185/1198 flagged neurons sit in layers 27-35 (85% in layers 32-35) and none in the bottom quarter. Two candidate reasons, to settle in Phase 1b: (1) the ES condition is the full few-shot translation prompt, whose shots are half English, which dilutes any bottom-layer (embedding-reassembly) Spanish signal by roughly half; (2) the score keys on ES *translation context*, not raw Spanish text, so what it isolates is closer to the output-language / task machinery the literature also places late. A raw-Spanish-text condition is the one-pass control that separates the two. Layer 35 neuron 8136 (score 63, 78x sigma) is an outlier worth inspecting first."
+}
