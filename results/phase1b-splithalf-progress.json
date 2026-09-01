@@ -1,0 +1,249 @@
+{
+  "heads": {
+    "head:28:16": {
+      "group": "top",
+      "first_half_dbleu": 0.51,
+      "second_half_bleu": 40.2,
+      "second_half_dbleu": -0.31,
+      "degeneracy": 0.0,
+      "seconds": 24.4
+    },
+    "head:28:2": {
+      "group": "top",
+      "first_half_dbleu": 0.49,
+      "second_half_bleu": 39.89,
+      "second_half_dbleu": 0.0,
+      "degeneracy": 0.0,
+      "seconds": 23.0
+    },
+    "head:28:19": {
+      "group": "top",
+      "first_half_dbleu": 0.45,
+      "second_half_bleu": 39.87,
+      "second_half_dbleu": 0.02,
+      "degeneracy": 0.0,
+      "seconds": 23.0
+    },
+    "head:29:10": {
+      "group": "top",
+      "first_half_dbleu": 0.45,
+      "second_half_bleu": 40.12,
+      "second_half_dbleu": -0.23,
+      "degeneracy": 0.0,
+      "seconds": 22.8
+    },
+    "head:33:29": {
+      "group": "top",
+      "first_half_dbleu": 0.36,
+      "second_half_bleu": 40.13,
+      "second_half_dbleu": -0.24,
+      "degeneracy": 0.0,
+      "seconds": 22.6
+    },
+    "head:31:10": {
+      "group": "top",
+      "first_half_dbleu": 0.36,
+      "second_half_bleu": 39.33,
+      "second_half_dbleu": 0.56,
+      "degeneracy": 0.0,
+      "seconds": 23.0
+    },
+    "head:28:11": {
+      "group": "top",
+      "first_half_dbleu": 0.33,
+      "second_half_bleu": 39.06,
+      "second_half_dbleu": 0.83,
+      "degeneracy": 0.0,
+      "seconds": 22.9
+    },
+    "head:27:26": {
+      "group": "top",
+      "first_half_dbleu": 0.32,
+      "second_half_bleu": 40.04,
+      "second_half_dbleu": -0.15,
+      "degeneracy": 0.0,
+      "seconds": 23.0
+    },
+    "head:30:23": {
+      "group": "top",
+      "first_half_dbleu": 0.32,
+      "second_half_bleu": 39.77,
+      "second_half_dbleu": 0.12,
+      "degeneracy": 0.0,
+      "seconds": 22.6
+    },
+    "head:27:18": {
+      "group": "top",
+      "first_half_dbleu": 0.31,
+      "second_half_bleu": 40.0,
+      "second_half_dbleu": -0.11,
+      "degeneracy": 0.0,
+      "seconds": 23.4
+    },
+    "head:27:6": {
+      "group": "bottom",
+      "first_half_dbleu": -0.49,
+      "second_half_bleu": 39.8,
+      "second_half_dbleu": 0.09,
+      "degeneracy": 0.0,
+      "seconds": 23.0
+    },
+    "head:28:6": {
+      "group": "bottom",
+      "first_half_dbleu": -0.51,
+      "second_half_bleu": 39.78,
+      "second_half_dbleu": 0.11,
+      "degeneracy": 0.0,
+      "seconds": 23.1
+    },
+    "head:28:9": {
+      "group": "bottom",
+      "first_half_dbleu": -0.52,
+      "second_half_bleu": 39.82,
+      "second_half_dbleu": 0.07,
+      "degeneracy": 0.0,
+      "seconds": 23.6
+    },
+    "head:32:10": {
+      "group": "bottom",
+      "first_half_dbleu": -0.55,
+      "second_half_bleu": 39.94,
+      "second_half_dbleu": -0.05,
+      "degeneracy": 0.0,
+      "seconds": 22.9
+    },
+    "head:31:17": {
+      "group": "bottom",
+      "first_half_dbleu": -0.55,
+      "second_half_bleu": 39.79,
+      "second_half_dbleu": 0.1,
+      "degeneracy": 0.0,
+      "seconds": 23.7
+    },
+    "head:30:20": {
+      "group": "bottom",
+      "first_half_dbleu": -0.59,
+      "second_half_bleu": 39.19,
+      "second_half_dbleu": 0.7,
+      "degeneracy": 0.0,
+      "seconds": 23.7
+    },
+    "head:28:10": {
+      "group": "bottom",
+      "first_half_dbleu": -0.64,
+      "second_half_bleu": 40.22,
+      "second_half_dbleu": -0.33,
+      "degeneracy": 0.0,
+      "seconds": 23.6
+    },
+    "head:35:2": {
+      "group": "bottom",
+      "first_half_dbleu": -0.72,
+      "second_half_bleu": 39.84,
+      "second_half_dbleu": 0.05,
+      "degeneracy": 0.0,
+      "seconds": 22.8
+    },
+    "head:34:16": {
+      "group": "bottom",
+      "first_half_dbleu": -0.81,
+      "second_half_bleu": 39.98,
+      "second_half_dbleu": -0.09,
+      "degeneracy": 0.0,
+      "seconds": 23.4
+    },
+    "head:28:5": {
+      "group": "bottom",
+      "first_half_dbleu": -0.84,
+      "second_half_bleu": 39.58,
+      "second_half_dbleu": 0.31,
+      "degeneracy": 0.0,
+      "seconds": 23.1
+    },
+    "head:31:18": {
+      "group": "middle",
+      "first_half_dbleu": -0.01,
+      "second_half_bleu": 39.86,
+      "second_half_dbleu": 0.03,
+      "degeneracy": 0.0,
+      "seconds": 23.3
+    },
+    "head:33:16": {
+      "group": "middle",
+      "first_half_dbleu": -0.02,
+      "second_half_bleu": 40.14,
+      "second_half_dbleu": -0.25,
+      "degeneracy": 0.0,
+      "seconds": 23.4
+    },
+    "head:34:3": {
+      "group": "middle",
+      "first_half_dbleu": -0.01,
+      "second_half_bleu": 39.83,
+      "second_half_dbleu": 0.06,
+      "degeneracy": 0.0,
+      "seconds": 23.4
+    },
+    "head:30:19": {
+      "group": "middle",
+      "first_half_dbleu": -0.01,
+      "second_half_bleu": 39.71,
+      "second_half_dbleu": 0.18,
+      "degeneracy": 0.0,
+      "seconds": 23.8
+    },
+    "head:32:14": {
+      "group": "middle",
+      "first_half_dbleu": -0.01,
+      "second_half_bleu": 39.84,
+      "second_half_dbleu": 0.05,
+      "degeneracy": 0.0,
+      "seconds": 23.3
+    },
+    "head:27:22": {
+      "group": "middle",
+      "first_half_dbleu": -0.01,
+      "second_half_bleu": 39.95,
+      "second_half_dbleu": -0.06,
+      "degeneracy": 0.0,
+      "seconds": 23.3
+    },
+    "head:35:15": {
+      "group": "middle",
+      "first_half_dbleu": -0.01,
+      "second_half_bleu": 39.62,
+      "second_half_dbleu": 0.27,
+      "degeneracy": 0.0,
+      "seconds": 23.4
+    },
+    "head:31:8": {
+      "group": "middle",
+      "first_half_dbleu": 0.0,
+      "second_half_bleu": 40.09,
+      "second_half_dbleu": -0.2,
+      "degeneracy": 0.0,
+      "seconds": 23.3
+    },
+    "head:32:17": {
+      "group": "middle",
+      "first_half_dbleu": -0.02,
+      "second_half_bleu": 39.84,
+      "second_half_dbleu": 0.05,
+      "degeneracy": 0.0,
+      "seconds": 23.3
+    },
+    "head:30:29": {
+      "group": "middle",
+      "first_half_dbleu": -0.01,
+      "second_half_bleu": 39.89,
+      "second_half_dbleu": 0.0,
+      "degeneracy": 0.0,
+      "seconds": 23.0
+    }
+  },
+  "baseline": {
+    "bleu": 39.89,
+    "degeneracy": 0.0,
+    "seconds": 26.8
+  }
+}

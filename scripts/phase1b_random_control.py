@@ -299,7 +299,13 @@ def stage_run(config: str, scope: str, target: str, seeds: int, budget: float) -
 # collapse. Geometric rather than linear because the interesting region is
 # small -- a circuit worth reporting is a few percent, and 19.4% is already
 # known to be past the end.
-FRONTIER_SHARES = (0.005, 0.01, 0.02, 0.05, 0.10, 0.15, 0.20)
+# 5% was intact and 10% was every generation broken, so the first pass located
+# the frontier only to within a factor of two -- and the interval it left open
+# is where the pre-registered combos sit (all_candidate_heads costs 5.57%).
+# 6-9% is therefore not extra resolution for its own sake: it is the difference
+# between "that combo is measurable" and "that combo is destruction", which no
+# amount of care downstream can recover once the sweep has been scored.
+FRONTIER_SHARES = (0.005, 0.01, 0.02, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10, 0.15, 0.20)
 
 FRONTIER = Path("results/phase1b-survival-frontier.json")
 
@@ -374,8 +380,22 @@ def stage_frontier_report(scope: str) -> None:
             "dbleu": round(base - record["bleu"], 2),
             "degeneracy": record["degeneracy"],
         })
-    intact = [row for row in rows if row["degeneracy"] == 0.0]
-    frontier = max((row["share"] for row in intact), default=None)
+    # A share survives only if *every* seed at it survived, and the frontier is
+    # the last share before the first break rather than the largest intact one
+    # anywhere. With one seed per level the two definitions agreed; with several
+    # they do not, and `max` over intact rows would let a lucky draw at 9% outrank
+    # a break at 6% and report a frontier above a share already known to fail.
+    by_share: dict = {}
+    for row in rows:
+        by_share.setdefault(row["share"], []).append(row)
+    frontier = None
+    broke_at = None
+    for share in sorted(by_share):
+        if all(row["degeneracy"] == 0.0 for row in by_share[share]):
+            frontier = share
+        else:
+            broke_at = share
+            break
     FRONTIER.write_text(json.dumps({
         "protocol": "random matched-FLOPs mean ablation at increasing shares of model MACs, scored on the "
                     "WMT-200 shortlist. The frontier is the largest share at which every generation was "
@@ -383,10 +403,14 @@ def stage_frontier_report(scope: str) -> None:
         "scope": scope,
         "baseline_bleu": base,
         "survival_frontier_share": frontier,
+        "first_broken_share": broke_at,
+        "seeds_per_share": {str(share): len(group) for share, group in sorted(by_share.items())},
         "note": ("no probed share left the model intact -- the frontier is below the smallest share tried"
                  if frontier is None else
-                 f"ablating up to {frontier:.1%} of model MACs left every generation as language; "
-                 "circuit claims are only measurable at or below this"),
+                 f"ablating up to {frontier:.1%} of model MACs left every generation as language on every "
+                 f"seed; circuit claims are only measurable at or below this"
+                 + (f", and {broke_at:.1%} is the first share that broke" if broke_at is not None else
+                    ", and no probed share above it broke -- the frontier is at or above the largest tried")),
         "curve": rows,
     }, indent=2) + "\n")
     log(f"survival frontier ({scope}): "

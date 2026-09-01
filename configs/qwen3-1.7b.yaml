@@ -1,0 +1,21 @@
+# The small member of the same family as qwen3-8b, for the work that should not
+# cost hours. Same architecture and the same grouped-query attention -- what
+# 2605.08853 reports as mattering more for circuit concentration than parameter
+# count -- so a protocol validated here is a protocol, not a different model's
+# accident. It is not a substitute for the 8B result: a finding here is a
+# finding about this checkpoint, and the headline number still has to be paid
+# for on the model the claim is about.
+#
+# What it buys is the measurement the 8B could not afford. Phase 1b stalled on
+# power rather than on speed -- effects near 1.3 BLEU under a noise floor near
+# 1.5 -- and the fix is more sentences and more seeds, which is only affordable
+# when a pass costs seconds. Weights are ~3.4 GiB against 15.3, and generation
+# here is bound by streaming them.
+id: qwen3-1.7b
+backend: transformers
+hf_name: Qwen/Qwen3-1.7B
+probe_layer_frac: 0.65
+batch_size: 32
+device: auto           # the best accelerator this machine has; name one to demand it
+dtype: bfloat16
+max_new_tokens: 64

@@ -87,6 +87,17 @@ GENERATION_BATCH = 100
 MEANS_BATCH = 32
 MAX_NEW_TOKENS = 64
 
+# A dBLEU is a difference of two corpus scores on 200 sentences, and the split-half
+# check (phase1b_splithalf) measured that difference's own spread at roughly +-1.5
+# for a layer-level component -- wider than every effect this sweep found. So a
+# ranking by dBLEU alone ranks noise, and nothing downstream may consume it before
+# a paired bootstrap has said which entries are distinguishable from the baseline
+# at all. Paired because the ablated and un-ablated systems translate the *same*
+# sentences: the pairing removes the sentence-sampling variance that dominates the
+# unpaired comparison, and it is the only reason 200 sentences can say anything.
+SIGNIFICANCE_ALPHA = 0.05
+BOOTSTRAP_RESAMPLES = 1000
+
 def load_progress() -> dict:
     if PROGRESS.exists():
         return json.loads(PROGRESS.read_text())
@@ -203,6 +214,99 @@ def capture_means(adapter, texts, layers=None) -> dict:
     log(f"means saved: {tokens} tokens over {len(layers)} layers -> {cache} "
         f"({cache.stat().st_size / 1024 ** 2:.0f} MiB)")
     return means
+
+def benjamini_hochberg(pvalues: dict) -> dict:
+    """FDR-corrected q-values, because 18 tests at alpha .05 buy ~1 false positive for free
+
+    Reported beside the raw p rather than instead of it. The raw value answers
+    "would this component look real if it were the only one tested", which is
+    the question a reader of a single row asks; the q-value answers "does it
+    look real given that 18 rows were screened to find it", which is the
+    question the sweep actually poses. They disagree here, and a table showing
+    only one of them would be arguing for a conclusion rather than reporting.
+    """
+    ordered = sorted(pvalues.items(), key=lambda item: item[1])
+    total = len(ordered)
+    qvalues = {}
+    running = 1.0
+    for rank in range(total, 0, -1):
+        cid, pvalue = ordered[rank - 1]
+        running = min(running, pvalue * total / rank)
+        qvalues[cid] = round(running, 5)
+    return qvalues
+
+def stage_significance(config: str) -> None:
+    """Paired bootstrap of every component with stored generations against the baseline
+
+    No GPU: the generations are already on disk, and a significance test on them
+    is arithmetic. Single heads are absent by construction -- stage_sweep stores
+    no hypotheses for them -- and that absence is the finding rather than a gap
+    to fill: phase1b_splithalf scored 30 of them on a disjoint half and the
+    ranking did not reproduce (rho -0.22), so there is nothing there to test.
+    """
+    from sacrebleu.metrics import BLEU
+    from sacrebleu.significance import PairedTest
+
+    set_log_file("results/phase1b-ablation.log")
+    state = load_progress()
+    if "baseline" not in state:
+        raise SystemExit(f"{PROGRESS} has no baseline; run the sweep first")
+    _, _, references = eval_data()
+    testable = {cid: record["hypotheses"] for cid, record in state["components"].items()
+                if len(record.get("hypotheses") or []) >= EVAL_SENTENCES}
+    if not testable:
+        raise SystemExit("no component stored a full set of generations, so nothing can be tested")
+    banner("phase1b ablation significance", {
+        "config": config,
+        "testable": f"{len(testable)} of {len(state['components'])} components have stored generations",
+        "not testable": f"{len(state['components']) - len(testable)} single heads (no generations stored; "
+                        "phase1b_splithalf found their ranking does not reproduce)",
+        "test": f"paired bootstrap, {BOOTSTRAP_RESAMPLES} resamples, {EVAL_SENTENCES} sentences",
+        "alpha": SIGNIFICANCE_ALPHA,
+    })
+    names = sorted(testable, key=lambda cid: -state["components"][cid]["dbleu"])
+    outcome = PairedTest(
+        [("baseline", state["baseline"]["hypotheses"][:EVAL_SENTENCES]),
+         *[(cid, testable[cid][:EVAL_SENTENCES]) for cid in names]],
+        {"bleu": BLEU()}, references=[references[:EVAL_SENTENCES]],
+        test_type="bs", n_samples=BOOTSTRAP_RESAMPLES,
+    )()
+    scores = outcome[1]["BLEU"]
+    raw = {cid: float(entry.p_value) for cid, entry in zip(names, scores[1:], strict=True)
+           if entry.p_value is not None}
+    qvalues = benjamini_hochberg(raw)
+    significance = {}
+    for cid, entry in zip(names, scores[1:], strict=True):
+        significance[cid] = {
+            "bleu": round(float(entry.score), 2),
+            "dbleu": round(float(scores[0].score) - float(entry.score), 2),
+            "p": round(raw[cid], 5) if cid in raw else None,
+            "q": qvalues.get(cid),
+            "significant": bool(cid in raw and raw[cid] < SIGNIFICANCE_ALPHA),
+            "significant_fdr": bool(cid in qvalues and qvalues[cid] < SIGNIFICANCE_ALPHA),
+        }
+    state["significance"] = {
+        "alpha": SIGNIFICANCE_ALPHA,
+        "resamples": BOOTSTRAP_RESAMPLES,
+        "sentences": EVAL_SENTENCES,
+        "baseline_bleu": round(float(scores[0].score), 2),
+        "components": significance,
+    }
+    save_progress(state)
+    log(f"{'component':<12} {'dBLEU':>7} {'p':>8} {'q(FDR)':>8}   verdict")
+    for cid in names:
+        record = significance[cid]
+        verdict = ("significant (FDR)" if record["significant_fdr"]
+                   else "raw only" if record["significant"] else "not significant")
+        log(f"{cid:<12} {record['dbleu']:>7.2f} {record['p']!s:>8} {record['q']!s:>8}   {verdict}")
+    passing = [cid for cid in names if significance[cid]["significant"]]
+    fdr = [cid for cid in names if significance[cid]["significant_fdr"]]
+    log(f"raw p < {SIGNIFICANCE_ALPHA}: {len(passing)} -> {passing}")
+    log(f"FDR q < {SIGNIFICANCE_ALPHA}: {len(fdr)} -> {fdr}")
+    if not fdr:
+        log("!! nothing survives correction for the number of components screened. The raw-p survivors are "
+            "the best candidates this sweep has, and they are not an established result -- treat them as a "
+            "hypothesis to test on more data, not as a discovered circuit.")
 
 def parse_component(cid: str):
     """'mlp:31' | 'heads:31' | 'head:31:7' -> the hook targets it names"""
@@ -426,6 +530,8 @@ def main() -> None:
         stage_sweep(config, group, budget)
     elif stage == "assemble":
         stage_assemble(f"uv run python -m scripts.phase1b_ablation {config} sweep <group> (chained), then assemble")
+    elif stage == "significance":
+        stage_significance(config)
     elif stage == "comet":
         stage_comet(config, top=int(sys.argv[3]) if len(sys.argv) > 3 else 10)
     else:

@@ -64,6 +64,31 @@ COMBOS = {
 SATURATION_MARGIN = 0.3
 SATURATION_RUNS = 3
 
+FRONTIER = Path("results/phase1b-survival-frontier.json")
+
+# The pre-registered ceiling, kept because it was pre-registered. It is not a
+# measured quantity and nothing here should read it as one -- see frontier().
+PREREGISTERED_CEILING = 0.25
+
+def frontier() -> float | None:
+    """The largest ablation share the model was measured to survive, or None if unmeasured
+
+    Read off the frontier run rather than written down here. The number moves
+    when the evidence moves -- it was 5% at one seed per level and the interval
+    up to 10% was open -- and a literal copied into this file would keep
+    reporting the old answer after the run that changed it.
+
+    It matters here because the greedy set is grown by marginal dBLEU alone,
+    and dBLEU keeps rising long after the model has stopped producing language:
+    every arm past the frontier scores a huge drop for the same reason a
+    switched-off model would. Growth past it is not a stronger circuit, it is a
+    measurement of destruction, and `all_candidate_mlps` at 19.4% is what that
+    looks like when nobody checks.
+    """
+    if not FRONTIER.exists():
+        return None
+    return json.loads(FRONTIER.read_text()).get("survival_frontier_share")
+
 def setup(config: str):
     with step(f"loading {config}"):
         adapter = load_adapter(config)
@@ -113,8 +138,33 @@ def stage_combo(config: str) -> None:
             f"{duration(state['combos'][name]['seconds'])}")
 
 def solo_ranking(state):
-    """Layer-level and single-head components by solo dBLEU, strongest first"""
-    return [cid for cid, _ in sorted(state["components"].items(), key=lambda item: -item[1]["dbleu"])]
+    """Components that beat the baseline significantly, by solo dBLEU, strongest first
+
+    Ranking by dBLEU alone was the original form and it ranks noise. The sweep's
+    own numbers say so: 288 single heads landed at mean -0.037 with stdev 0.214
+    and 45.8% of them "helping" the model when ablated, a split-half of 30 of
+    them did not reproduce (rho -0.22, top group keeping its sign 4/10), and the
+    whole-layer groups contradict their own members -- ablating all 32 heads of
+    layer 28 gains 0.51 BLEU where ablating its best single head costs 0.51.
+    Growing a set down that order is assembling coin flips, and SATURATION_MARGIN
+    of 0.3 cannot stop it because the noise floor is wider than the threshold.
+
+    So the ranking is gated on the paired bootstrap that `phase1b_ablation
+    significance` writes. A component with no entry is not silently dropped as
+    if it had failed: heads store no generations, so they were never testable,
+    and that is a different statement from having been tested and found wanting.
+    Both end in exclusion here and the caller's log says which one applied.
+    """
+    significance = state.get("significance")
+    if not significance:
+        raise SystemExit(
+            "no significance test has been run, so every ranking available here is a ranking of dBLEU "
+            "point estimates whose own spread is wider than the effects they order. Run "
+            "`uv run python -m scripts.phase1b_ablation qwen3-8b significance` first -- it needs no GPU."
+        )
+    tested = significance["components"]
+    passing = [cid for cid in state["components"] if tested.get(cid, {}).get("significant")]
+    return sorted(passing, key=lambda cid: -state["components"][cid]["dbleu"])
 
 def redundant(cid: str, chosen) -> bool:
     """Skip a component already inside a chosen layer-level one, and vice versa"""
@@ -150,19 +200,47 @@ def stage_greedy(config: str, budget: float) -> None:
             marginal < SATURATION_MARGIN for marginal in marginals[-SATURATION_RUNS:]
         )
 
+    ranking = solo_ranking(state)
+    significance = state["significance"]
+    untested = len(state["components"]) - len(significance["components"])
+    fdr = [cid for cid, record in significance["components"].items() if record.get("significant_fdr")]
+    log(f"ranking gated on the paired bootstrap: {len(ranking)} of {len(state['components'])} components "
+        f"pass raw p < {significance['alpha']} ({untested} were never testable, no stored generations)")
+    log(f"surviving FDR correction across the {len(significance['components'])} tested: "
+        f"{fdr if fdr else 'none'}", indent=1)
+    if not fdr:
+        log("!! the set grown below rests on raw p-values that do not survive correction for the number "
+            "of components screened. It is a hypothesis, not a discovered circuit.", indent=1)
+    if not ranking:
+        raise SystemExit("no component passed the significance gate; there is no set to grow")
+
+    ceiling = frontier()
+    if ceiling is None:
+        log("!! no survival frontier measured, so nothing stops this growing into a broken model. "
+            "Run `frontier` in phase1b_random_control first; continuing on marginal dBLEU alone.")
+    else:
+        log(f"growth stops at the measured survival frontier: {ceiling:.1%} of model MACs")
+
     steps = []
+    stopped_at_frontier = False
     while not saturated():
         estimate = sum(steps) / len(steps) if steps else state["baseline"]["seconds"]
         if not allowance.fits(estimate):
             log(f"stopping cleanly: {allowance.state()}, next step needs ~{duration(estimate)}")
             log(f"{len(greedy['chosen'])} components chosen so far -- re-run the same command to continue")
             return
-        candidates = [cid for cid in solo_ranking(state)
+        candidates = [cid for cid in ranking
                       if cid not in greedy["chosen"] and not redundant(cid, greedy["chosen"])]
         if not candidates:
             break
         cid = candidates[0]
         trial = [*greedy["chosen"], cid]
+        if ceiling is not None and flops_share(trial) > ceiling:
+            log(f"stopping at the frontier: adding {cid} would cost {flops_share(trial):.2%} of model MACs, "
+                f"past the {ceiling:.1%} the model was measured to survive. "
+                f"{len(greedy['chosen'])} components chosen.")
+            stopped_at_frontier = True
+            break
         log(f"[step {len(greedy['trajectory']) + 1}] adding {cid} -> {len(trial)} components · "
             f"{allowance.state()}")
         started = time.time()
@@ -180,7 +258,14 @@ def stage_greedy(config: str, budget: float) -> None:
         save_progress(state)
         print(f"+{cid}: BLEU {bleu} cumulative d {cumulative} (marginal {round(cumulative - previous, 2)})",
               flush=True)
-    print("greedy saturated" if saturated() else "greedy exhausted", flush=True)
+    if stopped_at_frontier:
+        outcome = (f"greedy stopped at the survival frontier ({ceiling:.1%} of MACs) -- the set is bounded "
+                   "by what the model survives, not by saturation")
+    elif saturated():
+        outcome = "greedy saturated"
+    else:
+        outcome = "greedy exhausted the candidate ranking"
+    print(outcome, flush=True)
 
 @lru_cache(maxsize=1)
 def _flops_model() -> dict:
@@ -245,10 +330,21 @@ def stage_comet(config: str) -> None:
         record["dcomet"] = round(evaluations["baseline"]["comet22"] - record["comet22"], 4)
         record["dbleu"] = round(evaluations["baseline"]["bleu"] - record["bleu"], 2)
     passing = [name for name, record in evaluations.items()
-               if name != "baseline" and record["dcomet"] >= 0.020 and record["flops_share"] <= 0.25]
+               if name != "baseline" and record["dcomet"] >= 0.020
+               and record["flops_share"] <= PREREGISTERED_CEILING]
     smallest = min(passing, key=lambda name: evaluations[name]["flops_share"], default=None)
 
     threshold = 0.020
+    # The pre-registered criterion is reported exactly as pre-registered, 25% ceiling
+    # and all -- rewriting a threshold after seeing the data is the thing pre-registration
+    # exists to prevent. The frontier is reported *beside* it instead, because a set can
+    # satisfy the criterion and still be uninterpretable: dCOMET only measures a loss of
+    # translation on a model that was still translating, and past the frontier every set
+    # clears any threshold for the same reason an unplugged model would. So `pass` keeps
+    # its pre-registered meaning and `interpretable` says whether that pass is evidence.
+    ceiling = frontier()
+    candidate_share = evaluations["candidate"]["flops_share"]
+    interpretable = None if ceiling is None else bool(candidate_share <= ceiling)
     CANDIDATE.write_text(json.dumps({
         "protocol": "greedy rank-ordered set growth over the solo-ablation ranking, cumulative mean-ablation "
                     "re-scored on the full WMT-200 shortlist each step; saturation = marginal dBLEU < "
@@ -264,13 +360,36 @@ def stage_comet(config: str) -> None:
             "candidate_dcomet": evaluations["candidate"]["dcomet"],
             "candidate_flops_share": evaluations["candidate"]["flops_share"],
             "pass": bool(evaluations["candidate"]["dcomet"] >= threshold
-                         and evaluations["candidate"]["flops_share"] <= 0.25),
+                         and candidate_share <= PREREGISTERED_CEILING),
             "smallest_passing_set": smallest,
             "smallest_passing_flops_share": evaluations[smallest]["flops_share"] if smallest else None,
+        },
+        "survival_frontier": {
+            "share": ceiling,
+            "source": str(FRONTIER),
+            "candidate_flops_share": candidate_share,
+            "interpretable": interpretable,
+            "note": ("no frontier has been measured, so nothing here establishes that the ablated model "
+                     "was still a language model; run the frontier stage of phase1b_random_control"
+                     if ceiling is None else
+                     f"the model was measured to survive ablation up to {ceiling:.1%} of MACs; this "
+                     f"candidate costs {candidate_share:.2%}, "
+                     + ("inside it, so its dCOMET is a translation loss"
+                        if interpretable else
+                        "outside it, so its dCOMET measures destruction rather than localization and the "
+                        "pre-registered pass above is not evidence of a circuit")),
         },
         "command": f"uv run python -m scripts.phase1b_greedy {config} combo|greedy|comet (chained)",
     }, indent=2, ensure_ascii=False) + "\n")
     print(json.dumps(json.loads(CANDIDATE.read_text())["pre_registered_test"], indent=2))
+    if interpretable is False:
+        print(f"\n!! WARNING: the candidate costs {candidate_share:.2%} of model MACs, past the "
+              f"{ceiling:.1%} survival frontier. Every set this large scores a large dCOMET because the "
+              "model has stopped emitting language, so the pre-registered pass above is not evidence of "
+              "a circuit. Read the generations.", flush=True)
+    elif interpretable is None:
+        print("\n!! WARNING: no survival frontier measured; nothing establishes that the ablated model "
+              "was still a language model.", flush=True)
 
 def main() -> None:
     import sys

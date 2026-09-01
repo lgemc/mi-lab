@@ -1,0 +1,287 @@
+{
+  "protocol": "random matched-FLOPs mean ablation at increasing shares of model MACs, scored on the WMT-200 shortlist. The frontier is the largest share at which every generation was still language. A knockout outside it measures destruction, not localization.",
+  "scope": "model",
+  "baseline_bleu": 38.34,
+  "survival_frontier_share": 0.07,
+  "first_broken_share": 0.08,
+  "seeds_per_share": {
+    "0.005": 3,
+    "0.01": 3,
+    "0.02": 3,
+    "0.05": 3,
+    "0.06": 3,
+    "0.07": 3,
+    "0.08": 3,
+    "0.09": 3,
+    "0.1": 3,
+    "0.15": 3,
+    "0.2": 3
+  },
+  "note": "ablating up to 7.0% of model MACs left every generation as language on every seed; circuit claims are only measurable at or below this, and 8.0% is the first share that broke",
+  "curve": [
+    {
+      "share": 0.005,
+      "seed": 0,
+      "n_components": 26,
+      "bleu": 38.49,
+      "dbleu": -0.15,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.005,
+      "seed": 1,
+      "n_components": 26,
+      "bleu": 37.99,
+      "dbleu": 0.35,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.005,
+      "seed": 2,
+      "n_components": 26,
+      "bleu": 38.76,
+      "dbleu": -0.42,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.01,
+      "seed": 0,
+      "n_components": 52,
+      "bleu": 38.39,
+      "dbleu": -0.05,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.01,
+      "seed": 1,
+      "n_components": 52,
+      "bleu": 37.29,
+      "dbleu": 1.05,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.01,
+      "seed": 2,
+      "n_components": 52,
+      "bleu": 37.79,
+      "dbleu": 0.55,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.02,
+      "seed": 0,
+      "n_components": 103,
+      "bleu": 37.31,
+      "dbleu": 1.03,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.02,
+      "seed": 1,
+      "n_components": 103,
+      "bleu": 37.54,
+      "dbleu": 0.8,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.02,
+      "seed": 2,
+      "n_components": 103,
+      "bleu": 37.55,
+      "dbleu": 0.79,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.05,
+      "seed": 0,
+      "n_components": 37,
+      "bleu": 36.98,
+      "dbleu": 1.36,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.05,
+      "seed": 1,
+      "n_components": 148,
+      "bleu": 34.56,
+      "dbleu": 3.78,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.05,
+      "seed": 2,
+      "n_components": 148,
+      "bleu": 37.27,
+      "dbleu": 1.07,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.06,
+      "seed": 0,
+      "n_components": 89,
+      "bleu": 35.68,
+      "dbleu": 2.66,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.06,
+      "seed": 1,
+      "n_components": 89,
+      "bleu": 34.85,
+      "dbleu": 3.49,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.06,
+      "seed": 2,
+      "n_components": 89,
+      "bleu": 37.52,
+      "dbleu": 0.82,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.07,
+      "seed": 0,
+      "n_components": 141,
+      "bleu": 35.12,
+      "dbleu": 3.22,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.07,
+      "seed": 1,
+      "n_components": 141,
+      "bleu": 34.0,
+      "dbleu": 4.34,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.07,
+      "seed": 2,
+      "n_components": 141,
+      "bleu": 37.18,
+      "dbleu": 1.16,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.08,
+      "seed": 0,
+      "n_components": 82,
+      "bleu": 0.0,
+      "dbleu": 38.34,
+      "degeneracy": 0.995
+    },
+    {
+      "share": 0.08,
+      "seed": 1,
+      "n_components": 192,
+      "bleu": 21.56,
+      "dbleu": 16.78,
+      "degeneracy": 0.05
+    },
+    {
+      "share": 0.08,
+      "seed": 2,
+      "n_components": 192,
+      "bleu": 36.18,
+      "dbleu": 2.16,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.09,
+      "seed": 0,
+      "n_components": 133,
+      "bleu": 0.0,
+      "dbleu": 38.34,
+      "degeneracy": 1.0
+    },
+    {
+      "share": 0.09,
+      "seed": 1,
+      "n_components": 244,
+      "bleu": 16.96,
+      "dbleu": 21.38,
+      "degeneracy": 0.135
+    },
+    {
+      "share": 0.09,
+      "seed": 2,
+      "n_components": 244,
+      "bleu": 32.56,
+      "dbleu": 5.78,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.1,
+      "seed": 0,
+      "n_components": 185,
+      "bleu": 0.0,
+      "dbleu": 38.34,
+      "degeneracy": 1.0
+    },
+    {
+      "share": 0.1,
+      "seed": 1,
+      "n_components": 185,
+      "bleu": 9.26,
+      "dbleu": 29.08,
+      "degeneracy": 0.065
+    },
+    {
+      "share": 0.1,
+      "seed": 2,
+      "n_components": 185,
+      "bleu": 34.87,
+      "dbleu": 3.47,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.15,
+      "seed": 0,
+      "n_components": 222,
+      "bleu": 0.01,
+      "dbleu": 38.33,
+      "degeneracy": 0.99
+    },
+    {
+      "share": 0.15,
+      "seed": 1,
+      "n_components": 222,
+      "bleu": 0.53,
+      "dbleu": 37.81,
+      "degeneracy": 0.33
+    },
+    {
+      "share": 0.15,
+      "seed": 2,
+      "n_components": 222,
+      "bleu": 24.57,
+      "dbleu": 13.77,
+      "degeneracy": 0.0
+    },
+    {
+      "share": 0.2,
+      "seed": 0,
+      "n_components": 370,
+      "bleu": 0.01,
+      "dbleu": 38.33,
+      "degeneracy": 0.985
+    },
+    {
+      "share": 0.2,
+      "seed": 1,
+      "n_components": 260,
+      "bleu": 0.02,
+      "dbleu": 38.32,
+      "degeneracy": 1.0
+    },
+    {
+      "share": 0.2,
+      "seed": 2,
+      "n_components": 260,
+      "bleu": 12.5,
+      "dbleu": 25.84,
+      "degeneracy": 0.03
+    }
+  ]
+}
