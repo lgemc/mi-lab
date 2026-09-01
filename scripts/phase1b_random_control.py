@@ -228,7 +228,7 @@ def score_set(adapter, means, prompts, references, components, label: str = "arm
     }
 
 def stage_run(config: str, scope: str, target: str, seeds: int, budget: float) -> None:
-    set_log_file("results/phase1b-random-control.log")
+    set_log_file(result("phase1b-random-control.log"))
     allowance = Budget(budget)
     state = load_progress()
     chosen = target_set(target)
@@ -323,7 +323,7 @@ def stage_frontier(config: str, scope: str, seeds: int, budget: float) -> None:
     beats this curve at the same share is a set doing something the average
     component does not.
     """
-    set_log_file("results/phase1b-survival-frontier.log")
+    set_log_file(result("phase1b-survival-frontier.log"))
     allowance = Budget(budget)
     state = load_progress()
     levels = state.setdefault("frontier", {}).setdefault(scope, {})

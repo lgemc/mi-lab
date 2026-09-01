@@ -110,7 +110,7 @@ def run_combo(adapter, means, prompts, references, components, label: str = "com
     return bleu_of(hypotheses, references), hypotheses
 
 def stage_combo(config: str) -> None:
-    set_log_file("results/phase1b-greedy.log")
+    set_log_file(result("phase1b-greedy.log"))
     state = load_progress()
     state.setdefault("combos", {})
     banner("phase1b upper-bound combos", {
@@ -179,7 +179,7 @@ def redundant(cid: str, chosen) -> bool:
     return False
 
 def stage_greedy(config: str, budget: float) -> None:
-    set_log_file("results/phase1b-greedy.log")
+    set_log_file(result("phase1b-greedy.log"))
     allowance = Budget(budget)
     state = load_progress()
     state.setdefault("greedy", {"chosen": [], "trajectory": []})

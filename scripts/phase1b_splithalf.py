@@ -95,7 +95,7 @@ def pick_heads(per_group: int) -> dict:
     }
 
 def stage_run(config: str, per_group: int, budget: float) -> None:
-    set_log_file("results/phase1b-splithalf.log")
+    set_log_file(result("phase1b-splithalf.log"))
     allowance = Budget(budget)
     state = load_progress()
     groups = pick_heads(per_group)

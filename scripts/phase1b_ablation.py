@@ -315,7 +315,7 @@ def stage_significance(config: str) -> None:
     from sacrebleu.metrics import BLEU
     from sacrebleu.significance import PairedTest
 
-    set_log_file("results/phase1b-ablation.log")
+    set_log_file(result("phase1b-ablation.log"))
     state = load_progress()
     if "baseline" not in state:
         raise SystemExit(f"{PROGRESS} has no baseline; run the sweep first")
@@ -506,7 +506,7 @@ def ensure_baseline(state, adapter, prompts, references):
     preview(hypotheses, "baseline")
 
 def stage_sweep(config: str, group: str, budget: float) -> None:
-    set_log_file("results/phase1b-ablation.log")
+    set_log_file(result("phase1b-ablation.log"))
     allowance = Budget(budget)
     state = load_progress()
     # the plan is resolved twice: once against the 8B band so the banner can be
