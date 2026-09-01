@@ -33,6 +33,7 @@ from scripts.phase1b_ablation import (
     eval_data,
     load_progress,
     parse_component,
+    reference_prompts,
     save_progress,
     translate,
 )
@@ -54,7 +55,7 @@ def setup(config: str):
     adapter = load_adapter(config)
     adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
     wmt, prompts, references = eval_data()
-    means = capture_means(adapter, [english for _, english in wmt])
+    means = capture_means(adapter, reference_prompts(wmt))
     return adapter, wmt, prompts, references, means
 
 def run_combo(adapter, means, prompts, references, components):

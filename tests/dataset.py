@@ -5,6 +5,7 @@ from unittest import TestCase
 
 from src.data.dataset import _SUBJECTS, DatasetError, LabeledPrompts, load_csv, load_jsonl, save_jsonl, synthetic
 from src.data.prompts import dumps, parse
+from src.data.translation import translation_prompt
 
 """
 The dataset object is small enough that the only things worth testing are the
@@ -231,3 +232,44 @@ class TestLoadCsv(TestCase):
         self.assertEqual(data.texts, again.texts)
         self.assertEqual(data.labels, again.labels)
         self.assertEqual(data.groups, again.groups)
+
+
+class TestCounterfactualPromptForm(TestCase):
+    """The reference distribution a mean ablation is averaged over
+
+    Wang et al. (2211.00593 3) require the knockout mean to come from a
+    distribution that removes the task information and preserves everything
+    else. These assertions are that requirement, spelled out: whatever the
+    counterfactual form changes, it must not change the skeleton, the shot
+    count, the source sentence, or the set of target sentences.
+    """
+
+    shots = (("uno", "one"), ("dos", "two"), ("tres", "three"))
+
+    def build(self):
+        return translation_prompt("cuatro", form="counterfactual", shots=self.shots)
+
+    def test_it_keeps_the_source_and_the_shot_skeleton(self):
+        prompt = self.build()
+        few_shot = translation_prompt("cuatro", form="few_shot", shots=self.shots)
+        self.assertIn("cuatro", prompt)
+        for spanish, _ in self.shots:
+            self.assertIn(spanish, prompt)
+        self.assertEqual(prompt.count("\n\n"), few_shot.count("\n\n"))
+        self.assertEqual(len(prompt.split("\n")), len(few_shot.split("\n")))
+
+    def test_it_removes_the_language_labels(self):
+        prompt = self.build()
+        self.assertNotIn("Spanish", prompt)
+        self.assertNotIn("English", prompt)
+
+    def test_it_keeps_every_target_but_pairs_none_with_its_own_source(self):
+        prompt = self.build()
+        for _, english in self.shots:
+            self.assertIn(english, prompt)
+        for spanish, english in self.shots:
+            self.assertNotIn(f"{spanish}\nNothing: {english}", prompt)
+
+    def test_one_shot_is_refused_because_a_rotation_needs_somewhere_to_go(self):
+        with self.assertRaises(DatasetError):
+            translation_prompt("cuatro", form="counterfactual", shots=(("uno", "one"),))

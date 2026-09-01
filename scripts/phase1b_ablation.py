@@ -1,11 +1,24 @@
 """Phase 1b deliverable 4: the mean-ablation sweep over the candidate components.
 
-Zhang et al. protocol, priced for this GPU: each candidate component (an
-attention head or an MLP block in layers 27-35) is replaced by its mean
-activation under the EN-only control condition (the English side of the
-500-sentence WMT dev subset), the ES->EN translation is regenerated on the
-200-sentence WMT shortlist, and the drop in corpus BLEU against the
+Mean-ablation knockout (Wang et al. 2211.00593 3, which is also the
+validation step Zhang et al. 2502.11806 4.3 use -- their *discovery* method is
+subspace-intervened path patching, which this sweep does not implement).
+Priced for this GPU: each candidate component (an attention head or an MLP
+block in layers 27-35) is replaced by its mean activation over the
+counterfactual reference distribution, the ES->EN translation is regenerated
+on the 200-sentence WMT shortlist, and the drop in corpus BLEU against the
 un-ablated baseline is the component's score.
+
+The reference distribution is the counterfactual prompt form: the same
+few-shot skeleton, the same shots and the same Spanish sources as the eval
+prompts, with only the translation logic removed (see
+src/data/translation.py). It replaced an earlier version that averaged over
+raw English reference sentences -- that distribution differs from the eval
+prompts in the prompt format and the in-context task as well as in
+translation, so ablating toward it removed the model's ability to continue the
+prompt at all, and a whole-layer knockout degenerated into repeated tokens
+rather than into bad translation. Results measured against the old mean are
+archived beside this file and are not comparable.
 
 Engineering constraints, all deliberate:
 - resumable: every finished component is flushed to
@@ -43,7 +56,7 @@ from src.model.adapter import load_adapter
 
 PROGRESS = Path("results/phase1b-ablation-progress.json")
 SWEEP = Path("results/phase1b-ablation-sweep.json")
-MEANS = Path("results/phase1b-en-means.pt")
+MEANS = Path("results/phase1b-counterfactual-means.pt")
 
 CANDIDATE_LAYERS = list(range(27, 36))
 EVAL_SENTENCES = 200
@@ -67,6 +80,16 @@ def eval_data():
     prompts = [translation_prompt(spanish, form="few_shot", shots=shots) for spanish, _ in eval_pairs]
     references = [english for _, english in eval_pairs]
     return wmt, prompts, references
+
+def reference_prompts(wmt):
+    """The counterfactual distribution the ablation means are averaged over
+
+    Every non-shot source in the dev subset, wrapped in the counterfactual form
+    -- the eval prompt with its translation logic taken out and nothing else
+    changed. The mean has to strip the task and preserve everything else.
+    """
+    shots = wmt[-SHOTS:]
+    return [translation_prompt(spanish, form="counterfactual", shots=shots) for spanish, _ in wmt[:-SHOTS]]
 
 def capture_means(adapter, texts) -> dict:
     """Mean head output [n_heads, d_head] and mean MLP write [d_model] per candidate layer, over real tokens"""
@@ -210,7 +233,7 @@ def stage_sweep(config: str, group: str, budget: float) -> None:
     adapter = load_adapter(config)
     adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
     wmt, prompts, references = eval_data()
-    means = capture_means(adapter, [english for _, english in wmt])
+    means = capture_means(adapter, reference_prompts(wmt))
     ensure_baseline(state, adapter, prompts, references)
 
     for cid in plan:
@@ -245,12 +268,13 @@ def stage_assemble(command: str) -> None:
         key=lambda record: -record["dbleu"],
     )
     SWEEP.write_text(json.dumps({
-        "protocol": "mean ablation (EN-control mean from the WMT-500 English side) per component; "
+        "protocol": "mean ablation (Wang et al. 2211.00593 knockout) per component, mean taken over the "
+                    "counterfactual prompt distribution -- eval prompt with the translation logic removed; "
                     "greedy translation of the WMT-200 shortlist (few-shot, 64 new tokens); "
                     "score = baseline corpus BLEU minus ablated corpus BLEU. Layer-level components on "
                     f"{EVAL_SENTENCES} sentences, single heads on {HEAD_SENTENCES}.",
         "baseline": {key: value for key, value in state["baseline"].items() if key != "hypotheses"},
-        "en_control_mean_tokens": int(torch.load(MEANS, weights_only=True)["tokens"]) if MEANS.exists() else None,
+        "counterfactual_mean_tokens": int(torch.load(MEANS, weights_only=True)["tokens"]) if MEANS.exists() else None,
         "components_scored": len(ranked),
         "wall_seconds_total": round(sum(record["seconds"] for record in ranked)
                                     + state["baseline"]["seconds"], 1),
@@ -269,7 +293,7 @@ def stage_comet(config: str, top: int) -> None:
     adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
     wmt, prompts, references = eval_data()
     sources = [spanish for spanish, _ in wmt[:EVAL_SENTENCES]]
-    means = capture_means(adapter, [english for _, english in wmt])
+    means = capture_means(adapter, reference_prompts(wmt))
 
     from comet import download_model, load_from_checkpoint
     comet = load_from_checkpoint(download_model("Unbabel/wmt22-comet-da"))
