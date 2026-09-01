@@ -207,6 +207,8 @@ class CircuitAdapter(ModelAdapter, Protocol):
         positive: Sequence[int],
         negative: Sequence[int],
         layers: Optional[Sequence[int]] = None,
+        toward: Optional[Sequence[str]] = None,
+        alpha: float = 1.0,
     ) -> torch.Tensor:
         """d(logit(positive) - logit(negative)) / d(head output), as [batch, layer, head, seq, d_head]
 

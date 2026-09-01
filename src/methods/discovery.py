@@ -269,6 +269,74 @@ def _eap(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None, **o
         passes=5, seconds=cost[0].seconds, baselines=reference,
     )
 
+IG_STEPS = 5
+
+@register_technique(
+    units="recovery (integrated)",
+    description="eap with the gradient integrated along the path from corrupted to clean, not taken at a point",
+    cost="IG_STEPS backward passes and four forward passes, whatever the model's size",
+)
+def _eap_ig(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
+            steps: int = IG_STEPS, **options) -> Ranking:
+    """Rank heads by attribution patching with integrated gradients (Hanna et al., 2403.17806)
+
+    eap multiplies (clean - corrupted) by the gradient *at the corrupted
+    point*, which is a first-order expansion and inherits the two failures of
+    one: it overstates a component whose effect is not locally linear, and it
+    returns nothing at all where the metric has saturated, because a flat
+    region has a zero gradient no matter how much the component matters. A head
+    behind a saturated softmax scores zero under eap and is not thereby
+    unimportant.
+
+    So the gradient is integrated along the straight line between the two
+    inputs instead of read at one end of it. The estimate is
+    (clean - corrupted) . mean over alpha of d(logit difference)/d(activation),
+    with each gradient taken on a forward pass whose *input embeddings* are
+    mixed (1 - alpha) * corrupted + alpha * clean. That is the `inputs` variant,
+    which the MIB benchmark (Mueller et al., 2025) reports as the strongest of
+    the family; the `activations` variant interpolates each node's activation
+    instead and is a different estimator, not a detail of this one.
+
+    Quadrature is the right Riemann sum over alpha = k/steps for k in 1..steps,
+    the same choice the reference implementation makes. It is stated because it
+    is a choice: the midpoint rule over the same budget is a different number,
+    and one of the ways an IG result fails to reproduce is that nobody wrote
+    down which one they took.
+
+    This repo scores *nodes* -- Ranking.scores is [layer, head] -- so what is
+    computed here is node attribution with integrated gradients, NAP-IG in the
+    taxonomy that distinguishes them, using EAP-IG's mechanism at head
+    granularity. The name keeps eap's for continuity with the technique it
+    corrects; the units say `integrated` so a comparison cannot silently treat
+    the two as the same estimator.
+
+    Costs `steps` backward passes where eap costs one, which is the constant
+    factor the paper trades for faithfulness. Everything else -- the corrupted
+    baseline, the sum over positions and coordinates, the division by the span
+    -- is eap's, so the two are subtractable and their difference is the part
+    the linearization was getting wrong.
+    """
+    if steps < 1:
+        raise ValueError(f"integrated gradients needs at least one step, got {steps}")
+    adapter = require_circuits(adapter)
+    chosen = _sweep(adapter, layers)
+    reference = baselines(adapter, task)
+    with measure(items=1) as cost:
+        clean = adapter.head_outputs(task.clean, layers=chosen)
+        corrupted = adapter.head_outputs(task.corrupted, layers=chosen)
+        gradients = None
+        for step in range(1, steps + 1):
+            partial = adapter.head_gradients(
+                task.corrupted, reference.io, reference.subject, layers=chosen,
+                toward=task.clean, alpha=step / steps,
+            )
+            gradients = partial if gradients is None else gradients + partial
+        estimate = ((clean - corrupted) * (gradients / steps)).sum(dim=(3, 4)).mean(dim=0)
+    return Ranking(
+        scores=estimate / reference.span, method="eap_ig", units="recovery (integrated)", layers=chosen,
+        passes=4 + steps, seconds=cost[0].seconds, baselines=reference,
+    )
+
 @register_technique(
     units="none",
     description="a seeded shuffle, so a circuit's numbers can be read against a circuit of the same size",

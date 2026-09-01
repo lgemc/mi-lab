@@ -464,6 +464,8 @@ class TransformersAdapter:
         positive: Sequence[int],
         negative: Sequence[int],
         layers: Optional[Sequence[int]] = None,
+        toward: Optional[Sequence[str]] = None,
+        alpha: float = 1.0,
     ) -> torch.Tensor:
         """The logit difference's gradient at each head's output, as [batch, layer, head, seq, d_head]
 
@@ -478,6 +480,19 @@ class TransformersAdapter:
         this layer's attention, leaving a gradient that looks fine and answers
         a different question. torch.autograd.grad asks only for these tensors,
         so no parameter gradient is accumulated on the way past.
+
+        `toward` and `alpha` are what integrated gradients needs and a single
+        gradient does not. With `toward` given, the forward pass runs from the
+        embeddings mixed as (1 - alpha) * prompts + alpha * toward rather than
+        from `prompts` alone, so a caller can walk the straight line between two
+        inputs and average what it finds. alpha=0 reproduces `prompts` exactly
+        and the default of 1.0 is never reached without `toward`, so the
+        one-gradient path is untouched.
+
+        The two prompt sets must tokenize to the same length, because a mixture
+        of embeddings at differing lengths is a mixture of different positions.
+        Circuit tasks in this repo are length-aligned by construction, and this
+        raises rather than broadcasts when one is not.
         """
         if not prompts:
             raise ConfigError("head_gradients needs at least one prompt")
@@ -488,7 +503,23 @@ class TransformersAdapter:
             )
         layers = self._resolve_layers(layers if layers is not None else range(self.cfg.n_layers))
         input_ids, attention_mask = self._encode(prompts, padding_side="right")
+        donor_ids = None
+        if toward is not None:
+            if len(toward) != len(prompts):
+                raise ConfigError(
+                    f"{len(prompts)} prompts but {len(toward)} to interpolate toward; they index the same batch"
+                )
+            donor_ids, donor_mask = self._encode(toward, padding_side="right")
+            if donor_ids.shape != input_ids.shape:
+                raise ConfigError(
+                    f"interpolating needs both prompt sets at one length, but they tokenize to "
+                    f"{tuple(input_ids.shape)} and {tuple(donor_ids.shape)}. A mixture of embeddings at "
+                    "two lengths mixes different positions."
+                )
+            if not torch.equal(attention_mask, donor_mask):
+                raise ConfigError("the two prompt sets pad differently, so their positions do not correspond")
         answers = torch.tensor(list(positive)), torch.tensor(list(negative))
+        embed = self.model.get_input_embeddings()
 
         chunks = []
         start = 0
@@ -496,7 +527,13 @@ class TransformersAdapter:
             rows = slice(start, start + ids.shape[0])
             start += ids.shape[0]
             with self._record_heads(layers, detach=False) as captured, torch.enable_grad():
-                output = self.model(ids, attention_mask=mask, use_cache=False).logits
+                if donor_ids is None:
+                    output = self.model(ids, attention_mask=mask, use_cache=False).logits
+                else:
+                    here = embed(ids)
+                    there = embed(donor_ids[rows].to(self.model.device))
+                    mixed = here + alpha * (there - here)
+                    output = self.model(inputs_embeds=mixed, attention_mask=mask, use_cache=False).logits
                 final = _last_real(output, mask)
                 batch = torch.arange(final.shape[0], device=final.device)
                 # summed over the batch because each row's answer depends on its own
