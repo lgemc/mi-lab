@@ -337,6 +337,90 @@ def _eap_ig(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
         passes=4 + steps, seconds=cost[0].seconds, baselines=reference,
     )
 
+MASK_STEPS = 40
+MASK_RATE = 0.5
+MASK_SPARSITY = 0.03
+
+@register_technique(
+    units="gate",
+    description="a per-head gate learned by gradient descent under a sparsity penalty, not a score per head",
+    cost="MASK_STEPS forward-and-backward passes, independent of how many heads there are",
+)
+def _mask(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
+          steps: int = MASK_STEPS, rate: float = MASK_RATE, sparsity: float = MASK_SPARSITY,
+          **options) -> Ranking:
+    """Rank heads by a learned gate, the way Edge Pruning, DiscoGP and UGS do it
+
+    Every other technique here scores heads one at a time and then hopes the
+    scores add up -- patching restores one head per pass, eap estimates that
+    restoration, and both leave the set-building to whoever reads the ranking.
+    This one optimizes the set directly: each head gets a gate in [0, 1], its
+    output becomes donor + gate * (clean - donor), and the gates are moved by
+    gradient ascent on the logit difference minus a penalty on how many are
+    open. What comes out is the answer to "which heads, together, are enough",
+    which is a different question from "which head, alone, matters most" and is
+    the question a circuit actually poses.
+
+    The two come apart wherever the model has a second route. A pair of heads
+    that back each other up scores low individually under patching -- removing
+    either alone costs little -- and a mask cannot open both without paying
+    twice, so it keeps one and the other's gate falls. That is the mask being
+    right about the set and the solo ranking being right about the heads, and
+    neither is a correction to the other.
+
+    The donor is the corrupted activation, so a closed gate is exactly the
+    counterfactual ablation patching performs -- MIB (Mueller et al., 2025)
+    reports counterfactual ablation as what the strongest methods use, and it
+    keeps a gate of zero here and a patch elsewhere the same intervention.
+
+    What is optimized is *fidelity to the unablated model*, not the metric: the
+    loss is the squared distance between the gated logit difference and the
+    clean one, in units of the corruption span. Ascending on the metric instead
+    was the first version of this and it is wrong in a way worth recording,
+    because it looks right until you check which heads it keeps. IOI's strongest
+    component at these layers is L10H7, a negative name mover with a patching
+    score of -0.52 and a gate gradient of -1.25: it writes *against* the answer,
+    so a mask maximizing the answer closes it, and closes the single head the
+    circuit most depends on. A circuit is what the model uses, not what would
+    help it, and only a loss that punishes moving *away* from the clean output
+    in either direction can tell the two apart.
+
+    Plain projected gradient ascent with gates clamped to [0, 1], rather than a
+    sigmoid reparameterization or a hard-concrete relaxation. The relaxations
+    buy a smoother path to a discrete mask and cost a temperature schedule that
+    changes the answer; this is the version whose every number can be read off
+    the loop. `sparsity` is the price of an open gate in logit-difference units
+    and is the knob that decides how large a circuit comes back -- there is no
+    setting of it that is neutral, so it is reported in the Ranking's options
+    rather than buried.
+
+    Scores are the gates themselves, so `units` is "gate" and not a recovery:
+    a gate is not a fraction of the corruption span and must not be subtracted
+    from one. Ranked by absolute value like everything else, which for gates in
+    [0, 1] is just descending openness.
+    """
+    if steps < 1:
+        raise ValueError(f"a mask needs at least one step, got {steps}")
+    adapter = require_circuits(adapter)
+    chosen = _sweep(adapter, layers)
+    reference = baselines(adapter, task)
+    with measure(items=1) as cost:
+        donor = adapter.head_outputs(task.corrupted, layers=chosen)
+        gates = torch.ones(len(chosen), adapter.cfg.n_heads)
+        for _ in range(steps):
+            value, gradient = adapter.head_gate_gradients(
+                task.clean, donor, reference.io, reference.subject, gates, layers=chosen
+            )
+            # d(deviation^2)/d(gate), where deviation is how far the gated model has
+            # drifted from the clean one in span units. Descend on that, and pay
+            # `sparsity` for every gate still open.
+            drift = (value - reference.clean) / reference.span
+            gates = (gates - rate * (2 * drift * gradient / reference.span + sparsity)).clamp(0.0, 1.0)
+    return Ranking(
+        scores=gates, method="mask", units="gate", layers=chosen,
+        passes=steps, seconds=cost[0].seconds, baselines=reference,
+    )
+
 @register_technique(
     units="none",
     description="a seeded shuffle, so a circuit's numbers can be read against a circuit of the same size",

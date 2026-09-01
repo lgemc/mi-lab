@@ -547,6 +547,96 @@ class TransformersAdapter:
             chunks.append(stacked.permute(0, 1, 3, 2, 4).float().cpu())
         return torch.cat(chunks, dim=0)
 
+    def head_gate_gradients(
+        self,
+        prompts: Sequence[str],
+        donor: torch.Tensor,
+        positive: Sequence[int],
+        negative: Sequence[int],
+        gates: torch.Tensor,
+        layers: Optional[Sequence[int]] = None,
+    ) -> Tuple[float, torch.Tensor]:
+        """The logit difference with each head interpolated toward a donor by its gate, and d(that)/d(gates)
+
+        Each head's output becomes donor + gate * (clean - donor), so a gate of
+        1 leaves the head alone and a gate of 0 ablates it to the donor exactly.
+        That is the same site head_outputs reads and patch writes, so a gate of
+        0 here and a patch there are the same intervention; what this adds is
+        that the interpolation is differentiable in the gate, which is what a
+        method that *learns* which heads to keep needs and no amount of scoring
+        them one at a time provides.
+
+        The donor is a counterfactual activation rather than a mean or a zero,
+        because a mean removes only what varied across the batch and a zero
+        removes a direction the model never sees. It is passed in rather than
+        captured here so the caller decides what "off" means and the choice is
+        visible in the method that made it.
+
+        Returns the objective and its gradient rather than keeping a graph
+        alive across the call, so a caller can run an optimizer loop without
+        holding one forward pass per step in memory.
+
+        `gates` is [layer, head] over the layers asked for, and is broadcast
+        over batch and position: a gate is a statement about a head, not about
+        a head at a token.
+        """
+        if not prompts:
+            raise ConfigError("head_gate_gradients needs at least one prompt")
+        layers = self._resolve_layers(layers if layers is not None else range(self.cfg.n_layers))
+        if gates.shape != (len(layers), self.cfg.n_heads):
+            raise ConfigError(
+                f"gates are {tuple(gates.shape)} but {len(layers)} layers x {self.cfg.n_heads} heads "
+                "were asked for; a gate names a head"
+            )
+        if donor.shape[1] != len(layers):
+            raise ConfigError(
+                f"donor covers {donor.shape[1]} layers and {len(layers)} were asked for; the donor is "
+                "the activation a gate of zero falls back to, so it has to cover the same sites"
+            )
+        input_ids, attention_mask = self._encode(prompts, padding_side="right")
+        answers = torch.tensor(list(positive)), torch.tensor(list(negative))
+        live = gates.detach().clone().requires_grad_(True)
+
+        total = 0.0
+        accumulated = torch.zeros_like(live)
+        start = 0
+        for ids, mask in self._chunks(input_ids, attention_mask):
+            rows = slice(start, start + ids.shape[0])
+            start += ids.shape[0]
+            handles = []
+
+            def make_hook(position: int, chunk: slice):
+                # position indexes `layers`. The donor rows are bound here rather
+                # than read from the loop variable, for the reason _Patch.select
+                # exists: a hook that closes over the enclosing scope patches
+                # whichever chunk happened to run last.
+                def hook(module, args):
+                    heads = self._split_heads(args[0])
+                    off = donor[chunk, position].permute(0, 2, 1, 3).to(heads.device, heads.dtype)
+                    gate = live[position].reshape(1, 1, -1, 1).to(heads.device)
+                    gated = off + gate * (heads - off)
+                    return (gated.reshape(*args[0].shape), *args[1:])
+                return hook
+
+            for position, index in enumerate(layers):
+                handles.append(self.projections[index].register_forward_pre_hook(make_hook(position, rows)))
+            try:
+                with torch.enable_grad():
+                    output = self.model(ids, attention_mask=mask, use_cache=False).logits
+                    final = _last_real(output, mask)
+                    batch = torch.arange(final.shape[0], device=final.device)
+                    objective = (
+                        final[batch, answers[0][rows].to(final.device)]
+                        - final[batch, answers[1][rows].to(final.device)]
+                    ).sum()
+                    (gradient,) = torch.autograd.grad(objective, [live])
+            finally:
+                for handle in handles:
+                    handle.remove()
+            total += float(objective.detach())
+            accumulated += gradient.detach().cpu()
+        return total / len(prompts), accumulated / len(prompts)
+
     def _head_writes(self, index: int, merged: torch.Tensor) -> torch.Tensor:
         """What each head at this layer wrote into the residual stream, as [batch, head, d_model]
 
