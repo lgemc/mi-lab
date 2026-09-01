@@ -1,0 +1,24 @@
+{
+  "done": {
+    "scripts.phase1b_flops:flops": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 1.9
+    },
+    "scripts.phase1b_ablation:sweep-layers": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 719.7
+    },
+    "scripts.phase1b_ablation:assemble": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 0.9
+    },
+    "scripts.phase1b_ablation:significance": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 1.9
+    }
+  }
+}

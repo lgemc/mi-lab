@@ -1,0 +1,63 @@
+
+=== 2026-09-01 12:58:17 :: /home/lmanrique/Do/mi-lab/scripts/pipeline.py run=phase1b-1.7b dry_run=true
+[12:58:17] ==============================================================================
+[12:58:17] pipeline: phase1b on qwen3-1.7b at the full shortlist
+[12:58:17]             config: qwen3-1.7b
+[12:58:17]              steps: 4 selected of 4, 0 already done
+[12:58:17]        environment: MI_LAB_RESULTS=results/qwen3-1.7b, MI_LAB_EVAL_SENTENCES=497
+[12:58:17]             resume: True
+[12:58:17]              state: results/qwen3-1.7b/pipeline-state.json
+[12:58:18]                gpu: 0.0/0.0 GiB, peak 0.0
+[12:58:18] ==============================================================================
+[12:58:18] [1/4] flops
+[12:58:18]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_flops qwen3-1.7b 
+[12:58:18] [2/4] sweep-layers
+[12:58:18]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_ablation qwen3-1.7b sweep layers 3600
+[12:58:18] [3/4] assemble
+[12:58:18]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_ablation qwen3-1.7b assemble
+[12:58:18] [4/4] significance
+[12:58:18]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_ablation qwen3-1.7b significance
+[12:58:18] dry run: nothing executed
+
+=== 2026-09-01 12:58:23 :: /home/lmanrique/Do/mi-lab/scripts/pipeline.py run=phase1b-1.7b
+[12:58:23] ==============================================================================
+[12:58:23] pipeline: phase1b on qwen3-1.7b at the full shortlist
+[12:58:23]             config: qwen3-1.7b
+[12:58:23]              steps: 4 selected of 4, 0 already done
+[12:58:23]        environment: MI_LAB_RESULTS=results/qwen3-1.7b, MI_LAB_EVAL_SENTENCES=497
+[12:58:23]             resume: True
+[12:58:23]              state: results/qwen3-1.7b/pipeline-state.json
+[12:58:24]                gpu: 0.0/0.0 GiB, peak 0.0
+[12:58:24] ==============================================================================
+[12:58:24] [1/4] flops
+[12:58:24]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_flops qwen3-1.7b
+[12:58:26]       "mlps": 7,
+[12:58:26]       "heads_macs_share": 0.0649,
+[12:58:26]       "mlps_macs_share": 0.1851,
+[12:58:26]       "total_share": 0.25
+[12:58:26]     }
+[12:58:26]     head MACs 827392 | mlp MACs 37748736 | total/token 1427636224
+[12:58:26]   flops done in 2s (1 invocation(s))
+[12:58:26] [2/4] sweep-layers
+[12:58:26]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_ablation qwen3-1.7b sweep layers 3600
+[13:10:25]     [13:10:24]     heads:27 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[13:10:25]     [13:10:24] heads:27: BLEU 34.67 (d 0.16) in 46s · 3.2/11.6 GiB, peak 6.8
+[13:10:25]     [13:10:24]   heads:27[0]: "A Republican strategy to block Obama's re-election"
+[13:10:25]     [13:10:24]   heads:27[1]: 'The republican leaders justified their policy by the need to fight against electoral fraud.'
+[13:10:25]     [13:10:24]   heads:27[2]: 'In any case, the Brennan Center considers this last thing a myth and claims that the electoral …'
+[13:10:25]     [13:10:24] group 'layers' done: 14 components in 11m58s
+[13:10:25]   sweep-layers done in 12m00s (1 invocation(s))
+[13:10:25] [3/4] assemble
+[13:10:25]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_ablation qwen3-1.7b assemble
+[13:10:26]     14 components -> results/qwen3-1.7b/phase1b-ablation-sweep.json; top 5: mlp:23 d1.58, mlp:26 d0.96, mlp:24 d0.89, mlp:21 d0.87, heads:23 d0.62
+[13:10:26]   assemble done in 1s (1 invocation(s))
+[13:10:26] [4/4] significance
+[13:10:26]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_ablation qwen3-1.7b significance
+[13:10:28]     [13:10:28] mlp:22          0.16  0.24575  0.26466   not significant
+[13:10:28]     [13:10:28] heads:21        0.16  0.18482  0.21562   not significant
+[13:10:28]     [13:10:28] heads:27        0.16  0.17483  0.21562   not significant
+[13:10:28]     [13:10:28] heads:24        0.01   0.4036   0.4036   not significant
+[13:10:28]     [13:10:28] raw p < 0.05: 5 -> ['mlp:23', 'mlp:26', 'mlp:24', 'mlp:21', 'heads:23']
+[13:10:28]     [13:10:28] FDR q < 0.05: 4 -> ['mlp:23', 'mlp:26', 'mlp:21', 'heads:23']
+[13:10:28]   significance done in 2s (1 invocation(s))
+[13:10:28] pipeline 'phase1b on qwen3-1.7b at the full shortlist' complete
