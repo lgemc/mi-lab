@@ -1,0 +1,46 @@
+{
+  "model": {
+    "hf_name": "Qwen/Qwen3-8B",
+    "d_model": 4096,
+    "n_layers": 36,
+    "n_heads": 32,
+    "n_kv_heads": 8,
+    "d_head": 128,
+    "d_ff": 12288
+  },
+  "assumptions": {
+    "context_tokens": 160,
+    "counted": "decoder-stack MACs per token: qkv/o projections, attention scores at the stated context, and the three MLP matmuls; embeddings and LM head excluded"
+  },
+  "per_component_macs": {
+    "head": 1351680,
+    "mlp": 150994944,
+    "mlp_over_head": 111.71,
+    "attention_share_of_layer": 0.2227
+  },
+  "totals": {
+    "per_layer_macs": 194248704,
+    "model_macs_per_token": 6992953344,
+    "all_heads_share": 0.2227,
+    "all_mlps_share": 0.7773
+  },
+  "quarter_flops_line": {
+    "heads_equal_to_25pct": 1293.4,
+    "heads_in_model": 1152,
+    "note": "more heads than the model has would be needed to reach 25% of FLOPs, so a head-only circuit can never touch the pre-registered ceiling; the ceiling binds through MLPs, each of which costs 2.16% of the model on its own"
+  },
+  "candidate_set_layers_27_35": {
+    "heads": 288,
+    "mlps": 9,
+    "heads_macs_share": 0.0557,
+    "mlps_macs_share": 0.1943,
+    "total_share": 0.25
+  },
+  "masked_fraction_examples": {
+    "p=0.25": 0.0625,
+    "p=0.5": 0.125,
+    "p=0.75": 0.1875,
+    "p=1.0": 0.25
+  },
+  "command": "uv run python -m scripts.phase1b_flops Qwen/Qwen3-8B 160"
+}

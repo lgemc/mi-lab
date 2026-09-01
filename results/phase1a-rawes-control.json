@@ -1,0 +1,748 @@
+{
+  "model": {
+    "config": "qwen3-8b",
+    "hf_name": "Qwen/Qwen3-8B",
+    "dtype": "bfloat16",
+    "n_layers": 36,
+    "d_ff": 12288
+  },
+  "protocol": "score_rawES = mean|act|(raw Spanish FLORES sources) - (mean|act|(EN refs) + mean|act|(math/code))/2, same sites and flagging rule as phase 1a (> 2*sigma)",
+  "tokens_per_condition": {
+    "raw_es": 5075,
+    "en_only": 5047,
+    "control": 5300
+  },
+  "score_sigma": 0.546597348492251,
+  "flagged_total": 2782,
+  "flagged_per_layer": {
+    "21": 1,
+    "22": 1,
+    "23": 6,
+    "24": 12,
+    "25": 11,
+    "26": 19,
+    "27": 20,
+    "28": 38,
+    "29": 52,
+    "30": 88,
+    "31": 244,
+    "32": 407,
+    "33": 668,
+    "34": 684,
+    "35": 531
+  },
+  "concentration": {
+    "bottom_quarter_flagged": 0,
+    "top_quarter_flagged": 2732,
+    "middle_flagged": 50
+  },
+  "raw_es_top50": [
+    {
+      "layer": 35,
+      "neuron": 8136,
+      "score": 87.780529
+    },
+    {
+      "layer": 30,
+      "neuron": 2910,
+      "score": 35.590025
+    },
+    {
+      "layer": 31,
+      "neuron": 3480,
+      "score": 29.759897
+    },
+    {
+      "layer": 33,
+      "neuron": 11716,
+      "score": 24.352697
+    },
+    {
+      "layer": 31,
+      "neuron": 7158,
+      "score": 21.908296
+    },
+    {
+      "layer": 35,
+      "neuron": 3436,
+      "score": 21.237348
+    },
+    {
+      "layer": 35,
+      "neuron": 9307,
+      "score": 20.268082
+    },
+    {
+      "layer": 35,
+      "neuron": 10790,
+      "score": 19.631377
+    },
+    {
+      "layer": 32,
+      "neuron": 3261,
+      "score": 18.154304
+    },
+    {
+      "layer": 35,
+      "neuron": 7104,
+      "score": 17.541205
+    },
+    {
+      "layer": 35,
+      "neuron": 4753,
+      "score": 17.310165
+    },
+    {
+      "layer": 32,
+      "neuron": 7997,
+      "score": 16.676429
+    },
+    {
+      "layer": 35,
+      "neuron": 9490,
+      "score": 16.666685
+    },
+    {
+      "layer": 32,
+      "neuron": 6753,
+      "score": 16.383839
+    },
+    {
+      "layer": 33,
+      "neuron": 4832,
+      "score": 16.378307
+    },
+    {
+      "layer": 35,
+      "neuron": 11900,
+      "score": 15.25869
+    },
+    {
+      "layer": 35,
+      "neuron": 5927,
+      "score": 15.206591
+    },
+    {
+      "layer": 35,
+      "neuron": 7384,
+      "score": 14.664192
+    },
+    {
+      "layer": 35,
+      "neuron": 12260,
+      "score": 14.522166
+    },
+    {
+      "layer": 35,
+      "neuron": 12086,
+      "score": 13.309957
+    },
+    {
+      "layer": 34,
+      "neuron": 1228,
+      "score": 12.847371
+    },
+    {
+      "layer": 35,
+      "neuron": 8206,
+      "score": 12.760548
+    },
+    {
+      "layer": 35,
+      "neuron": 11333,
+      "score": 12.343197
+    },
+    {
+      "layer": 34,
+      "neuron": 1722,
+      "score": 12.049258
+    },
+    {
+      "layer": 35,
+      "neuron": 4647,
+      "score": 11.85762
+    },
+    {
+      "layer": 35,
+      "neuron": 9672,
+      "score": 11.511038
+    },
+    {
+      "layer": 34,
+      "neuron": 4296,
+      "score": 11.46278
+    },
+    {
+      "layer": 31,
+      "neuron": 5473,
+      "score": 11.456171
+    },
+    {
+      "layer": 33,
+      "neuron": 10732,
+      "score": 11.409694
+    },
+    {
+      "layer": 34,
+      "neuron": 3646,
+      "score": 11.281844
+    },
+    {
+      "layer": 34,
+      "neuron": 778,
+      "score": 10.899641
+    },
+    {
+      "layer": 35,
+      "neuron": 3212,
+      "score": 10.787573
+    },
+    {
+      "layer": 34,
+      "neuron": 8321,
+      "score": 10.592661
+    },
+    {
+      "layer": 30,
+      "neuron": 12254,
+      "score": 10.589684
+    },
+    {
+      "layer": 34,
+      "neuron": 9205,
+      "score": 10.502896
+    },
+    {
+      "layer": 33,
+      "neuron": 6850,
+      "score": 10.260423
+    },
+    {
+      "layer": 35,
+      "neuron": 5049,
+      "score": 10.103569
+    },
+    {
+      "layer": 35,
+      "neuron": 7841,
+      "score": 10.091221
+    },
+    {
+      "layer": 32,
+      "neuron": 9017,
+      "score": 10.086361
+    },
+    {
+      "layer": 33,
+      "neuron": 10304,
+      "score": 9.966723
+    },
+    {
+      "layer": 30,
+      "neuron": 3769,
+      "score": 9.910839
+    },
+    {
+      "layer": 29,
+      "neuron": 1357,
+      "score": 9.907997
+    },
+    {
+      "layer": 34,
+      "neuron": 10752,
+      "score": 9.849463
+    },
+    {
+      "layer": 34,
+      "neuron": 3241,
+      "score": 9.800902
+    },
+    {
+      "layer": 34,
+      "neuron": 7266,
+      "score": 9.514164
+    },
+    {
+      "layer": 32,
+      "neuron": 7376,
+      "score": 9.496084
+    },
+    {
+      "layer": 33,
+      "neuron": 775,
+      "score": 9.272553
+    },
+    {
+      "layer": 34,
+      "neuron": 3548,
+      "score": 9.211272
+    },
+    {
+      "layer": 34,
+      "neuron": 11451,
+      "score": 9.188943
+    },
+    {
+      "layer": 35,
+      "neuron": 7574,
+      "score": 8.880719
+    }
+  ],
+  "phase1a_top50_survival": {
+    "in_raw_es_top50": 38,
+    "flagged_raw_es": 49,
+    "entries": [
+      {
+        "layer": 35,
+        "neuron": 8136,
+        "score": 63.010343,
+        "raw_es_score": 87.780529,
+        "raw_es_sigmas": 160.59,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 9490,
+        "score": 31.238857,
+        "raw_es_score": 16.666685,
+        "raw_es_sigmas": 30.49,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 11333,
+        "score": 26.786137,
+        "raw_es_score": 12.343197,
+        "raw_es_sigmas": 22.58,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 30,
+        "neuron": 2910,
+        "score": 24.623347,
+        "raw_es_score": 35.590025,
+        "raw_es_sigmas": 65.11,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 31,
+        "neuron": 3480,
+        "score": 20.791379,
+        "raw_es_score": 29.759897,
+        "raw_es_sigmas": 54.45,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 2972,
+        "score": 16.181184,
+        "raw_es_score": 8.368094,
+        "raw_es_sigmas": 15.31,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 33,
+        "neuron": 11716,
+        "score": 16.14425,
+        "raw_es_score": 24.352697,
+        "raw_es_sigmas": 44.55,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 31,
+        "neuron": 7158,
+        "score": 15.779322,
+        "raw_es_score": 21.908296,
+        "raw_es_sigmas": 40.08,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 9307,
+        "score": 12.597712,
+        "raw_es_score": 20.268082,
+        "raw_es_sigmas": 37.08,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 3436,
+        "score": 12.593602,
+        "raw_es_score": 21.237348,
+        "raw_es_sigmas": 38.85,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 33,
+        "neuron": 4832,
+        "score": 12.327186,
+        "raw_es_score": 16.378307,
+        "raw_es_sigmas": 29.96,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 32,
+        "neuron": 7997,
+        "score": 12.030476,
+        "raw_es_score": 16.676429,
+        "raw_es_sigmas": 30.51,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 5927,
+        "score": 11.889637,
+        "raw_es_score": 15.206591,
+        "raw_es_sigmas": 27.82,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 8468,
+        "score": 11.875442,
+        "raw_es_score": 8.310098,
+        "raw_es_sigmas": 15.2,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 4753,
+        "score": 11.758162,
+        "raw_es_score": 17.310165,
+        "raw_es_sigmas": 31.67,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 7104,
+        "score": 11.441309,
+        "raw_es_score": 17.541205,
+        "raw_es_sigmas": 32.09,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 12260,
+        "score": 11.298585,
+        "raw_es_score": 14.522166,
+        "raw_es_sigmas": 26.57,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 32,
+        "neuron": 3261,
+        "score": 11.150213,
+        "raw_es_score": 18.154304,
+        "raw_es_sigmas": 33.21,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 7384,
+        "score": 9.841089,
+        "raw_es_score": 14.664192,
+        "raw_es_sigmas": 26.83,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 10790,
+        "score": 9.814786,
+        "raw_es_score": 19.631377,
+        "raw_es_sigmas": 35.92,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 11900,
+        "score": 9.666983,
+        "raw_es_score": 15.25869,
+        "raw_es_sigmas": 27.92,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 1228,
+        "score": 9.550158,
+        "raw_es_score": 12.847371,
+        "raw_es_sigmas": 23.5,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 132,
+        "score": 9.211034,
+        "raw_es_score": 3.57624,
+        "raw_es_sigmas": 6.54,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 6631,
+        "score": 9.089625,
+        "raw_es_score": -0.028334,
+        "raw_es_sigmas": -0.05,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": false
+      },
+      {
+        "layer": 32,
+        "neuron": 6753,
+        "score": 8.934274,
+        "raw_es_score": 16.383839,
+        "raw_es_sigmas": 29.97,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 33,
+        "neuron": 10732,
+        "score": 8.908589,
+        "raw_es_score": 11.409694,
+        "raw_es_sigmas": 20.87,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 31,
+        "neuron": 5473,
+        "score": 8.853972,
+        "raw_es_score": 11.456171,
+        "raw_es_sigmas": 20.96,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 6325,
+        "score": 8.801437,
+        "raw_es_score": 4.194603,
+        "raw_es_sigmas": 7.67,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 8206,
+        "score": 8.394453,
+        "raw_es_score": 12.760548,
+        "raw_es_sigmas": 23.35,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 1722,
+        "score": 8.150735,
+        "raw_es_score": 12.049258,
+        "raw_es_sigmas": 22.04,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 3646,
+        "score": 8.087001,
+        "raw_es_score": 11.281844,
+        "raw_es_sigmas": 20.64,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 33,
+        "neuron": 6850,
+        "score": 7.745982,
+        "raw_es_score": 10.260423,
+        "raw_es_sigmas": 18.77,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 9672,
+        "score": 7.625504,
+        "raw_es_score": 11.511038,
+        "raw_es_sigmas": 21.06,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 32,
+        "neuron": 9017,
+        "score": 7.620998,
+        "raw_es_score": 10.086361,
+        "raw_es_sigmas": 18.45,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 33,
+        "neuron": 9246,
+        "score": 7.515433,
+        "raw_es_score": 7.957497,
+        "raw_es_sigmas": 14.56,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 3294,
+        "score": 7.481985,
+        "raw_es_score": 5.013559,
+        "raw_es_sigmas": 9.17,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 9205,
+        "score": 7.404405,
+        "raw_es_score": 10.502896,
+        "raw_es_sigmas": 19.22,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 32,
+        "neuron": 7376,
+        "score": 7.099072,
+        "raw_es_score": 9.496084,
+        "raw_es_sigmas": 17.37,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 4647,
+        "score": 7.01323,
+        "raw_es_score": 11.85762,
+        "raw_es_sigmas": 21.69,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 30,
+        "neuron": 3769,
+        "score": 7.004221,
+        "raw_es_score": 9.910839,
+        "raw_es_sigmas": 18.13,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 4296,
+        "score": 6.999806,
+        "raw_es_score": 11.46278,
+        "raw_es_sigmas": 20.97,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 778,
+        "score": 6.914509,
+        "raw_es_score": 10.899641,
+        "raw_es_sigmas": 19.94,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 32,
+        "neuron": 12096,
+        "score": 6.794605,
+        "raw_es_score": 8.185646,
+        "raw_es_sigmas": 14.98,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 3212,
+        "score": 6.740699,
+        "raw_es_score": 10.787573,
+        "raw_es_sigmas": 19.74,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 11166,
+        "score": 6.689561,
+        "raw_es_score": 8.391016,
+        "raw_es_sigmas": 15.35,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 30,
+        "neuron": 12254,
+        "score": 6.686509,
+        "raw_es_score": 10.589684,
+        "raw_es_sigmas": 19.37,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 12086,
+        "score": 6.645119,
+        "raw_es_score": 13.309957,
+        "raw_es_sigmas": 24.35,
+        "in_raw_es_top50": true,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 35,
+        "neuron": 10554,
+        "score": 6.520815,
+        "raw_es_score": 8.356447,
+        "raw_es_sigmas": 15.29,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 34,
+        "neuron": 980,
+        "score": 6.370662,
+        "raw_es_score": 7.626545,
+        "raw_es_sigmas": 13.95,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      },
+      {
+        "layer": 32,
+        "neuron": 1813,
+        "score": 6.338941,
+        "raw_es_score": 7.622904,
+        "raw_es_sigmas": 13.95,
+        "in_raw_es_top50": false,
+        "flagged_raw_es": true
+      }
+    ]
+  },
+  "command": "uv run python -m scripts.phase1b_rawes_control qwen3-8b 5000"
+}

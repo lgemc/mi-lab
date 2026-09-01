@@ -1,0 +1,249 @@
+{
+  "protocol": "greedy rank-ordered set growth over the solo-ablation ranking, cumulative mean-ablation re-scored on the full WMT-200 shortlist each step; saturation = marginal dBLEU < 0.3 for 3 consecutive additions. COMET-22 on the same 200 sentences for the pre-registered test.",
+  "greedy_trajectory": [
+    {
+      "added": "mlp:33",
+      "bleu": 36.85,
+      "cumulative_dbleu": 1.57,
+      "marginal_dbleu": 1.57
+    },
+    {
+      "added": "mlp:35",
+      "bleu": 33.34,
+      "cumulative_dbleu": 5.08,
+      "marginal_dbleu": 3.51
+    },
+    {
+      "added": "mlp:28",
+      "bleu": 34.14,
+      "cumulative_dbleu": 4.28,
+      "marginal_dbleu": -0.8
+    },
+    {
+      "added": "mlp:31",
+      "bleu": 31.14,
+      "cumulative_dbleu": 7.28,
+      "marginal_dbleu": 3.0
+    },
+    {
+      "added": "heads:35",
+      "bleu": 31.24,
+      "cumulative_dbleu": 7.18,
+      "marginal_dbleu": -0.1
+    },
+    {
+      "added": "mlp:27",
+      "bleu": 27.21,
+      "cumulative_dbleu": 11.21,
+      "marginal_dbleu": 4.03
+    },
+    {
+      "added": "mlp:30",
+      "bleu": 23.27,
+      "cumulative_dbleu": 15.15,
+      "marginal_dbleu": 3.94
+    },
+    {
+      "added": "heads:31",
+      "bleu": 18.62,
+      "cumulative_dbleu": 19.8,
+      "marginal_dbleu": 4.65
+    },
+    {
+      "added": "heads:29",
+      "bleu": 18.88,
+      "cumulative_dbleu": 19.54,
+      "marginal_dbleu": -0.26
+    },
+    {
+      "added": "heads:34",
+      "bleu": 15.06,
+      "cumulative_dbleu": 23.36,
+      "marginal_dbleu": 3.82
+    },
+    {
+      "added": "heads:33",
+      "bleu": 8.56,
+      "cumulative_dbleu": 29.86,
+      "marginal_dbleu": 6.5
+    },
+    {
+      "added": "mlp:32",
+      "bleu": 4.46,
+      "cumulative_dbleu": 33.96,
+      "marginal_dbleu": 4.1
+    },
+    {
+      "added": "heads:30",
+      "bleu": 2.68,
+      "cumulative_dbleu": 35.74,
+      "marginal_dbleu": 1.78
+    },
+    {
+      "added": "heads:32",
+      "bleu": 1.31,
+      "cumulative_dbleu": 37.11,
+      "marginal_dbleu": 1.37
+    },
+    {
+      "added": "heads:27",
+      "bleu": 1.29,
+      "cumulative_dbleu": 37.13,
+      "marginal_dbleu": 0.02
+    },
+    {
+      "added": "heads:28",
+      "bleu": 0.52,
+      "cumulative_dbleu": 37.9,
+      "marginal_dbleu": 0.77
+    },
+    {
+      "added": "mlp:29",
+      "bleu": 0.28,
+      "cumulative_dbleu": 38.14,
+      "marginal_dbleu": 0.24
+    },
+    {
+      "added": "mlp:34",
+      "bleu": 0.1,
+      "cumulative_dbleu": 38.32,
+      "marginal_dbleu": 0.18
+    }
+  ],
+  "combos": {
+    "all_candidate_mlps": {
+      "components": [
+        "mlp:27",
+        "mlp:28",
+        "mlp:29",
+        "mlp:30",
+        "mlp:31",
+        "mlp:32",
+        "mlp:33",
+        "mlp:34",
+        "mlp:35"
+      ],
+      "bleu": 6.06,
+      "dbleu": 32.36,
+      "seconds": 76.1
+    },
+    "all_candidate_heads": {
+      "components": [
+        "heads:27",
+        "heads:28",
+        "heads:29",
+        "heads:30",
+        "heads:31",
+        "heads:32",
+        "heads:33",
+        "heads:34",
+        "heads:35"
+      ],
+      "bleu": 30.15,
+      "dbleu": 8.27,
+      "seconds": 72.9
+    },
+    "full_candidate_set": {
+      "components": [
+        "mlp:27",
+        "mlp:28",
+        "mlp:29",
+        "mlp:30",
+        "mlp:31",
+        "mlp:32",
+        "mlp:33",
+        "mlp:34",
+        "mlp:35",
+        "heads:27",
+        "heads:28",
+        "heads:29",
+        "heads:30",
+        "heads:31",
+        "heads:32",
+        "heads:33",
+        "heads:34",
+        "heads:35"
+      ],
+      "bleu": 0.1,
+      "dbleu": 38.32,
+      "seconds": 72.7
+    }
+  },
+  "evaluations": {
+    "baseline": {
+      "bleu": 38.42,
+      "comet22": 0.8771
+    },
+    "candidate": {
+      "components": [
+        "mlp:33",
+        "mlp:35",
+        "mlp:28",
+        "mlp:31",
+        "heads:35",
+        "mlp:27",
+        "mlp:30",
+        "heads:31",
+        "heads:29",
+        "heads:34",
+        "heads:33",
+        "mlp:32",
+        "heads:30",
+        "heads:32",
+        "heads:27",
+        "heads:28",
+        "mlp:29",
+        "mlp:34"
+      ],
+      "flops_share": 0.25,
+      "bleu": 0.1,
+      "comet22": 0.2342,
+      "dcomet": 0.6429,
+      "dbleu": 38.32
+    },
+    "greedy_prefix_1": {
+      "components": [
+        "mlp:33"
+      ],
+      "flops_share": 0.0216,
+      "bleu": 36.85,
+      "comet22": 0.875,
+      "dcomet": 0.0021,
+      "dbleu": 1.57
+    },
+    "greedy_prefix_2": {
+      "components": [
+        "mlp:33",
+        "mlp:35"
+      ],
+      "flops_share": 0.0432,
+      "bleu": 33.34,
+      "comet22": 0.8491,
+      "dcomet": 0.028,
+      "dbleu": 5.08
+    },
+    "greedy_prefix_4": {
+      "components": [
+        "mlp:33",
+        "mlp:35",
+        "mlp:28",
+        "mlp:31"
+      ],
+      "flops_share": 0.0864,
+      "bleu": 31.14,
+      "comet22": 0.839,
+      "dcomet": 0.0381,
+      "dbleu": 7.28
+    }
+  },
+  "pre_registered_test": {
+    "criterion": "component set <= 25% FLOPs whose ablation drops COMET-22 by >= 0.020",
+    "threshold_dcomet": 0.02,
+    "candidate_dcomet": 0.6429,
+    "candidate_flops_share": 0.25,
+    "pass": true,
+    "smallest_passing_set": "greedy_prefix_2",
+    "smallest_passing_flops_share": 0.0432
+  },
+  "command": "uv run python -m scripts.phase1b_greedy qwen3-8b combo|greedy|comet (chained)"
+}

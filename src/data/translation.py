@@ -62,6 +62,28 @@ INSTRUCTION_FORM = (
 FEW_SHOT_HEADER = "Spanish: {source}\nEnglish: {target}\n\n"
 FEW_SHOT_FORM = "Spanish: {source}\nEnglish:"
 
+# The reference distribution a mean ablation is allowed to average over.
+# Wang et al. (2211.00593 3) are explicit that the knockout mean has to come
+# from a distribution that strips the task information and leaves everything
+# else standing: p_ABC keeps the p_IOI templates and their grammatical roles
+# and varies only the names, "because using p_IOI would not remove enough
+# information helpful for the task". Zhang et al. (2502.11806 3) build their
+# counterfactual X- on the same principle -- preserve the grammatical
+# structure, replace only the words carrying the translation logic
+# ("English: cloud - Nothing: _").
+#
+# So the counterfactual form is the few-shot form with the translation logic
+# taken out and nothing else touched: same skeleton, same shot count, the same
+# real Spanish source sentence, and the same shot target sentences token for
+# token -- only the language labels are neutralised and the shot targets are
+# rotated off their own sources, so the worked examples no longer demonstrate
+# a translation relation. Averaging over raw English text instead would remove
+# the prompt format and the in-context task along with the translation, and a
+# component knocked out toward that mean is being told to forget how to
+# continue a prompt at all.
+COUNTERFACTUAL_HEADER = "Text: {source}\nNothing: {target}\n\n"
+COUNTERFACTUAL_FORM = "Text: {source}\nNothing:"
+
 def pairs_to_prompts(pairs: Sequence[Tuple[str, str]], name: str) -> LabeledPrompts:
     """Lay parallel sentences out as a grouped prompt set: label 0 Spanish, label 1 English
 
@@ -117,7 +139,23 @@ def translation_prompt(source: str, form: str = "instruction", shots: Sequence[T
             raise DatasetError("the few-shot form needs at least one worked (spanish, english) example")
         header = "".join(FEW_SHOT_HEADER.format(source=spanish, target=english) for spanish, english in shots)
         return header + FEW_SHOT_FORM.format(source=source)
-    raise DatasetError(f"unknown prompt form '{form}'; known forms are ['few_shot', 'instruction']")
+    if form == "counterfactual":
+        if len(shots) < 2:
+            raise DatasetError(
+                "the counterfactual form needs at least two worked examples: it removes the translation "
+                "relation by rotating each shot's target onto a different shot's source, which needs "
+                "somewhere to rotate to"
+            )
+        targets = [english for _, english in shots]
+        rotated = targets[1:] + targets[:1]
+        header = "".join(
+            COUNTERFACTUAL_HEADER.format(source=spanish, target=target)
+            for (spanish, _), target in zip(shots, rotated, strict=True)
+        )
+        return header + COUNTERFACTUAL_FORM.format(source=source)
+    raise DatasetError(
+        f"unknown prompt form '{form}'; known forms are ['counterfactual', 'few_shot', 'instruction']"
+    )
 
 def default_pairs_path(name: str) -> Path:
     """Where a converted bitext lands: downloaded data stays under data/external"""
