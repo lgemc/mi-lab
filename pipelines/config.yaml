@@ -1,7 +1,10 @@
-# Composition root for pipelines, separate from specs/config.yaml because a
-# pipeline is not an ExperimentSpec and would be rejected by its schema. Pick a
-# run from the group and override any key by dotted path, the same grammar the
-# experiment side uses:
+# Composition root for pipelines. It lives beside specs/ rather than inside it:
+# every directory under specs/ is a group Hydra can compose into an
+# ExperimentSpec, a pipeline is not one, and tests/spec.py pins that set --
+# putting this there made it a fifth group and failed, correctly.
+#
+# Pick a run from the group and override any key by dotted path, the same
+# grammar the experiment side uses:
 #
 #   uv run python -m scripts.pipeline run=phase1b-1.7b
 #   uv run python -m scripts.pipeline run=phase1b-1.7b env.MI_LAB_EVAL_SENTENCES=200

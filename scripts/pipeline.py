@@ -7,8 +7,11 @@ lived in commit messages and in whoever ran it last, which is the same place a
 protocol goes to be misremembered -- and every one of those steps takes a
 config, an environment and a budget that have to agree across all nine.
 
-So the sequence is a Hydra config under specs/pipeline/, composed the way
-specs/config.yaml is composed, and this runs it. The value is not saving
+So the sequence is a Hydra config under pipelines/, composed the way
+specs/config.yaml is composed, and this runs it. Beside specs/ rather than
+inside it: specs/ is the ExperimentSpec composition tree and every directory in
+it is a group Hydra can swap into one, which a pipeline is not -- tests/spec.py
+asserts that set and was right to fail when a fifth appeared. The value is not saving
 keystrokes; it is that the environment reaches every step identically. The
 results root and the corpus size are set once at the top and exported to each
 subprocess, so a run cannot half-happen at 497 sentences and half at 200 -- the
@@ -40,7 +43,7 @@ from pathlib import Path
 
 from scripts.observe import banner, duration, log, set_log_file
 
-SPEC_DIR = Path(__file__).resolve().parent.parent / "specs" / "pipeline"
+PIPELINE_DIR = Path(__file__).resolve().parent.parent / "pipelines"
 
 # The line Budget prints when it exits on the allowance rather than on finishing.
 # `repeat` re-invokes on it, so this is a contract between the two and not a guess.
@@ -54,7 +57,7 @@ def compose(overrides):
     from omegaconf import OmegaConf
 
     GlobalHydra.instance().clear()
-    with initialize_config_dir(config_dir=str(SPEC_DIR), version_base=None):
+    with initialize_config_dir(config_dir=str(PIPELINE_DIR), version_base=None):
         cfg = hydra_compose(config_name="config", overrides=list(overrides))
     GlobalHydra.instance().clear()
     return OmegaConf.to_container(cfg, resolve=True)
