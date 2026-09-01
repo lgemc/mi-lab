@@ -1,0 +1,41 @@
+# Phase 1b on the small model at full corpus: the protocol validation the 8B
+# could not afford. At 200 sentences the 95% CI on a 1.35 dBLEU effect is 2.33
+# and nearly touches zero, which is why the strongest component of the 8B sweep
+# only reached p=0.012 and nothing survived correction. 497 takes it to 1.48.
+#
+# Its own results directory, because every phase1b artifact is named for its
+# phase rather than its model and the stages are resumable -- pointed at the 8B
+# directory this would read 306 cached scores from another network as its own.
+name: phase1b on qwen3-1.7b at the full shortlist
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b
+  MI_LAB_EVAL_SENTENCES: "497"
+
+steps:
+  # MAC bookkeeping. No GPU, no checkpoint load; everything downstream that
+  # talks about a share of the model divides by what this writes.
+  - name: flops
+    module: scripts.phase1b_flops
+    args: []
+
+  # The 18 layer-level components. Heads are deliberately absent: the 8B swept
+  # all 288 of them and a split-half on 30 came back at rho -0.22 with the top
+  # group keeping its sign 4/10, so a head ranking here would cost two hours to
+  # reproduce a result already known to be noise.
+  - name: sweep-layers
+    module: scripts.phase1b_ablation
+    args: [sweep, layers, 3600]
+    repeat: true
+
+  - name: assemble
+    module: scripts.phase1b_ablation
+    args: [assemble]
+
+  # The paired bootstrap. This is the step the whole run exists for: whether a
+  # properly powered corpus separates any component from the baseline once the
+  # number of components screened is accounted for.
+  - name: significance
+    module: scripts.phase1b_ablation
+    args: [significance]

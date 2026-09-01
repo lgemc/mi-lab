@@ -1,0 +1,23 @@
+# Composition root for pipelines, separate from specs/config.yaml because a
+# pipeline is not an ExperimentSpec and would be rejected by its schema. Pick a
+# run from the group and override any key by dotted path, the same grammar the
+# experiment side uses:
+#
+#   uv run python -m scripts.pipeline run=phase1b-1.7b
+#   uv run python -m scripts.pipeline run=phase1b-1.7b env.MI_LAB_EVAL_SENTENCES=200
+#   uv run python -m scripts.pipeline run=phase1b-1.7b only=[sweep-layers]
+defaults:
+  - run: phase1b-1.7b
+  - _self_
+
+# Steps already recorded as done are skipped. Turn this off to force a re-run;
+# it does not delete anything, so a step whose own progress file is complete
+# will still short-circuit inside the script.
+resume: true
+
+# Print the plan and exit. A pipeline that loads an 8B checkpoint before telling
+# you what it intends to do is one you debug by waiting.
+dry_run: false
+
+# Restrict to named steps, by the `name` field. Empty runs all of them.
+only: []

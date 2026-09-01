@@ -1,0 +1,41 @@
+# The 8B chain as it was actually run, so the sequence is a file rather than a
+# paragraph in a commit message. Every step here is already complete in
+# results/, so this reproduces rather than recomputes: each script short-
+# circuits on its own progress file and the pipeline records the step as done.
+name: phase1b on qwen3-8b, the chain as run
+config: qwen3-8b
+
+env:
+  MI_LAB_RESULTS: results
+  MI_LAB_EVAL_SENTENCES: "200"
+
+steps:
+  - name: flops
+    module: scripts.phase1b_flops
+    args: []
+  - name: sweep-layers
+    module: scripts.phase1b_ablation
+    args: [sweep, layers, 3600]
+    repeat: true
+  - name: sweep-heads-upper
+    module: scripts.phase1b_ablation
+    args: [sweep, heads32-35, 3600]
+    repeat: true
+  - name: sweep-heads-lower
+    module: scripts.phase1b_ablation
+    args: [sweep, heads27-31, 4200]
+    repeat: true
+  - name: assemble
+    module: scripts.phase1b_ablation
+    args: [assemble]
+  - name: significance
+    module: scripts.phase1b_ablation
+    args: [significance]
+  - name: frontier
+    module: scripts.phase1b_random_control
+    args: [frontier, model, "3", "3000"]
+    repeat: true
+  - name: splithalf
+    module: scripts.phase1b_splithalf
+    args: [run, "10", "1800"]
+    repeat: true
