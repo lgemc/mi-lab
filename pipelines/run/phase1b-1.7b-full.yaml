@@ -1,0 +1,79 @@
+# Phase 1b end to end on the small model. The first four steps are the run that
+# already happened -- they are named identically so the recorded state skips
+# them rather than recomputing twelve minutes of sweep -- and the rest is
+# everything phase 1b still owes: the survival frontier, the greedy set the
+# significance gate permits, the matched-FLOPs control that decides whether any
+# of it is evidence, and COMET for the pre-registered test.
+#
+# Order is not arbitrary. The frontier comes before greedy because greedy reads
+# it as its ceiling and, without it, grows on marginal dBLEU alone into a model
+# that has stopped emitting language. The control comes before COMET because
+# the control is what decides whether there is a result and COMET is what
+# decorates it: a 2.3GB download failing must not take the falsification arm
+# down with it, and a failing step stops this pipeline by design.
+name: phase1b on qwen3-1.7b, end to end
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b
+  MI_LAB_EVAL_SENTENCES: "497"
+
+steps:
+  - name: flops
+    module: scripts.phase1b_flops
+    args: []
+
+  - name: sweep-layers
+    module: scripts.phase1b_ablation
+    args: [sweep, layers, 3600]
+    repeat: true
+
+  - name: assemble
+    module: scripts.phase1b_ablation
+    args: [assemble]
+
+  - name: significance
+    module: scripts.phase1b_ablation
+    args: [significance]
+
+  # How much of this model can be ablated before it stops being a language
+  # model. Three seeds per share, because the 8B run showed that above the
+  # frontier the draw decides rather than the share -- one seed intact at 10%
+  # while another was fully broken -- and a single seed would have reported a
+  # frontier 2.7x too high.
+  - name: frontier
+    module: scripts.phase1b_random_control
+    args: [frontier, model, "3", "3600"]
+    repeat: true
+
+  # Grows only from components the paired bootstrap cleared, and stops at the
+  # frontier above.
+  - name: greedy
+    module: scripts.phase1b_greedy
+    args: [greedy, "1800"]
+    repeat: true
+
+  # The arm that decides it. A discovered set that does not clear a random set
+  # of the same MAC cost is not evidence of a circuit, whatever its dBLEU.
+  # Eight seeds rather than five: at matched FLOPs near the frontier the draw
+  # matters as much as the share.
+  - name: control-model
+    module: scripts.phase1b_random_control
+    args: [run, model, greedy, "8", "3600"]
+    repeat: true
+
+  - name: control-candidate
+    module: scripts.phase1b_random_control
+    args: [run, candidate, greedy, "8", "3600"]
+    repeat: true
+
+  - name: control-report
+    module: scripts.phase1b_random_control
+    args: [report]
+
+  # Last, deliberately. The pre-registered criterion is dCOMET, and it needs a
+  # 2.3GB download; everything above it answers the question that matters
+  # whether or not this step ever runs.
+  - name: comet
+    module: scripts.phase1b_greedy
+    args: [comet]
