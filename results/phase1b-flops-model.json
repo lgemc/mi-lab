@@ -29,7 +29,22 @@
     "heads_in_model": 1152,
     "note": "more heads than the model has would be needed to reach 25% of FLOPs, so a head-only circuit can never touch the pre-registered ceiling; the ceiling binds through MLPs, each of which costs 2.16% of the model on its own"
   },
-  "candidate_set_layers_27_35": {
+  "candidate_set": {
+    "band_depth_fraction": [
+      0.75,
+      1.0
+    ],
+    "layers": [
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35
+    ],
     "heads": 288,
     "mlps": 9,
     "heads_macs_share": 0.0557,
@@ -42,5 +57,5 @@
     "p=0.75": 0.1875,
     "p=1.0": 0.25
   },
-  "command": "uv run python -m scripts.phase1b_flops Qwen/Qwen3-8B 160"
+  "command": "uv run python -m scripts.phase1b_flops qwen3-8b 160"
 }

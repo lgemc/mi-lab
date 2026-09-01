@@ -13,18 +13,29 @@ Run: uv run python -m scripts.phase1b_flops Qwen/Qwen3-8B 160
 import json
 import sys
 
-from scripts.paths import result
+from scripts.paths import guard, result
 
 RESULTS = result("phase1b-flops-model.json")
 
-CANDIDATE_LAYERS = list(range(27, 36))
 
 def main() -> None:
-    hf_name = sys.argv[1] if len(sys.argv) > 1 else "Qwen/Qwen3-8B"
+    # a config id like every sibling, not a bare hf_name. Taking the checkpoint
+    # name meant this was the one script with no config to guard the results
+    # directory with, so running it for a second model overwrote the first
+    # model's MAC bookkeeping in place -- and every flops_share downstream would
+    # then have been dividing by the wrong denominator without saying so.
+    config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
     context = int(sys.argv[2]) if len(sys.argv) > 2 else 160
+    guard(config)
+
+    from dataclasses import replace as _replace
 
     from transformers import AutoConfig
 
+    from scripts.phase1b_ablation import CANDIDATE_BAND, candidate_layers
+    from src.core.config import load_config
+
+    hf_name = load_config(config).hf_name
     cfg = AutoConfig.from_pretrained(hf_name)
     d_model = cfg.hidden_size
     n_layers = cfg.num_hidden_layers
@@ -42,12 +53,13 @@ def main() -> None:
     layer_macs = attention_macs + mlp_macs
     total_macs = n_layers * layer_macs
 
-    candidate_heads = len(CANDIDATE_LAYERS) * n_heads
+    band = candidate_layers(_replace(load_config(config), n_layers=n_layers))
+    candidate_heads = len(band) * n_heads
     candidate = {
         "heads": candidate_heads,
-        "mlps": len(CANDIDATE_LAYERS),
+        "mlps": len(band),
         "heads_macs_share": candidate_heads * head_macs / total_macs,
-        "mlps_macs_share": len(CANDIDATE_LAYERS) * mlp_macs / total_macs,
+        "mlps_macs_share": len(band) * mlp_macs / total_macs,
     }
     candidate["total_share"] = candidate["heads_macs_share"] + candidate["mlps_macs_share"]
 
@@ -83,15 +95,17 @@ def main() -> None:
                     if heads_for_quarter > n_layers * n_heads else
                     f"{round(heads_for_quarter)} heads reach 25% of FLOPs",
         },
-        "candidate_set_layers_27_35": {key: round(value, 4) if isinstance(value, float) else value
-                                       for key, value in candidate.items()},
+        "candidate_set": {"band_depth_fraction": list(CANDIDATE_BAND),
+                          "layers": band,
+                          **{key: round(value, 4) if isinstance(value, float) else value
+                             for key, value in candidate.items()}},
         "masked_fraction_examples": {
             f"p={p}": round(p * candidate["total_share"], 4)
             for p in (0.25, 0.5, 0.75, 1.0)
         },
-        "command": f"uv run python -m scripts.phase1b_flops {hf_name} {context}",
+        "command": f"uv run python -m scripts.phase1b_flops {config} {context}",
     }, indent=2) + "\n")
-    print(json.dumps(json.loads(RESULTS.read_text())["candidate_set_layers_27_35"], indent=2))
+    print(json.dumps(json.loads(RESULTS.read_text())["candidate_set"], indent=2))
     print("head MACs", head_macs, "| mlp MACs", mlp_macs, "| total/token", total_macs)
 
 if __name__ == "__main__":
