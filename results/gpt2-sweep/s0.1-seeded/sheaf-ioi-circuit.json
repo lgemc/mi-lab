@@ -1,0 +1,1420 @@
+{
+  "protocol": "a weight mask reduced to the component vocabulary the rest of this repo uses. Density per component is a share of that component's own parameters, never of the model's -- dividing by the model total would make every row a fact about model size rather than about the circuit.",
+  "config": "gpt2-small",
+  "task": "ioi",
+  "gates": "results/gpt2-sweep/s0.1-seeded/sheaf-ioi-gates.pt",
+  "n_gates": 85017600,
+  "n_open": 278850,
+  "density": 0.00327991,
+  "components": [
+    {
+      "layer": 0,
+      "kind": "attn.out",
+      "open": 29511,
+      "total": 590592,
+      "density": 0.049969,
+      "share_of_circuit": 0.105831
+    },
+    {
+      "layer": 0,
+      "kind": "attn.qkv",
+      "open": 54730,
+      "total": 1771776,
+      "density": 0.03089,
+      "share_of_circuit": 0.19627
+    },
+    {
+      "layer": 0,
+      "kind": "mlp.out",
+      "open": 46756,
+      "total": 2360064,
+      "density": 0.019811,
+      "share_of_circuit": 0.167674
+    },
+    {
+      "layer": 0,
+      "kind": "mlp.in",
+      "open": 44559,
+      "total": 2362368,
+      "density": 0.018862,
+      "share_of_circuit": 0.159796
+    },
+    {
+      "layer": 11,
+      "kind": "attn.out",
+      "open": 7533,
+      "total": 590592,
+      "density": 0.012755,
+      "share_of_circuit": 0.027015
+    },
+    {
+      "layer": 1,
+      "kind": "attn.out",
+      "open": 4267,
+      "total": 590592,
+      "density": 0.007225,
+      "share_of_circuit": 0.015302
+    },
+    {
+      "layer": 11,
+      "kind": "attn.qkv",
+      "open": 10873,
+      "total": 1771776,
+      "density": 0.006137,
+      "share_of_circuit": 0.038992
+    },
+    {
+      "layer": 11,
+      "kind": "mlp.in",
+      "open": 11405,
+      "total": 2362368,
+      "density": 0.004828,
+      "share_of_circuit": 0.0409
+    },
+    {
+      "layer": 11,
+      "kind": "mlp.out",
+      "open": 10117,
+      "total": 2360064,
+      "density": 0.004287,
+      "share_of_circuit": 0.036281
+    },
+    {
+      "layer": 10,
+      "kind": "attn.out",
+      "open": 2398,
+      "total": 590592,
+      "density": 0.00406,
+      "share_of_circuit": 0.0086
+    },
+    {
+      "layer": 1,
+      "kind": "attn.qkv",
+      "open": 6584,
+      "total": 1771776,
+      "density": 0.003716,
+      "share_of_circuit": 0.023611
+    },
+    {
+      "layer": 9,
+      "kind": "attn.out",
+      "open": 1796,
+      "total": 590592,
+      "density": 0.003041,
+      "share_of_circuit": 0.006441
+    },
+    {
+      "layer": 10,
+      "kind": "mlp.out",
+      "open": 4486,
+      "total": 2360064,
+      "density": 0.001901,
+      "share_of_circuit": 0.016088
+    },
+    {
+      "layer": 6,
+      "kind": "attn.out",
+      "open": 1082,
+      "total": 590592,
+      "density": 0.001832,
+      "share_of_circuit": 0.00388
+    },
+    {
+      "layer": 2,
+      "kind": "attn.out",
+      "open": 978,
+      "total": 590592,
+      "density": 0.001656,
+      "share_of_circuit": 0.003507
+    },
+    {
+      "layer": 10,
+      "kind": "attn.qkv",
+      "open": 2529,
+      "total": 1771776,
+      "density": 0.001427,
+      "share_of_circuit": 0.009069
+    },
+    {
+      "layer": 8,
+      "kind": "attn.out",
+      "open": 796,
+      "total": 590592,
+      "density": 0.001348,
+      "share_of_circuit": 0.002855
+    },
+    {
+      "layer": 10,
+      "kind": "mlp.in",
+      "open": 3123,
+      "total": 2362368,
+      "density": 0.001322,
+      "share_of_circuit": 0.0112
+    },
+    {
+      "layer": 1,
+      "kind": "mlp.in",
+      "open": 2973,
+      "total": 2362368,
+      "density": 0.001258,
+      "share_of_circuit": 0.010662
+    },
+    {
+      "layer": 2,
+      "kind": "mlp.in",
+      "open": 2789,
+      "total": 2362368,
+      "density": 0.001181,
+      "share_of_circuit": 0.010002
+    },
+    {
+      "layer": 7,
+      "kind": "attn.out",
+      "open": 673,
+      "total": 590592,
+      "density": 0.00114,
+      "share_of_circuit": 0.002413
+    },
+    {
+      "layer": 5,
+      "kind": "attn.out",
+      "open": 668,
+      "total": 590592,
+      "density": 0.001131,
+      "share_of_circuit": 0.002396
+    },
+    {
+      "layer": 9,
+      "kind": "mlp.out",
+      "open": 2663,
+      "total": 2360064,
+      "density": 0.001128,
+      "share_of_circuit": 0.00955
+    },
+    {
+      "layer": 9,
+      "kind": "attn.qkv",
+      "open": 1721,
+      "total": 1771776,
+      "density": 0.000971,
+      "share_of_circuit": 0.006172
+    },
+    {
+      "layer": 4,
+      "kind": "attn.out",
+      "open": 474,
+      "total": 590592,
+      "density": 0.000803,
+      "share_of_circuit": 0.0017
+    },
+    {
+      "layer": 2,
+      "kind": "mlp.out",
+      "open": 1832,
+      "total": 2360064,
+      "density": 0.000776,
+      "share_of_circuit": 0.00657
+    },
+    {
+      "layer": 9,
+      "kind": "mlp.in",
+      "open": 1704,
+      "total": 2362368,
+      "density": 0.000721,
+      "share_of_circuit": 0.006111
+    },
+    {
+      "layer": 8,
+      "kind": "mlp.out",
+      "open": 1551,
+      "total": 2360064,
+      "density": 0.000657,
+      "share_of_circuit": 0.005562
+    },
+    {
+      "layer": 6,
+      "kind": "attn.qkv",
+      "open": 1121,
+      "total": 1771776,
+      "density": 0.000633,
+      "share_of_circuit": 0.00402
+    },
+    {
+      "layer": 7,
+      "kind": "mlp.out",
+      "open": 1472,
+      "total": 2360064,
+      "density": 0.000624,
+      "share_of_circuit": 0.005279
+    },
+    {
+      "layer": 1,
+      "kind": "mlp.out",
+      "open": 1371,
+      "total": 2360064,
+      "density": 0.000581,
+      "share_of_circuit": 0.004917
+    },
+    {
+      "layer": 3,
+      "kind": "mlp.in",
+      "open": 1343,
+      "total": 2362368,
+      "density": 0.000568,
+      "share_of_circuit": 0.004816
+    },
+    {
+      "layer": 5,
+      "kind": "mlp.out",
+      "open": 1333,
+      "total": 2360064,
+      "density": 0.000565,
+      "share_of_circuit": 0.00478
+    },
+    {
+      "layer": 3,
+      "kind": "attn.out",
+      "open": 305,
+      "total": 590592,
+      "density": 0.000516,
+      "share_of_circuit": 0.001094
+    },
+    {
+      "layer": 6,
+      "kind": "mlp.out",
+      "open": 1135,
+      "total": 2360064,
+      "density": 0.000481,
+      "share_of_circuit": 0.00407
+    },
+    {
+      "layer": 8,
+      "kind": "attn.qkv",
+      "open": 830,
+      "total": 1771776,
+      "density": 0.000468,
+      "share_of_circuit": 0.002977
+    },
+    {
+      "layer": 3,
+      "kind": "mlp.out",
+      "open": 1101,
+      "total": 2360064,
+      "density": 0.000467,
+      "share_of_circuit": 0.003948
+    },
+    {
+      "layer": 8,
+      "kind": "mlp.in",
+      "open": 1015,
+      "total": 2362368,
+      "density": 0.00043,
+      "share_of_circuit": 0.00364
+    },
+    {
+      "layer": 2,
+      "kind": "attn.qkv",
+      "open": 761,
+      "total": 1771776,
+      "density": 0.00043,
+      "share_of_circuit": 0.002729
+    },
+    {
+      "layer": 5,
+      "kind": "mlp.in",
+      "open": 1010,
+      "total": 2362368,
+      "density": 0.000428,
+      "share_of_circuit": 0.003622
+    },
+    {
+      "layer": 7,
+      "kind": "mlp.in",
+      "open": 989,
+      "total": 2362368,
+      "density": 0.000419,
+      "share_of_circuit": 0.003547
+    },
+    {
+      "layer": 4,
+      "kind": "mlp.in",
+      "open": 970,
+      "total": 2362368,
+      "density": 0.000411,
+      "share_of_circuit": 0.003479
+    },
+    {
+      "layer": 6,
+      "kind": "mlp.in",
+      "open": 878,
+      "total": 2362368,
+      "density": 0.000372,
+      "share_of_circuit": 0.003149
+    },
+    {
+      "layer": 5,
+      "kind": "attn.qkv",
+      "open": 644,
+      "total": 1771776,
+      "density": 0.000363,
+      "share_of_circuit": 0.002309
+    },
+    {
+      "layer": 4,
+      "kind": "mlp.out",
+      "open": 856,
+      "total": 2360064,
+      "density": 0.000363,
+      "share_of_circuit": 0.00307
+    },
+    {
+      "layer": 7,
+      "kind": "attn.qkv",
+      "open": 604,
+      "total": 1771776,
+      "density": 0.000341,
+      "share_of_circuit": 0.002166
+    },
+    {
+      "layer": 4,
+      "kind": "attn.qkv",
+      "open": 377,
+      "total": 1771776,
+      "density": 0.000213,
+      "share_of_circuit": 0.001352
+    },
+    {
+      "layer": 3,
+      "kind": "attn.qkv",
+      "open": 164,
+      "total": 1771776,
+      "density": 9.3e-05,
+      "share_of_circuit": 0.000588
+    }
+  ],
+  "by_layer": {
+    "0": 175556,
+    "1": 15195,
+    "2": 6360,
+    "3": 2913,
+    "4": 2677,
+    "5": 3655,
+    "6": 4216,
+    "7": 3738,
+    "8": 4192,
+    "9": 7884,
+    "10": 12536,
+    "11": 39928
+  },
+  "heads": [
+    {
+      "layer": 0,
+      "head": 10,
+      "open": 11967,
+      "total": 49152,
+      "density": 0.243469
+    },
+    {
+      "layer": 0,
+      "head": 7,
+      "open": 4434,
+      "total": 49152,
+      "density": 0.09021
+    },
+    {
+      "layer": 0,
+      "head": 2,
+      "open": 3353,
+      "total": 49152,
+      "density": 0.068217
+    },
+    {
+      "layer": 0,
+      "head": 9,
+      "open": 2984,
+      "total": 49152,
+      "density": 0.06071
+    },
+    {
+      "layer": 11,
+      "head": 8,
+      "open": 1812,
+      "total": 49152,
+      "density": 0.036865
+    },
+    {
+      "layer": 0,
+      "head": 8,
+      "open": 1309,
+      "total": 49152,
+      "density": 0.026632
+    },
+    {
+      "layer": 11,
+      "head": 0,
+      "open": 1158,
+      "total": 49152,
+      "density": 0.02356
+    },
+    {
+      "layer": 1,
+      "head": 7,
+      "open": 1152,
+      "total": 49152,
+      "density": 0.023438
+    },
+    {
+      "layer": 0,
+      "head": 0,
+      "open": 1092,
+      "total": 49152,
+      "density": 0.022217
+    },
+    {
+      "layer": 11,
+      "head": 2,
+      "open": 1077,
+      "total": 49152,
+      "density": 0.021912
+    },
+    {
+      "layer": 0,
+      "head": 1,
+      "open": 1022,
+      "total": 49152,
+      "density": 0.020793
+    },
+    {
+      "layer": 0,
+      "head": 11,
+      "open": 1003,
+      "total": 49152,
+      "density": 0.020406
+    },
+    {
+      "layer": 11,
+      "head": 6,
+      "open": 974,
+      "total": 49152,
+      "density": 0.019816
+    },
+    {
+      "layer": 11,
+      "head": 9,
+      "open": 791,
+      "total": 49152,
+      "density": 0.016093
+    },
+    {
+      "layer": 0,
+      "head": 6,
+      "open": 738,
+      "total": 49152,
+      "density": 0.015015
+    },
+    {
+      "layer": 1,
+      "head": 5,
+      "open": 663,
+      "total": 49152,
+      "density": 0.013489
+    },
+    {
+      "layer": 9,
+      "head": 5,
+      "open": 662,
+      "total": 49152,
+      "density": 0.013468
+    },
+    {
+      "layer": 0,
+      "head": 3,
+      "open": 638,
+      "total": 49152,
+      "density": 0.01298
+    },
+    {
+      "layer": 2,
+      "head": 1,
+      "open": 507,
+      "total": 49152,
+      "density": 0.010315
+    },
+    {
+      "layer": 10,
+      "head": 10,
+      "open": 444,
+      "total": 49152,
+      "density": 0.009033
+    },
+    {
+      "layer": 1,
+      "head": 11,
+      "open": 439,
+      "total": 49152,
+      "density": 0.008931
+    },
+    {
+      "layer": 0,
+      "head": 5,
+      "open": 425,
+      "total": 49152,
+      "density": 0.008647
+    },
+    {
+      "layer": 10,
+      "head": 7,
+      "open": 418,
+      "total": 49152,
+      "density": 0.008504
+    },
+    {
+      "layer": 1,
+      "head": 6,
+      "open": 392,
+      "total": 49152,
+      "density": 0.007975
+    },
+    {
+      "layer": 11,
+      "head": 5,
+      "open": 372,
+      "total": 49152,
+      "density": 0.007568
+    },
+    {
+      "layer": 9,
+      "head": 9,
+      "open": 332,
+      "total": 49152,
+      "density": 0.006755
+    },
+    {
+      "layer": 5,
+      "head": 9,
+      "open": 318,
+      "total": 49152,
+      "density": 0.00647
+    },
+    {
+      "layer": 6,
+      "head": 6,
+      "open": 315,
+      "total": 49152,
+      "density": 0.006409
+    },
+    {
+      "layer": 11,
+      "head": 10,
+      "open": 300,
+      "total": 49152,
+      "density": 0.006104
+    },
+    {
+      "layer": 0,
+      "head": 4,
+      "open": 298,
+      "total": 49152,
+      "density": 0.006063
+    },
+    {
+      "layer": 10,
+      "head": 8,
+      "open": 282,
+      "total": 49152,
+      "density": 0.005737
+    },
+    {
+      "layer": 1,
+      "head": 8,
+      "open": 281,
+      "total": 49152,
+      "density": 0.005717
+    },
+    {
+      "layer": 1,
+      "head": 4,
+      "open": 280,
+      "total": 49152,
+      "density": 0.005697
+    },
+    {
+      "layer": 10,
+      "head": 0,
+      "open": 278,
+      "total": 49152,
+      "density": 0.005656
+    },
+    {
+      "layer": 11,
+      "head": 4,
+      "open": 276,
+      "total": 49152,
+      "density": 0.005615
+    },
+    {
+      "layer": 8,
+      "head": 10,
+      "open": 275,
+      "total": 49152,
+      "density": 0.005595
+    },
+    {
+      "layer": 1,
+      "head": 10,
+      "open": 272,
+      "total": 49152,
+      "density": 0.005534
+    },
+    {
+      "layer": 7,
+      "head": 6,
+      "open": 272,
+      "total": 49152,
+      "density": 0.005534
+    },
+    {
+      "layer": 10,
+      "head": 5,
+      "open": 252,
+      "total": 49152,
+      "density": 0.005127
+    },
+    {
+      "layer": 6,
+      "head": 2,
+      "open": 240,
+      "total": 49152,
+      "density": 0.004883
+    },
+    {
+      "layer": 11,
+      "head": 7,
+      "open": 226,
+      "total": 49152,
+      "density": 0.004598
+    },
+    {
+      "layer": 1,
+      "head": 1,
+      "open": 217,
+      "total": 49152,
+      "density": 0.004415
+    },
+    {
+      "layer": 10,
+      "head": 2,
+      "open": 204,
+      "total": 49152,
+      "density": 0.00415
+    },
+    {
+      "layer": 1,
+      "head": 9,
+      "open": 198,
+      "total": 49152,
+      "density": 0.004028
+    },
+    {
+      "layer": 11,
+      "head": 1,
+      "open": 187,
+      "total": 49152,
+      "density": 0.003805
+    },
+    {
+      "layer": 9,
+      "head": 1,
+      "open": 183,
+      "total": 49152,
+      "density": 0.003723
+    },
+    {
+      "layer": 6,
+      "head": 3,
+      "open": 169,
+      "total": 49152,
+      "density": 0.003438
+    },
+    {
+      "layer": 6,
+      "head": 10,
+      "open": 169,
+      "total": 49152,
+      "density": 0.003438
+    },
+    {
+      "layer": 10,
+      "head": 1,
+      "open": 168,
+      "total": 49152,
+      "density": 0.003418
+    },
+    {
+      "layer": 11,
+      "head": 3,
+      "open": 164,
+      "total": 49152,
+      "density": 0.003337
+    },
+    {
+      "layer": 4,
+      "head": 8,
+      "open": 162,
+      "total": 49152,
+      "density": 0.003296
+    },
+    {
+      "layer": 5,
+      "head": 11,
+      "open": 152,
+      "total": 49152,
+      "density": 0.003092
+    },
+    {
+      "layer": 8,
+      "head": 0,
+      "open": 142,
+      "total": 49152,
+      "density": 0.002889
+    },
+    {
+      "layer": 2,
+      "head": 10,
+      "open": 140,
+      "total": 49152,
+      "density": 0.002848
+    },
+    {
+      "layer": 1,
+      "head": 3,
+      "open": 138,
+      "total": 49152,
+      "density": 0.002808
+    },
+    {
+      "layer": 10,
+      "head": 6,
+      "open": 134,
+      "total": 49152,
+      "density": 0.002726
+    },
+    {
+      "layer": 9,
+      "head": 6,
+      "open": 129,
+      "total": 49152,
+      "density": 0.002625
+    },
+    {
+      "layer": 11,
+      "head": 11,
+      "open": 127,
+      "total": 49152,
+      "density": 0.002584
+    },
+    {
+      "layer": 9,
+      "head": 4,
+      "open": 126,
+      "total": 49152,
+      "density": 0.002563
+    },
+    {
+      "layer": 8,
+      "head": 9,
+      "open": 116,
+      "total": 49152,
+      "density": 0.00236
+    },
+    {
+      "layer": 7,
+      "head": 3,
+      "open": 109,
+      "total": 49152,
+      "density": 0.002218
+    },
+    {
+      "layer": 1,
+      "head": 2,
+      "open": 103,
+      "total": 49152,
+      "density": 0.002096
+    },
+    {
+      "layer": 4,
+      "head": 10,
+      "open": 98,
+      "total": 49152,
+      "density": 0.001994
+    },
+    {
+      "layer": 1,
+      "head": 0,
+      "open": 88,
+      "total": 49152,
+      "density": 0.00179
+    },
+    {
+      "layer": 6,
+      "head": 5,
+      "open": 88,
+      "total": 49152,
+      "density": 0.00179
+    },
+    {
+      "layer": 9,
+      "head": 7,
+      "open": 85,
+      "total": 49152,
+      "density": 0.001729
+    },
+    {
+      "layer": 9,
+      "head": 11,
+      "open": 80,
+      "total": 49152,
+      "density": 0.001628
+    },
+    {
+      "layer": 10,
+      "head": 3,
+      "open": 65,
+      "total": 49152,
+      "density": 0.001322
+    },
+    {
+      "layer": 9,
+      "head": 8,
+      "open": 63,
+      "total": 49152,
+      "density": 0.001282
+    },
+    {
+      "layer": 10,
+      "head": 4,
+      "open": 63,
+      "total": 49152,
+      "density": 0.001282
+    },
+    {
+      "layer": 7,
+      "head": 4,
+      "open": 62,
+      "total": 49152,
+      "density": 0.001261
+    },
+    {
+      "layer": 8,
+      "head": 5,
+      "open": 62,
+      "total": 49152,
+      "density": 0.001261
+    },
+    {
+      "layer": 4,
+      "head": 4,
+      "open": 60,
+      "total": 49152,
+      "density": 0.001221
+    },
+    {
+      "layer": 4,
+      "head": 6,
+      "open": 57,
+      "total": 49152,
+      "density": 0.00116
+    },
+    {
+      "layer": 7,
+      "head": 11,
+      "open": 57,
+      "total": 49152,
+      "density": 0.00116
+    },
+    {
+      "layer": 2,
+      "head": 11,
+      "open": 53,
+      "total": 49152,
+      "density": 0.001078
+    },
+    {
+      "layer": 3,
+      "head": 4,
+      "open": 48,
+      "total": 49152,
+      "density": 0.000977
+    },
+    {
+      "layer": 5,
+      "head": 8,
+      "open": 48,
+      "total": 49152,
+      "density": 0.000977
+    },
+    {
+      "layer": 8,
+      "head": 2,
+      "open": 46,
+      "total": 49152,
+      "density": 0.000936
+    },
+    {
+      "layer": 3,
+      "head": 10,
+      "open": 43,
+      "total": 49152,
+      "density": 0.000875
+    },
+    {
+      "layer": 8,
+      "head": 11,
+      "open": 41,
+      "total": 49152,
+      "density": 0.000834
+    },
+    {
+      "layer": 5,
+      "head": 1,
+      "open": 38,
+      "total": 49152,
+      "density": 0.000773
+    },
+    {
+      "layer": 2,
+      "head": 6,
+      "open": 36,
+      "total": 49152,
+      "density": 0.000732
+    },
+    {
+      "layer": 3,
+      "head": 7,
+      "open": 36,
+      "total": 49152,
+      "density": 0.000732
+    },
+    {
+      "layer": 7,
+      "head": 2,
+      "open": 35,
+      "total": 49152,
+      "density": 0.000712
+    },
+    {
+      "layer": 2,
+      "head": 7,
+      "open": 34,
+      "total": 49152,
+      "density": 0.000692
+    },
+    {
+      "layer": 3,
+      "head": 11,
+      "open": 33,
+      "total": 49152,
+      "density": 0.000671
+    },
+    {
+      "layer": 2,
+      "head": 0,
+      "open": 32,
+      "total": 49152,
+      "density": 0.000651
+    },
+    {
+      "layer": 3,
+      "head": 0,
+      "open": 28,
+      "total": 49152,
+      "density": 0.00057
+    },
+    {
+      "layer": 4,
+      "head": 2,
+      "open": 28,
+      "total": 49152,
+      "density": 0.00057
+    },
+    {
+      "layer": 7,
+      "head": 7,
+      "open": 27,
+      "total": 49152,
+      "density": 0.000549
+    },
+    {
+      "layer": 8,
+      "head": 1,
+      "open": 27,
+      "total": 49152,
+      "density": 0.000549
+    },
+    {
+      "layer": 2,
+      "head": 4,
+      "open": 26,
+      "total": 49152,
+      "density": 0.000529
+    },
+    {
+      "layer": 3,
+      "head": 5,
+      "open": 21,
+      "total": 49152,
+      "density": 0.000427
+    },
+    {
+      "layer": 5,
+      "head": 0,
+      "open": 21,
+      "total": 49152,
+      "density": 0.000427
+    },
+    {
+      "layer": 7,
+      "head": 9,
+      "open": 21,
+      "total": 49152,
+      "density": 0.000427
+    },
+    {
+      "layer": 3,
+      "head": 6,
+      "open": 20,
+      "total": 49152,
+      "density": 0.000407
+    },
+    {
+      "layer": 8,
+      "head": 3,
+      "open": 20,
+      "total": 49152,
+      "density": 0.000407
+    },
+    {
+      "layer": 2,
+      "head": 8,
+      "open": 19,
+      "total": 49152,
+      "density": 0.000387
+    },
+    {
+      "layer": 3,
+      "head": 2,
+      "open": 18,
+      "total": 49152,
+      "density": 0.000366
+    },
+    {
+      "layer": 6,
+      "head": 4,
+      "open": 18,
+      "total": 49152,
+      "density": 0.000366
+    },
+    {
+      "layer": 7,
+      "head": 1,
+      "open": 18,
+      "total": 49152,
+      "density": 0.000366
+    },
+    {
+      "layer": 9,
+      "head": 10,
+      "open": 18,
+      "total": 49152,
+      "density": 0.000366
+    },
+    {
+      "layer": 10,
+      "head": 9,
+      "open": 17,
+      "total": 49152,
+      "density": 0.000346
+    },
+    {
+      "layer": 2,
+      "head": 5,
+      "open": 14,
+      "total": 49152,
+      "density": 0.000285
+    },
+    {
+      "layer": 2,
+      "head": 9,
+      "open": 14,
+      "total": 49152,
+      "density": 0.000285
+    },
+    {
+      "layer": 5,
+      "head": 5,
+      "open": 14,
+      "total": 49152,
+      "density": 0.000285
+    },
+    {
+      "layer": 6,
+      "head": 7,
+      "open": 14,
+      "total": 49152,
+      "density": 0.000285
+    },
+    {
+      "layer": 9,
+      "head": 2,
+      "open": 14,
+      "total": 49152,
+      "density": 0.000285
+    },
+    {
+      "layer": 10,
+      "head": 11,
+      "open": 14,
+      "total": 49152,
+      "density": 0.000285
+    },
+    {
+      "layer": 6,
+      "head": 9,
+      "open": 12,
+      "total": 49152,
+      "density": 0.000244
+    },
+    {
+      "layer": 4,
+      "head": 1,
+      "open": 10,
+      "total": 49152,
+      "density": 0.000203
+    },
+    {
+      "layer": 8,
+      "head": 4,
+      "open": 10,
+      "total": 49152,
+      "density": 0.000203
+    },
+    {
+      "layer": 5,
+      "head": 7,
+      "open": 9,
+      "total": 49152,
+      "density": 0.000183
+    },
+    {
+      "layer": 5,
+      "head": 10,
+      "open": 9,
+      "total": 49152,
+      "density": 0.000183
+    },
+    {
+      "layer": 8,
+      "head": 6,
+      "open": 9,
+      "total": 49152,
+      "density": 0.000183
+    },
+    {
+      "layer": 4,
+      "head": 9,
+      "open": 8,
+      "total": 49152,
+      "density": 0.000163
+    },
+    {
+      "layer": 7,
+      "head": 10,
+      "open": 8,
+      "total": 49152,
+      "density": 0.000163
+    },
+    {
+      "layer": 2,
+      "head": 3,
+      "open": 7,
+      "total": 49152,
+      "density": 0.000142
+    },
+    {
+      "layer": 6,
+      "head": 8,
+      "open": 7,
+      "total": 49152,
+      "density": 0.000142
+    },
+    {
+      "layer": 9,
+      "head": 3,
+      "open": 7,
+      "total": 49152,
+      "density": 0.000142
+    },
+    {
+      "layer": 3,
+      "head": 3,
+      "open": 6,
+      "total": 49152,
+      "density": 0.000122
+    },
+    {
+      "layer": 4,
+      "head": 7,
+      "open": 6,
+      "total": 49152,
+      "density": 0.000122
+    },
+    {
+      "layer": 5,
+      "head": 4,
+      "open": 6,
+      "total": 49152,
+      "density": 0.000122
+    },
+    {
+      "layer": 6,
+      "head": 0,
+      "open": 5,
+      "total": 49152,
+      "density": 0.000102
+    },
+    {
+      "layer": 9,
+      "head": 0,
+      "open": 5,
+      "total": 49152,
+      "density": 0.000102
+    },
+    {
+      "layer": 2,
+      "head": 2,
+      "open": 4,
+      "total": 49152,
+      "density": 8.1e-05
+    },
+    {
+      "layer": 3,
+      "head": 8,
+      "open": 4,
+      "total": 49152,
+      "density": 8.1e-05
+    },
+    {
+      "layer": 4,
+      "head": 11,
+      "open": 4,
+      "total": 49152,
+      "density": 8.1e-05
+    },
+    {
+      "layer": 7,
+      "head": 0,
+      "open": 4,
+      "total": 49152,
+      "density": 8.1e-05
+    },
+    {
+      "layer": 7,
+      "head": 5,
+      "open": 4,
+      "total": 49152,
+      "density": 8.1e-05
+    },
+    {
+      "layer": 3,
+      "head": 9,
+      "open": 3,
+      "total": 49152,
+      "density": 6.1e-05
+    },
+    {
+      "layer": 4,
+      "head": 0,
+      "open": 3,
+      "total": 49152,
+      "density": 6.1e-05
+    },
+    {
+      "layer": 4,
+      "head": 5,
+      "open": 3,
+      "total": 49152,
+      "density": 6.1e-05
+    },
+    {
+      "layer": 5,
+      "head": 2,
+      "open": 3,
+      "total": 49152,
+      "density": 6.1e-05
+    },
+    {
+      "layer": 6,
+      "head": 1,
+      "open": 3,
+      "total": 49152,
+      "density": 6.1e-05
+    },
+    {
+      "layer": 8,
+      "head": 7,
+      "open": 3,
+      "total": 49152,
+      "density": 6.1e-05
+    },
+    {
+      "layer": 4,
+      "head": 3,
+      "open": 2,
+      "total": 49152,
+      "density": 4.1e-05
+    },
+    {
+      "layer": 5,
+      "head": 3,
+      "open": 2,
+      "total": 49152,
+      "density": 4.1e-05
+    },
+    {
+      "layer": 3,
+      "head": 1,
+      "open": 1,
+      "total": 49152,
+      "density": 2e-05
+    },
+    {
+      "layer": 5,
+      "head": 6,
+      "open": 1,
+      "total": 49152,
+      "density": 2e-05
+    },
+    {
+      "layer": 7,
+      "head": 8,
+      "open": 1,
+      "total": 49152,
+      "density": 2e-05
+    },
+    {
+      "layer": 8,
+      "head": 8,
+      "open": 1,
+      "total": 49152,
+      "density": 2e-05
+    },
+    {
+      "layer": 6,
+      "head": 11,
+      "open": 0,
+      "total": 49152,
+      "density": 0.0
+    }
+  ],
+  "command": "uv run python -m scripts.sheaf_extract gpt2-small results/gpt2-sweep/s0.1-seeded --task ioi"
+}

@@ -1,22 +1,22 @@
 {
   "protocol": "DiscoGP (2407.03779) joint weight pruning: a gate per weight, the weights frozen, the gates trained on faith + sparsity + completeness. `density` is the fraction of *gated* weights left open, so it is only comparable across runs that gated the same band.",
-  "config": "qwen3-1.7b",
-  "task": "translation",
+  "config": "gpt2-small",
+  "task": "ioi",
   "layers": null,
-  "n_layers": 28,
-  "gates": 1409286144,
-  "open": 31452252,
-  "density": 0.022318,
-  "accuracy": 0.3258,
-  "train_accuracy": 0.883,
-  "complement_accuracy": 0.5056,
+  "n_layers": 12,
+  "gates": 85017600,
+  "open": 7083,
+  "density": 8.3e-05,
+  "accuracy": 0.6772,
+  "train_accuracy": 0.7558,
+  "complement_accuracy": 0.4409,
   "baseline_accuracy": 1.0,
   "band_control": {
     "open": 1.0,
-    "shut": 0.5039
+    "shut": 0.5234
   },
   "settings": {
-    "size": 1024,
+    "size": 512,
     "seed": 0,
     "steps": 2000,
     "batch": 8,
@@ -27,81 +27,81 @@
     "holdout": 0.25
   },
   "budget": {
-    "gates": 1409286144,
-    "optimizer_gib": 21.0,
-    "originals_gib": 2.62,
-    "model_gib": 3.2,
-    "graph_gib": 12.56,
-    "total_gib": 23.62,
-    "peak_gib": 39.39
+    "gates": 85017600,
+    "optimizer_gib": 1.27,
+    "originals_gib": 0.32,
+    "model_gib": 0.46,
+    "graph_gib": 6.4,
+    "total_gib": 1.58,
+    "peak_gib": 8.44
   },
   "history": [
     {
       "step": 0,
-      "loss": 3.9217,
-      "faith": 2.5156,
+      "loss": 3.558,
+      "faith": 2.1339,
       "open": 0.7311,
-      "complete": 2.25,
+      "complete": 2.3102,
       "price": 1.0
     },
     {
       "step": 333,
-      "loss": 105.0319,
-      "faith": 0.5391,
-      "open": 0.6231,
-      "complete": 0.7461,
+      "loss": 36.2306,
+      "faith": 0.8171,
+      "open": 0.2103,
+      "complete": 0.7484,
       "price": 167.33
     },
     {
       "step": 666,
-      "loss": 160.4519,
-      "faith": 0.8828,
-      "open": 0.4776,
-      "complete": 0.7109,
+      "loss": 14.711,
+      "faith": 0.7616,
+      "open": 0.0411,
+      "complete": 0.7332,
       "price": 333.67
     },
     {
       "step": 999,
-      "loss": 172.9405,
-      "faith": 0.6641,
-      "open": 0.3441,
-      "complete": 0.6992,
+      "loss": 9.3872,
+      "faith": 0.8936,
+      "open": 0.0165,
+      "complete": 0.729,
       "price": 500.0
     },
     {
       "step": 1332,
-      "loss": 165.98,
-      "faith": 0.2412,
-      "open": 0.2484,
-      "complete": 0.6953,
+      "loss": 7.2055,
+      "faith": 0.7104,
+      "open": 0.0094,
+      "complete": 0.7085,
       "price": 666.33
     },
     {
       "step": 1665,
-      "loss": 153.5682,
-      "faith": 0.3906,
-      "open": 0.1837,
-      "complete": 0.6992,
+      "loss": 5.8371,
+      "faith": 0.4613,
+      "open": 0.0062,
+      "complete": 0.7003,
       "price": 832.67
     },
     {
       "step": 1998,
-      "loss": 143.008,
-      "faith": 0.6719,
-      "open": 0.1423,
-      "complete": 0.6953,
+      "loss": 5.4812,
+      "faith": 0.8061,
+      "open": 0.0045,
+      "complete": 0.713,
       "price": 999.0
     },
     {
       "step": 1999,
-      "loss": 142.4113,
-      "faith": 0.1196,
-      "open": 0.1422,
-      "complete": 0.6953,
+      "loss": 5.4819,
+      "faith": 0.8117,
+      "open": 0.0045,
+      "complete": 0.7056,
       "price": 999.5
     }
   ],
   "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by e4c92bb (gates were sampled at evaluation, so accuracy never depended on them); with that fixed the density/accuracy relation is incoherent rather than poor. Read this artifact as a run of the method, not as a result from it, until a sweep is monotone in density.",
-  "journal": "journals/20260902-102926-qwen3-1.7b-translation",
-  "command": "uv run python -m scripts.sheaf_prune qwen3-1.7b --task translation --layers all --steps 2000 --size 1024"
+  "journal": "journals/20260902-113851-gpt2-small-ioi",
+  "command": "uv run python -m scripts.sheaf_prune gpt2-small --task ioi --layers all --steps 2000 --size 512"
 }

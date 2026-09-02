@@ -1,0 +1,61 @@
+{
+  "protocol": "the circuit multiplied into the weights and run as an ordinary model, on a fresh draw of the task at a seed the run never used. Ranking is the objective the mask was trained on; generation is the question it was never asked, and the gap between them is the point.",
+  "config": "gpt2-small",
+  "task": "ioi",
+  "seed": 99,
+  "size": 128,
+  "n_gates": 85017600,
+  "n_open": 278850,
+  "density": 0.00327991,
+  "full_model": {
+    "ranking": 1.0,
+    "first_token": 0.9531,
+    "contains_answer": 0.9766,
+    "contains_distractor": 0.0938
+  },
+  "circuit": {
+    "ranking": 0.9531,
+    "first_token": 0.0234,
+    "contains_answer": 0.0234,
+    "contains_distractor": 0.0
+  },
+  "samples": [
+    {
+      "prompt": "Then, Jack and Rose went to the market. Rose gave a book to",
+      "answer": " Jack",
+      "full": " Jack, and Jack gave a",
+      "circuit": " Jack the the the the the"
+    },
+    {
+      "prompt": "Then, Rose and Kate went to the store. Rose gave a drink to",
+      "answer": " Kate",
+      "full": " Kate, and Kate took a",
+      "circuit": " Jack the the the the the"
+    },
+    {
+      "prompt": "Then, Jack and Alex went to the store. Alex gave a ball to",
+      "answer": " Jack",
+      "full": " Jack and Jack gave a ball",
+      "circuit": " the the the the the the"
+    },
+    {
+      "prompt": "Then, Paul and Lee went to the market. Paul gave a ball to",
+      "answer": " Lee",
+      "full": " Lee, and Lee gave a",
+      "circuit": " Jack the the the the the"
+    },
+    {
+      "prompt": "Then, Paul and Henry went to the school. Henry gave a book to",
+      "answer": " Paul",
+      "full": " Paul, and Paul read it",
+      "circuit": " the the the the the the"
+    },
+    {
+      "prompt": "Then, Anna and Jim went to the store. Anna gave a ball to",
+      "answer": " Jim",
+      "full": " Jim, who was standing there",
+      "circuit": " the the the the the the"
+    }
+  ],
+  "command": "uv run python -m scripts.sheaf_infer gpt2-small results/gpt2-sweep/s0.1-seeded --task ioi --seed 99"
+}
