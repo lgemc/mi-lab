@@ -16,7 +16,9 @@ components can reach, because the granularity of the choice is the limit.
 Three terms, and the third is what makes it a circuit rather than a
 compression:
 
-    faith       the masked model still prefers the right answer
+    faith       the masked model still says what the model said (see
+                `faith_kind`; this was a two-way logit comparison until
+                2026-09-02, which the paper's term is not)
     sparsity    every open gate costs something
     complete    the *complement* is at chance -- with the mask reversed the
                 model must be unable to do the task
@@ -44,6 +46,7 @@ for them and the two compose, but this module prunes weights only, which is the
 half that the node-level `mask` technique in discovery.py cannot express.
 """
 
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Sequence
 
@@ -89,13 +92,22 @@ class Sheaf:
     baseline_accuracy: float
     history: List[dict]
     layers: Optional[List[int]] = None
+    # Reported beside the weight density, never folded into it. The paper's
+    # "1%-7%" is of weights *and connections*, and one number covering both
+    # hides which half did the pruning.
+    n_edges: int = 0
+    n_edges_open: int = 0
+    edge_density: Optional[float] = None
 
     def __str__(self) -> str:
         # The band is in the string because `density` is a fraction of what was
         # gated, not of the model: 1% open across seven layers and 1% open
         # across twenty-eight are different claims wearing the same number.
         band = "all layers" if self.layers is None else f"layers {span(self.layers)}"
-        return (f"sheaf: {self.density:.2%} of {band} open · held-out {self.accuracy:.3f} "
+        edges = ("" if self.edge_density is None
+                 else f" · {self.edge_density:.2%} of {self.n_edges} edges")
+        return (f"sheaf: {self.density:.2%} of {band} open{edges} · "
+                f"held-out {self.accuracy:.3f} "
                 f"(train {self.train_accuracy:.3f}) against {self.baseline_accuracy:.3f} full · "
                 f"complement {self.complement_accuracy:.3f}")
 
@@ -141,8 +153,15 @@ def gateable(adapter, layers: Optional[Sequence[int]] = None) -> Dict[str, torch
 
 def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict[str, torch.Tensor]],
            originals: Dict[str, torch.Tensor], temperature: float, reverse: bool = False,
-           deterministic: bool = False) -> torch.Tensor:
+           deterministic: bool = False,
+           edge_logits: Optional[torch.Tensor] = None,
+           edge_ids: Optional[Sequence[tuple]] = None,
+           whole: bool = False) -> torch.Tensor:
     """The good/bad logit pair at each named prompt's last real token, under the current gates
+
+    `whole` returns the entire last-token distribution instead of two of it,
+    which is what a KL faithfulness term needs. Two logits are a ranking; the
+    distribution is what the model would actually say.
 
     Indexed by row rather than handed a list of prompts, because the answers
     live in a parallel array and slicing one without the other scores every
@@ -183,15 +202,38 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
             # upcast of one matmul on a bad one.
             gate = (1.0 - sampled if reverse else sampled).to(originals[name].dtype)
             parameters[name] = gate * originals[name]
-    logits = torch.func.functional_call(
-        adapter.model, {**parameters, **dict(adapter.model.named_buffers())},
-        (ids,), {"attention_mask": mask, "use_cache": False},
-    ).logits
+    # The edge hooks sit on the modules and fire inside functional_call, which
+    # swaps parameters and leaves hooks alone -- so a head's write is
+    # reconstructed from the *masked* weights, and the two halves compose
+    # rather than each measuring the unmasked model.
+    # Sampled here rather than handed in, for the same reason the weight gates
+    # are: the faith pass and the complement pass each call backward, and a
+    # sample hoisted out of both would have its graph freed by the first.
+    edges = None
+    if edge_logits is not None and edge_ids:
+        drawn = ((edge_logits > 0).to(edge_logits.dtype) if deterministic
+                 else gumbel_sigmoid(edge_logits, temperature))
+        if reverse:
+            drawn = 1.0 - drawn
+        edges = {edge: drawn[index] for index, edge in enumerate(edge_ids)}
+    with adapter.edge_gate(edges) if edges else _nothing():
+        logits = torch.func.functional_call(
+            adapter.model, {**parameters, **dict(adapter.model.named_buffers())},
+            (ids,), {"attention_mask": mask, "use_cache": False},
+        ).logits
     last = mask.sum(dim=1) - 1
-    rows = torch.arange(logits.shape[0], device=logits.device)
-    good = logits[rows, last, torch.tensor(io, device=logits.device)]
-    bad = logits[rows, last, torch.tensor(subject, device=logits.device)]
+    index = torch.arange(logits.shape[0], device=logits.device)
+    final = logits[index, last]
+    if whole:
+        return final
+    good = final[index, torch.tensor(io, device=logits.device)]
+    bad = final[index, torch.tensor(subject, device=logits.device)]
     return torch.stack([good, bad], dim=-1)
+
+@contextmanager
+def _nothing():
+    """A do-nothing context, so the forward is written once rather than twice"""
+    yield
 
 def _accuracy(pairs: torch.Tensor) -> float:
     return float((pairs[:, 0] > pairs[:, 1]).float().mean())
@@ -298,7 +340,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           warmup: Optional[int] = None, holdout: float = 0.25,
           layers: Optional[Sequence[int]] = None,
           journal: Optional[Journal] = None, probe_every: int = 10,
-          seed: Optional[int] = None) -> Sheaf:
+          seed: Optional[int] = None, edge_sparsity: float = 0.0,
+          faith_kind: str = "pair") -> Sheaf:
     """Learn a weight mask that does the task and whose complement cannot
 
     `init` starts every gate open -- a logit of 3 is a sigmoid of 0.95 -- so the
@@ -317,6 +360,42 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     across the run -- and they matter more than they look: a first version of
     this held the price constant at 20 and pruned 11% of the weights where the
     paper reports 93-99%.
+
+    `faith_kind` chooses what faithfulness means, and only one of the three is
+    the paper's.
+
+    "nll" is DiscoGP's own term, `-sum_i log p_m(y-hat_i | x_i)`: the likelihood
+    the masked model assigns the token the *full* model predicted, over the
+    whole vocabulary.
+
+    "pair" is what this module did first and it is not the paper's, whatever
+    the commit that added it claimed. Cross-entropy over just the good and bad
+    logits is a two-way choice, and a mask satisfies it by depressing one logit
+    relative to the other while the rest of the distribution collapses. The
+    circuit it produced on IOI ranked 0.938 on unseen prompts and generated
+    " Mary Emma Rose the Rose" -- 0.055 where the model scores 0.953. Kept
+    because every result before 2026-09-02 was measured with it.
+
+    "kl" is the soft-target relative of "nll", matching the full distribution
+    rather than its argmax. The paper uses KL to evaluate rather than to train.
+    Switching from "pair" to "kl" took first-token generation from 0.055 to
+    0.625, which is the size of the error "pair" was hiding.
+
+    `edge_sparsity` turns on the other half of the method. DiscoGP prunes
+    "not only subsets of edges in an LM's computation graph but also the
+    model's weight parameters", and weights alone is what this was until now --
+    which is the standing explanation for the result weights alone produced: a
+    mask scoring 0.938 on a two-way ranking test while generating ` Mary Emma
+    Rose the Rose`, having deleted the model's name-mover heads at no cost. A
+    weight mask may distort the output distribution freely so long as two
+    logits keep their order; an edge mask constrains which paths carry signal
+    at all.
+
+    It is priced separately, and that is not tuning. There are ~2k edges
+    against 85M weights on GPT-2 small, so one shared coefficient makes the
+    edge term four orders of magnitude smaller than the weight term and the
+    edge gates never move. Zero disables edges entirely and the function is
+    exactly what it was.
 
     `seed` seeds torch's global generator, which is the only thing that makes
     a run repeatable: the gates are sampled by `gumbel_sigmoid` on every forward
@@ -369,6 +448,36 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         baseline = _accuracy(_pairs(adapter, task, test_rows, None, originals, temperature,
                                     deterministic=True))
 
+    # One scalar per (source, destination) the residual stream admits. Cheap
+    # next to the weights -- 2028 against 85M on GPT-2 small -- and the half
+    # that says which paths exist rather than how strong they are.
+    edge_ids = list(adapter.edges()) if edge_sparsity > 0 else []
+    edge_logits = None
+    if edge_ids:
+        device = next(iter(gates.values())).device
+        edge_logits = torch.full((len(edge_ids),), init, dtype=torch.float32,
+                                 device=device).requires_grad_(True)
+        optimizer.add_param_group({"params": [edge_logits]})
+
+    if faith_kind not in ("pair", "kl", "nll"):
+        raise CircuitError(
+            f"unknown faith_kind '{faith_kind}'; known kinds are 'nll' (the paper's), 'kl' and "
+            "'pair' (this repo's original, and too weak -- see the docstring)")
+    # The reference distribution, taken once from the unmasked model. The
+    # weights are frozen, so what the full model says never changes and
+    # recomputing it every step would only pay for the same numbers again.
+    reference = None
+    if faith_kind in ("kl", "nll"):
+        with torch.no_grad():
+            reference = {}
+            for row in train_rows:
+                full = _pairs(adapter, task, [row], None, originals, temperature,
+                              deterministic=True, whole=True)
+                # KL wants the distribution; NLL wants the token the full model
+                # would actually emit, which is what the paper's y-hat is.
+                reference[row] = (full.log_softmax(dim=-1) if faith_kind == "kl"
+                                  else full.argmax(dim=-1))
+
     warmup = steps if warmup is None else warmup
     history = []
     for step in range(steps):
@@ -386,20 +495,46 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # driver for more than a 27 GiB pool had and was killed two seconds in.
         # This is also why shrinking `batch` barely helps and narrowing the
         # layer band helps a great deal.
-        pairs = _pairs(adapter, task, chunk, gates, originals, temperature)
-        # the masked model should prefer the right answer
-        faith = functional.cross_entropy(pairs, torch.zeros(pairs.shape[0], dtype=torch.long,
-                                                            device=pairs.device))
+        pairs = _pairs(adapter, task, chunk, gates, originals, temperature,
+                       edge_logits=edge_logits, edge_ids=edge_ids,
+                       whole=(faith_kind in ("kl", "nll")))
+        if faith_kind == "nll":
+            # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
+            # masked model gives the token the *full* model predicted, over the
+            # whole vocabulary. Not a choice between two candidates.
+            target = torch.cat([reference[row] for row in chunk], dim=0)
+            faith = functional.cross_entropy(pairs, target)
+        elif faith_kind == "kl":
+            # The soft-target relative: the whole distribution rather than its
+            # argmax. The paper uses KL to *evaluate* rather than to train.
+            target = torch.cat([reference[row] for row in chunk], dim=0)
+            faith = functional.kl_div(pairs.log_softmax(dim=-1), target,
+                                      log_target=True, reduction="batchmean")
+        else:
+            # the masked model should prefer the right answer
+            faith = functional.cross_entropy(pairs, torch.zeros(pairs.shape[0], dtype=torch.long,
+                                                                device=pairs.device))
         # every open gate costs something, measured on the relaxed probability so
         # the term has a gradient where the hard gate does not
         open_cost = sum(torch.sigmoid(g).sum() for g in gates.values()) / total
-        (faith + price * open_cost).backward()
+        edge_cost = (torch.sigmoid(edge_logits).mean() if edge_ids
+                     else torch.zeros((), device=pairs.device))
+        # Ramped on the same schedule as the weights, not held constant. A
+        # constant edge price reproduced exactly the failure `schedule` was
+        # written to prevent: at 1.0 against a weight price starting at 0.01 it
+        # outweighed the weights a hundredfold at step 0, closed 62% of the
+        # edges within 333 steps, and `faith` never came below the tie point --
+        # train accuracy finished at 0.509, chance, having never fit at all.
+        edge_price = schedule(step, edge_sparsity, max_times, warmup) if edge_ids else 0.0
+        (faith + price * open_cost + edge_price * edge_cost).backward()
         faith_value, open_value = float(faith.detach()), float(open_cost.detach())
-        del pairs, faith, open_cost
+        edge_value = float(edge_cost.detach())
+        del pairs, faith, open_cost, edge_cost
 
         # and the complement should be at chance: cross-entropy against a uniform
         # target, which is minimized when the reversed mask knows nothing
-        reversed_pairs = _pairs(adapter, task, chunk, gates, originals, temperature, reverse=True)
+        reversed_pairs = _pairs(adapter, task, chunk, gates, originals, temperature, reverse=True,
+                                edge_logits=edge_logits, edge_ids=edge_ids)
         complete = functional.cross_entropy(
             reversed_pairs, torch.full_like(reversed_pairs, 0.5))
         (completeness * complete).backward()
@@ -415,6 +550,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                 "open": round(open_value, 4),
                 "complete": round(complete_value, 4),
                 "price": round(price, 2),
+                **({"edge_open": round(edge_value, 4),
+                    "edge_price": round(edge_price, 3)} if edge_ids else {}),
             })
         if journal is not None:
             # Every step, because these three floats were already synced off the
@@ -426,6 +563,11 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                 "faith": faith_value, "open": open_value, "complete": complete_value,
                 "price": price,
             }
+            if edge_ids:
+                row["edge_open"] = edge_value
+                row["edge_price"] = edge_price
+                with torch.no_grad():
+                    row["edge_density"] = float((edge_logits > 0).float().mean())
             # `open` is the relaxed cost the optimizer sees; `density` is the
             # hard fraction the result is quoted as, and the two come apart
             # exactly where the gates sit near zero. Throttled because it reduces
@@ -438,11 +580,13 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     with torch.no_grad():
         kept = {name: (logits > 0).float() for name, logits in gates.items()}
         open_count = int(sum(k.sum() for k in kept.values()))
-        final = _pairs(adapter, task, test_rows, gates, originals, temperature, deterministic=True)
+        final = _pairs(adapter, task, test_rows, gates, originals, temperature,
+                       deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids)
         complement = _pairs(adapter, task, test_rows, gates, originals, temperature,
-                            reverse=True, deterministic=True)
+                            reverse=True, deterministic=True,
+                            edge_logits=edge_logits, edge_ids=edge_ids)
         trained = _accuracy(_pairs(adapter, task, train_rows, gates, originals, temperature,
-                                   deterministic=True))
+                                   deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids))
     for name, parameter in targets.items():
         parameter.data.copy_(originals[name])
     return Sheaf(
@@ -452,4 +596,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         complement_accuracy=_accuracy(complement),
         baseline_accuracy=baseline, history=history,
         layers=None if layers is None else sorted(layers),
+        n_edges=len(edge_ids),
+        n_edges_open=int((edge_logits > 0).sum()) if edge_ids else 0,
+        edge_density=(float((edge_logits > 0).float().mean()) if edge_ids else None),
     )

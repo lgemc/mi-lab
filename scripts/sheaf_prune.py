@@ -205,6 +205,7 @@ def run(args: argparse.Namespace) -> None:
         "size": args.size, "distinct_prompts": len(set(task.clean)), "seed": args.seed,
         "batch": args.batch, "rate": args.rate, "sparsity": args.sparsity,
         "completeness": args.completeness, "max_times": args.max_times,
+        "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
         "holdout": args.holdout, "band_control": control, "budget": cost,
     })
     log(f"journal: {directory} (tail -f {journal.metrics_path})")
@@ -227,6 +228,7 @@ def run(args: argparse.Namespace) -> None:
                 completeness=args.completeness, batch=args.batch, max_times=args.max_times,
                 holdout=args.holdout, layers=layers, journal=journal,
                 probe_every=args.probe_every, seed=args.seed,
+                edge_sparsity=args.edge_sparsity, faith_kind=args.faith_kind,
             )
             facts["density"] = f"{sheaf.density:.4%}"
             facts["held-out"] = f"{sheaf.accuracy:.3f}"
@@ -257,6 +259,9 @@ def run(args: argparse.Namespace) -> None:
         "gates": sheaf.n_parameters,
         "open": sheaf.n_open,
         "density": round(sheaf.density, 6),
+        "n_edges": sheaf.n_edges,
+        "n_edges_open": sheaf.n_edges_open,
+        "edge_density": (None if sheaf.edge_density is None else round(sheaf.edge_density, 6)),
         "accuracy": round(sheaf.accuracy, 4),
         "train_accuracy": round(sheaf.train_accuracy, 4),
         "complement_accuracy": round(sheaf.complement_accuracy, 4),
@@ -266,6 +271,7 @@ def run(args: argparse.Namespace) -> None:
             "size": args.size, "seed": args.seed, "steps": args.steps, "batch": args.batch,
             "rate": args.rate, "sparsity": args.sparsity, "completeness": args.completeness,
             "max_times": args.max_times, "holdout": args.holdout,
+            "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
         },
         "budget": cost,
         "history": sheaf.history,
@@ -309,6 +315,19 @@ def main() -> None:
     parser.add_argument("--sparsity", type=float, default=1.0, help="the starting price")
     parser.add_argument("--max-times", type=float, default=1000.0, dest="max_times",
                         help="the factor the price ramps to; the reference's default")
+    # The other half of DiscoGP: it prunes edges and weights jointly, and this
+    # was weights-only until the weights-only mask was shown to rank at 0.938
+    # while generating ' Mary Emma Rose the Rose'. Priced separately because
+    # ~2k edges against 85M weights would otherwise be numerically invisible.
+    # 0 disables it and the run is exactly the weights-only one.
+    parser.add_argument("--edge-sparsity", type=float, default=0.0, dest="edge_sparsity",
+                        help="price on open edges; 0 prunes weights only, as before")
+    # "pair" is the reference's term and the one measured to be too weak: it
+    # certified a circuit that ranks at 0.938 on unseen prompts and generates
+    # ' Mary Emma Rose the Rose'. "kl" scores the whole last-token distribution
+    # against the unmasked model's, which a ranking shortcut cannot satisfy.
+    parser.add_argument("--faith", default="pair", choices=("pair", "kl", "nll"), dest="faith_kind",
+                        help="faithfulness on the good/bad pair, or KL over the distribution")
     parser.add_argument("--completeness", type=float, default=0.3)
     parser.add_argument("--holdout", type=float, default=0.25)
     parser.add_argument("--reserve", type=float, default=4.0,

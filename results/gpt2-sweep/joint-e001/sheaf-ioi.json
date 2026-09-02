@@ -1,0 +1,127 @@
+{
+  "protocol": "DiscoGP (2407.03779) joint weight pruning: a gate per weight, the weights frozen, the gates trained on faith + sparsity + completeness. `density` is the fraction of *gated* weights left open, so it is only comparable across runs that gated the same band.",
+  "config": "gpt2-small",
+  "task": "ioi",
+  "layers": null,
+  "n_layers": 12,
+  "gates": 85017600,
+  "open": 35163472,
+  "density": 0.413602,
+  "n_edges": 2028,
+  "n_edges_open": 407,
+  "edge_density": 0.20069,
+  "accuracy": 0.5591,
+  "train_accuracy": 0.5584,
+  "complement_accuracy": 0.5827,
+  "baseline_accuracy": 1.0,
+  "band_control": {
+    "open": 1.0,
+    "shut": 0.5234
+  },
+  "settings": {
+    "size": 512,
+    "seed": 0,
+    "steps": 2000,
+    "batch": 8,
+    "rate": 0.1,
+    "sparsity": 0.01,
+    "completeness": 0.3,
+    "max_times": 1000.0,
+    "holdout": 0.25,
+    "edge_sparsity": 0.001
+  },
+  "budget": {
+    "gates": 85017600,
+    "optimizer_gib": 1.27,
+    "originals_gib": 0.32,
+    "model_gib": 0.46,
+    "graph_gib": 6.4,
+    "total_gib": 1.58,
+    "peak_gib": 8.44
+  },
+  "history": [
+    {
+      "step": 0,
+      "loss": 1.1934,
+      "faith": 0.6522,
+      "open": 0.7311,
+      "complete": 1.7794,
+      "price": 0.01,
+      "edge_open": 0.7311,
+      "edge_price": 0.001
+    },
+    {
+      "step": 333,
+      "loss": 2.12,
+      "faith": 0.8047,
+      "open": 0.6566,
+      "complete": 0.7217,
+      "price": 1.67,
+      "edge_open": 0.6271,
+      "edge_price": 0.167
+    },
+    {
+      "step": 666,
+      "loss": 2.7925,
+      "faith": 0.5538,
+      "open": 0.5945,
+      "complete": 0.8505,
+      "price": 3.34,
+      "edge_open": 0.4631,
+      "edge_price": 0.334
+    },
+    {
+      "step": 999,
+      "loss": 3.996,
+      "faith": 1.0667,
+      "open": 0.5433,
+      "complete": 0.7091,
+      "price": 5.0,
+      "edge_open": 0.3996,
+      "edge_price": 0.5
+    },
+    {
+      "step": 1332,
+      "loss": 5.4743,
+      "faith": 1.8381,
+      "open": 0.5116,
+      "complete": 0.7572,
+      "price": 6.66,
+      "edge_open": 0.3716,
+      "edge_price": 0.666
+    },
+    {
+      "step": 1665,
+      "loss": 5.0222,
+      "faith": 0.7942,
+      "open": 0.4818,
+      "complete": 0.7203,
+      "price": 8.33,
+      "edge_open": 0.3119,
+      "edge_price": 0.833
+    },
+    {
+      "step": 1998,
+      "loss": 5.3647,
+      "faith": 0.651,
+      "open": 0.4497,
+      "complete": 0.7381,
+      "price": 9.99,
+      "edge_open": 0.2622,
+      "edge_price": 0.999
+    },
+    {
+      "step": 1999,
+      "loss": 5.5988,
+      "faith": 0.8912,
+      "open": 0.4496,
+      "complete": 0.7132,
+      "price": 10.0,
+      "edge_open": 0.262,
+      "edge_price": 1.0
+    }
+  ],
+  "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by e4c92bb (gates were sampled at evaluation, so accuracy never depended on them); with that fixed the density/accuracy relation is incoherent rather than poor. Read this artifact as a run of the method, not as a result from it, until a sweep is monotone in density.",
+  "journal": "journals/20260902-153825-gpt2-small-ioi",
+  "command": "uv run python -m scripts.sheaf_prune gpt2-small --task ioi --layers all --steps 2000 --size 512"
+}
