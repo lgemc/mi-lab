@@ -560,3 +560,11 @@ data URIs, so the file survives being moved or attached. Every `viz` command tak
 - Everything must run on `gpt2-small` on a CPU laptop first; a result that needs a big model to
   appear is a result that cannot be debugged. `device: auto` is what keeps that true while still
   using the GPU where there is one — never hardcode `cuda` into a shipped config.
+- **The `translation` task is the one exception, and it is a fact about the model rather than a
+  licence to skip the rule.** GPT-2 small keeps 179 of MUSE's es-en pairs whole, so the tokenizer
+  is not the obstacle; it then picks the right English word for 2 of them, against 0.6% chance.
+  There is no Spanish-to-English behaviour in a 124M English-only model to find a circuit for
+  (Qwen3-1.7B scores 420 of 971 on the same test). So the rule is served a different way here:
+  debug the *method* on `gpt2-small --task ioi`, which has 505 distinct prompts and runs 2000
+  pruning steps in 17 minutes against 1h49m on the 1.7B, and spend the large model only on the
+  translation runs that are actually about translation.

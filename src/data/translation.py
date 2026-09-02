@@ -26,6 +26,16 @@ IOI shape (single-token answers, one frame, one corruption) applied to
 translation, and it is the task component-level circuit work runs on while the
 sentence pairs remain the task the *quality* numbers come from.
 
+This task needs a model that can actually translate, and that rules out the
+one every other experiment here debugs on. GPT-2 small keeps 179 of MUSE's
+es-en pairs whole in its BPE, so the tokenizer is not the obstacle -- but it
+picks the right English word for 2 of those 179, against a chance rate of 0.6%.
+A 124M English-only model has no Spanish-to-English behaviour, and a circuit
+cannot be found for a behaviour that is not there. Qwen3-1.7B scores 420 of 971
+on the same test. So the repo's "run it on gpt2-small first" rule does not
+apply to this task, and the substitute is to debug the *method* on gpt2-small
+with `ioi` and spend the large model only on translation.
+
 A common pipe could be: load_pairs | translation_prompt | generate | score
 """
 
