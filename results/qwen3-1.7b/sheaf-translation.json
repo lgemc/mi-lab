@@ -1,0 +1,74 @@
+{
+  "protocol": "DiscoGP (2407.03779) joint weight pruning: a gate per weight, the weights frozen, the gates trained on faith + sparsity + completeness. `density` is the fraction of *gated* weights left open, so it is only comparable across runs that gated the same band.",
+  "config": "qwen3-1.7b",
+  "task": "translation",
+  "layers": null,
+  "n_layers": 28,
+  "gates": 1409286144,
+  "open": 1409286144,
+  "density": 1.0,
+  "accuracy": 1.0,
+  "train_accuracy": 1.0,
+  "complement_accuracy": 0.3438,
+  "baseline_accuracy": 1.0,
+  "band_control": {
+    "open": 1.0,
+    "shut": 0.5
+  },
+  "settings": {
+    "size": 128,
+    "seed": 0,
+    "steps": 4,
+    "batch": 8,
+    "rate": 0.1,
+    "sparsity": 1.0,
+    "completeness": 0.3,
+    "max_times": 1000.0,
+    "holdout": 0.25
+  },
+  "budget": {
+    "gates": 1409286144,
+    "optimizer_gib": 21.0,
+    "originals_gib": 2.62,
+    "model_gib": 3.2,
+    "graph_gib": 52.5,
+    "total_gib": 23.62,
+    "peak_gib": 79.33
+  },
+  "history": [
+    {
+      "step": 0,
+      "loss": 1.7471,
+      "faith": 0.4512,
+      "open": 0.7311,
+      "complete": 1.8828,
+      "price": 1.0
+    },
+    {
+      "step": 1,
+      "loss": 185.0128,
+      "faith": 1.25,
+      "open": 0.7304,
+      "complete": 2.0312,
+      "price": 250.75
+    },
+    {
+      "step": 2,
+      "loss": 368.5091,
+      "faith": 2.4219,
+      "open": 0.7296,
+      "complete": 3.0312,
+      "price": 500.5
+    },
+    {
+      "step": 3,
+      "loss": 550.2995,
+      "faith": 3.0156,
+      "open": 0.7287,
+      "complete": 1.8984,
+      "price": 750.25
+    }
+  ],
+  "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by e4c92bb (gates were sampled at evaluation, so accuracy never depended on them); with that fixed the density/accuracy relation is incoherent rather than poor. Read this artifact as a run of the method, not as a result from it, until a sweep is monotone in density.",
+  "command": "uv run python -m scripts.sheaf_prune qwen3-1.7b --task translation --layers all --steps 4 --size 128"
+}

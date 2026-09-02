@@ -22,11 +22,11 @@ Everything under `src/` is a namespace package except `src/cli/commands/viz/`, w
 modules explicitly:
 
 ```bash
-# everything: 403 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
+# everything: 435 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.ie tests.probing \
     tests.runner tests.adapter tests.circuits tests.discovery tests.comparison \
-    tests.faithfulness tests.edges tests.sheaves
+    tests.faithfulness tests.edges tests.sheaves tests.telemetry
 
 # offline subset: 258 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
@@ -93,10 +93,11 @@ side effect of another change.
 
 ```
 core        config, metrics                          imports nothing
+telemetry   journal                                  imports nothing
 model       adapter, backends/                       -> core
 data        dataset, prompts, torchdata, ioi, tasks  -> core
-methods     probing, steering, circuits,             -> core, model, data
-            discovery, comparison
+methods     probing, steering, circuits,             -> core, model, data, telemetry
+            discovery, comparison, sheaves
 share       schema/, storage, converters/      -> core, data, methods
 experiment  spec, run, runner                  -> core, model, data, methods, share
 viz                                            -> core
@@ -107,6 +108,11 @@ ie          app, session, stack, view, views/  -> everything, and nothing import
 Nothing imports upward and nothing imports sideways within a layer's own row. That is checkable in
 one pass over the source, and it is the property that makes the split worth having: a new module
 that cannot find a home without breaking it is a module doing two jobs.
+
+`telemetry` is the second package that imports nothing, and it is separate from `core` rather
+than inside it because `core` is closed: a journal is not a model fact or a metric definition.
+It sits below `methods` so that `sheaves.prune` can stream its loss terms to disk mid-run —
+see **Watching a run** below.
 
 `core` is small on purpose. It holds the two things with no dependencies of their own that every
 other package needs — what a model is, and how a number is scored — and nothing else earns a place
@@ -231,6 +237,38 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
    about all three, and the failure is silent: activations of a different sentence than the file has.
 10. **`zip()` over parallel sequences takes `strict=True`.** Prompts against their completions,
     scores or labels must be the same length; truncating silently is the bug the linter now catches.
+
+### Watching a run
+
+`src/telemetry/journal.py` is the answer to "what is it doing right now", and it is deliberately
+not MLflow or W&B: no server, no schema, no network call per step. A `Journal` writes `run.json`
+(the parameters, before the first step) and appends `metrics.jsonl` (one flushed line per step),
+so `tail -f` is a live view and `jq` is a query. Stdlib only and no torch, the same rule
+`experiment/run.py` keeps — a journal has to be readable on a machine that cannot load the model
+that wrote it.
+
+- **Flushed every write, never buffered.** The reason it exists is that the process may not
+  survive to flush: this repo has lost a two-hour run to a driver OOM at the two-second mark and a
+  ninety-minute run to a stale split, and both produced exactly nothing to look at.
+- **The reader aggregates, not the writer.** `progress()` derives rate and ETA on read rather than
+  storing them, because a rate written into the file is wrong the moment the run slows down.
+- **A torn *last* line is a write in progress; a torn line anywhere else is damage** and raises.
+  Silently dropping a row out of the middle of a curve is how a reader ends up explaining a gap
+  that is not in the data.
+- **`to_columns` pads missing keys with None** so a metric that started halfway through does not
+  shift against the step axis.
+
+`prune` takes `journal=` and `probe_every=`. The loss terms are logged every step because they
+were already synced off the device to build `history`; `density` is throttled because it reduces
+over every gate. `history` stays at its six entries — it is the summary inside the artifact, and a
+2000-row curve does not belong there.
+
+`uv run python -m scripts.watch` reads the newest journal under `MI_LAB_JOURNALS` (`--list`,
+`--follow`, `--rows`). It only reads, so pointing it at a run in flight cannot disturb it.
+
+For a run that is already going and was started without a journal, `py-spy dump --pid <n> --locals`
+reads `step` straight out of the live frame. That is a debugger, not instrumentation — it needs
+sudo under `ptrace_scope=1`, and it is what to reach for exactly once, before wiring the journal in.
 
 ### Where a run lands
 

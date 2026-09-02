@@ -4,6 +4,7 @@ __pycache__/
 
 runs/
 outputs/
+journals/
 multirun/
 charts/
 
@@ -22,3 +23,15 @@ data/neg-cities.prompts
 # list in the manifest, 312MB for the 1.7B and past GitHub's file limit. Rebuild
 # with `phase1b_extract <config> extract` rather than storing what a command makes.
 results/**/phase1b-circuit-weights.pt
+
+# Learned gate logits: one float32 per gated weight, so 769MB for a 201M-gate
+# band and ~5.6GB for the whole 1.7B -- past GitHub's file limit by an order of
+# magnitude. The artifact JSON beside it records the density and the command,
+# which is what a reader needs; rerun `sheaf_prune --save-gates` for the tensor.
+results/**/sheaf-*-gates.pt
+
+# Run logs. `observe.set_log_file` appends a header per invocation, so these are
+# append-only transcripts of a machine rather than results (see 0ceedd9).
+results/**/*.log
+results/*.log
+*.bak

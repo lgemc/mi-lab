@@ -1,0 +1,9 @@
+{
+  "done": {
+    "scripts.phase1b_flops:flops": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 1.9
+    }
+  }
+}
