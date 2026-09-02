@@ -1,0 +1,34 @@
+
+=== 2026-09-01 19:22:24 :: /home/lmanrique/Do/mi-lab/scripts/phase1b_greedy.py qwen3-1.7b greedy 1800
+[19:22:24] ==============================================================================
+[19:22:24] phase1b greedy set growth
+[19:22:24]             config: qwen3-1.7b
+[19:22:24]        resuming at: 0 components chosen, 0 steps recorded
+[19:22:24]         saturation: marginal dBLEU < 0.3 for 3 consecutive additions
+[19:22:24]             budget: 30m00s
+[19:22:24]           progress: results/qwen3-1.7b/phase1b-ablation-progress.json
+[19:22:24]                gpu: 0.0/0.0 GiB, peak 0.0
+[19:22:24] ==============================================================================
+[19:22:24] -> loading qwen3-1.7b
+[19:22:43] <- loading qwen3-1.7b in 19s (3.2/3.2 GiB, peak 3.2)
+[19:22:43] eval set: 497 sentences · model 28x16 · 3.2/3.2 GiB, peak 3.2
+[19:22:43] -> counterfactual means over the candidate band
+[19:22:43] !! counterfactual means over the candidate band FAILED after 0s: IndexError: list index out of range
+
+=== 2026-09-01 19:24:23 :: /home/lmanrique/Do/mi-lab/scripts/phase1b_greedy.py qwen3-1.7b greedy 600
+[19:24:23] ==============================================================================
+[19:24:23] phase1b greedy set growth
+[19:24:23]             config: qwen3-1.7b
+[19:24:23]        resuming at: 0 components chosen, 0 steps recorded
+[19:24:23]         saturation: marginal dBLEU < 0.3 for 3 consecutive additions
+[19:24:23]             budget: 10m00s
+[19:24:23]           progress: results/qwen3-1.7b/phase1b-ablation-progress.json
+[19:24:23]                gpu: 0.0/0.0 GiB, peak 0.0
+[19:24:23] ==============================================================================
+[19:24:23] -> loading qwen3-1.7b
+[19:24:42] <- loading qwen3-1.7b in 19s (3.2/3.2 GiB, peak 3.2)
+[19:24:42] eval set: 497 sentences · model 28x16 · 3.2/3.2 GiB, peak 3.2
+[19:24:42] -> counterfactual means over the candidate band (21-27)
+[19:24:42] <- counterfactual means over the candidate band (21-27) in 0s (3.2/3.2 GiB, peak 3.2)
+[19:24:42] ranking gated on the paired bootstrap: 5 of 14 components pass raw p < 0.05 (0 were never testable, no stored generations)
+[19:24:42]   surviving FDR correction across the 14 tested: ['mlp:23', 'mlp:26', 'mlp:21', 'heads:23']

@@ -1,0 +1,513 @@
+
+=== 2026-09-01 18:55:40 :: /home/lmanrique/Do/mi-lab/scripts/phase1b_random_control.py qwen3-1.7b frontier model 3 3600
+[18:55:40] ==============================================================================
+[18:55:40] phase1b survival frontier
+[18:55:40]             config: qwen3-1.7b
+[18:55:40]              scope: model
+[18:55:40]             shares: 0.5%, 1.0%, 2.0%, 5.0%, 6.0%, 7.0%, 8.0%, 9.0%, 10.0%, 15.0%, 20.0%
+[18:55:40]    seeds per level: 3
+[18:55:40]               done: 0 levels already scored
+[18:55:40]             budget: 60m00s
+[18:55:40]                gpu: 0.0/0.0 GiB, peak 0.0
+[18:55:40] ==============================================================================
+[18:56:00] -> counterfactual means over 28 layers
+[18:56:00] capturing counterfactual means: 497 prompts, layers 0-27, 16 batches of 32 -> results/qwen3-1.7b/phase1b-counterfactual-means-L0-27.pt
+[18:56:02]   means 1/16 · 2s elapsed · eta 27s · 1.8s/item · 4661 tokens
+[18:56:03]   means 2/16 · 2s elapsed · eta 17s · 1.2s/item · 9275 tokens
+[18:56:03]   means 3/16 · 3s elapsed · eta 13s · 1.0s/item · 13721 tokens
+[18:56:04]   means 4/16 · 4s elapsed · eta 11s · 0.9s/item · 18517 tokens
+[18:56:05]   means 5/16 · 4s elapsed · eta 10s · 0.9s/item · 23090 tokens
+[18:56:05]   means 6/16 · 5s elapsed · eta 9s · 0.9s/item · 27567 tokens
+[18:56:06]   means 7/16 · 6s elapsed · eta 7s · 0.8s/item · 32422 tokens
+[18:56:07]   means 8/16 · 6s elapsed · eta 6s · 0.8s/item · 37132 tokens
+[18:56:07]   means 9/16 · 7s elapsed · eta 5s · 0.8s/item · 41232 tokens
+[18:56:08]   means 10/16 · 8s elapsed · eta 5s · 0.8s/item · 45411 tokens
+[18:56:08]   means 11/16 · 8s elapsed · eta 4s · 0.7s/item · 49610 tokens
+[18:56:09]   means 12/16 · 9s elapsed · eta 3s · 0.7s/item · 54160 tokens
+[18:56:10]   means 13/16 · 9s elapsed · eta 2s · 0.7s/item · 58703 tokens
+[18:56:10]   means 14/16 · 10s elapsed · eta 1s · 0.7s/item · 63492 tokens
+[18:56:11]   means 15/16 · 11s elapsed · eta 1s · 0.7s/item · 68211 tokens
+[18:56:12]   means 16/16 · 11s elapsed · eta 0s · 0.7s/item · 70635 tokens
+[18:56:12]   means complete: 16 in 11s (0.7s/item)
+[18:56:12] means saved: 70635 tokens over 28 layers -> results/qwen3-1.7b/phase1b-counterfactual-means-L0-27.pt (0 MiB)
+[18:56:12] <- counterfactual means over 28 layers in 11s (3.2/14.4 GiB, peak 7.0)
+[18:56:12] -> baseline: 497 sentences, un-ablated
+[18:56:21]     baseline 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[18:56:30]     baseline 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[18:56:39]     baseline 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[18:56:47]     baseline 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[18:56:58]     baseline 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[18:56:58] <- baseline: 497 sentences, un-ablated in 46s (3.2/14.4 GiB, peak 7.0)
+[18:56:58] baseline BLEU 34.83 · degeneracy 0.0 · 46s/pass
+[18:56:58]   baseline[0]: "A Republican strategy to block Obama's re-election"
+[18:56:58]   baseline[1]: 'The republican leaders justified their policy by the need to fight against electoral fraud.'
+[18:56:58]   baseline[2]: 'In any case, the Brennan Center considers this last statement a myth and claims that the electo…'
+[18:56:58] [share 0.5% seed 0] budget 78s/60m00s used, 58m42s left
+[18:56:58] -> share0.5%s0: ablating 9 components (share 0.0052)
+[18:57:07]     share0.5%s0 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[18:57:16]     share0.5%s0 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[18:57:25]     share0.5%s0 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[18:57:34]     share0.5%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[18:57:43]     share0.5%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[18:57:44] <- share0.5%s0: ablating 9 components (share 0.0052) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 34.48, degeneracy 0.0)
+[18:57:44]   share0.5%s0[0]: "A Republican strategy to block Obama's re-election"
+[18:57:44]   share0.5%s0[1]: 'The republican leaders justified their policy by the need to fight against electoral fraud.'
+[18:57:44]   share0.5%s0[2]: 'In any case, the Brennan Center considers this last one a myth and states that the electoral fr…'
+[18:57:44] 0.005/0: BLEU 34.48 · degeneracy 0.0 · 9 components
+[18:57:44] [share 0.5% seed 1] budget 2m04s/60m00s used, 57m56s left
+[18:57:44] -> share0.5%s1: ablating 9 components (share 0.0052)
+[18:57:53]     share0.5%s1 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[18:58:02]     share0.5%s1 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[18:58:11]     share0.5%s1 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[18:58:19]     share0.5%s1 4/5 · 36s elapsed · eta 9s · 8.9s/item · 400/497 sentences
+[18:58:29]     share0.5%s1 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[18:58:29] <- share0.5%s1: ablating 9 components (share 0.0052) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 6.96, degeneracy 0.406)
+[18:58:29]   share0.5%s1[0]: "A republican strategy to block Obama's re-election"
+[18:58:29]   share0.5%s1[1]: 'The the the the the the the the the the the the the the the the the the the the'
+[18:58:29]   share0.5%s1[2]: 'Now, the Center Brennan considers this last a a a a a a a a a a a a a a a a a a a a a a a a a a…'
+[18:58:29]   share0.5%s1: DEGENERACY 40.6% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[18:58:29] 0.005/1: BLEU 6.96 · degeneracy 0.406 · 9 components
+[18:58:29] [share 0.5% seed 2] budget 2m50s/60m00s used, 57m10s left
+[18:58:29] -> share0.5%s2: ablating 9 components (share 0.0052)
+[18:58:38]     share0.5%s2 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[18:58:47]     share0.5%s2 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[18:58:57]     share0.5%s2 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[18:59:05]     share0.5%s2 4/5 · 36s elapsed · eta 9s · 8.9s/item · 400/497 sentences
+[18:59:15]     share0.5%s2 5/5 · 46s elapsed · eta 0s · 9.1s/item · 497/497 sentences
+[18:59:15] <- share0.5%s2: ablating 9 components (share 0.0052) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 35.24, degeneracy 0.0)
+[18:59:15]   share0.5%s2[0]: "A Republican strategy to block Obama's re-election"
+[18:59:15]   share0.5%s2[1]: 'The republican leaders justified their policy by the need to fight against electoral fraud.'
+[18:59:15]   share0.5%s2[2]: 'In any case, the Brennan Center considers this last one a myth and states that the electoral fr…'
+[18:59:15] 0.005/2: BLEU 35.24 · degeneracy 0.0 · 9 components
+[18:59:15] [share 1.0% seed 0] budget 3m35s/60m00s used, 56m25s left
+[18:59:15] -> share1.0%s0: ablating 17 components (share 0.0099)
+[18:59:24]     share1.0%s0 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[18:59:33]     share1.0%s0 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[18:59:42]     share1.0%s0 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[18:59:51]     share1.0%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:00:01]     share1.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:00:01] <- share1.0%s0: ablating 17 components (share 0.0099) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 33.9, degeneracy 0.0)
+[19:00:01]   share1.0%s0[0]: "A Republican strategy to block Obama's re-election"
+[19:00:01]   share1.0%s0[1]: 'The republican leaders justified their policy by the necessity of fighting against electoral fr…'
+[19:00:01]   share1.0%s0[2]: 'Now, the Brennan Center considers this last one a myth and states that the election fraud is le…'
+[19:00:01] 0.010/0: BLEU 33.9 · degeneracy 0.0 · 17 components
+[19:00:01] [share 1.0% seed 1] budget 4m21s/60m00s used, 55m39s left
+[19:00:01] -> share1.0%s1: ablating 17 components (share 0.0099)
+[19:00:10]     share1.0%s1 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:00:19]     share1.0%s1 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:00:28]     share1.0%s1 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:00:37]     share1.0%s1 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:00:47]     share1.0%s1 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:00:47] <- share1.0%s1: ablating 17 components (share 0.0099) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 4.78, degeneracy 0.676)
+[19:00:47]   share1.0%s1[0]: 'the the the the the the the the the the the the'
+[19:00:47]   share1.0%s1[1]: 'the the the the the the the the the the the the the'
+[19:00:47]   share1.0%s1[2]: 'Now, the the Center for the the the the the the the the the the the the the the the the the the…'
+[19:00:47]   share1.0%s1: 23/497 generations are empty
+[19:00:47]   share1.0%s1: DEGENERACY 67.6% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:00:47] 0.010/1: BLEU 4.78 · degeneracy 0.676 · 17 components
+[19:00:47] [share 1.0% seed 2] budget 5m07s/60m00s used, 54m53s left
+[19:00:47] -> share1.0%s2: ablating 17 components (share 0.0099)
+[19:00:56]     share1.0%s2 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[19:01:05]     share1.0%s2 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:01:14]     share1.0%s2 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[19:01:23]     share1.0%s2 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:01:33]     share1.0%s2 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:01:33] <- share1.0%s2: ablating 17 components (share 0.0099) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 34.49, degeneracy 0.0)
+[19:01:33]   share1.0%s2[0]: "A Republican strategy to block Obama's re-election"
+[19:01:33]   share1.0%s2[1]: 'The republican leaders justified their policy by the need to fight against electoral fraud.'
+[19:01:33]   share1.0%s2[2]: 'In any case, the Brennan Center considers this last one a myth and states that the electoral fr…'
+[19:01:33] 0.010/2: BLEU 34.49 · degeneracy 0.0 · 17 components
+[19:01:33] [share 2.0% seed 0] budget 5m53s/60m00s used, 54m07s left
+[19:01:33] -> share2.0%s0: ablating 35 components (share 0.0203)
+[19:01:42]     share2.0%s0 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:01:51]     share2.0%s0 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:02:00]     share2.0%s0 3/5 · 27s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:02:09]     share2.0%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:02:19]     share2.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:02:19] <- share2.0%s0: ablating 35 components (share 0.0203) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 29.05, degeneracy 0.006)
+[19:02:19]   share2.0%s0[0]: 'A Republican strategy to block the re-election of Obama'
+[19:02:19]   share2.0%s0[1]: 'The republican leaders justified their policy because they need to fight against the fraud of t…'
+[19:02:19]   share2.0%s0[2]: 'Now, the Brennan Center considers this last statement to be a myth and claims that the number o…'
+[19:02:19]   share2.0%s0: DEGENERACY 0.6% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:02:19] 0.020/0: BLEU 29.05 · degeneracy 0.006 · 35 components
+[19:02:19] [share 2.0% seed 1] budget 6m39s/60m00s used, 53m21s left
+[19:02:19] -> share2.0%s1: ablating 35 components (share 0.0203)
+[19:02:28]     share2.0%s1 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[19:02:37]     share2.0%s1 2/5 · 18s elapsed · eta 28s · 9.2s/item · 200/497 sentences
+[19:02:46]     share2.0%s1 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:02:55]     share2.0%s1 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:03:05]     share2.0%s1 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:03:05] <- share2.0%s1: ablating 35 components (share 0.0203) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 7.48, degeneracy 0.398)
+[19:03:05]   share2.0%s1[0]: 'A new strategy is being developed to prevent the the re-election of of Obama.'
+[19:03:05]   share2.0%s1[1]: 'The leaders of of of the the the the the the'
+[19:03:05]   share2.0%s1[2]: 'Now, the the Center for Brennan considers this last a a a a the the the the'
+[19:03:05]   share2.0%s1: 3/497 generations are empty
+[19:03:05]   share2.0%s1: DEGENERACY 39.8% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:03:05] 0.020/1: BLEU 7.48 · degeneracy 0.398 · 35 components
+[19:03:05] [share 2.0% seed 2] budget 7m25s/60m00s used, 52m35s left
+[19:03:05] -> share2.0%s2: ablating 35 components (share 0.0203)
+[19:03:14]     share2.0%s2 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[19:03:23]     share2.0%s2 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:03:32]     share2.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:03:41]     share2.0%s2 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:03:51]     share2.0%s2 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:03:51] <- share2.0%s2: ablating 35 components (share 0.0203) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 33.36, degeneracy 0.0)
+[19:03:51]   share2.0%s2[0]: "A Republican strategy to block Obama's re-election"
+[19:03:51]   share2.0%s2[1]: 'The Republican leaders justified their policy by the need to fight against electoral fraud.'
+[19:03:51]   share2.0%s2[2]: 'Now, the Brennan Center considers this last one a myth and claims that the number of people kil…'
+[19:03:51] 0.020/2: BLEU 33.36 · degeneracy 0.0 · 35 components
+[19:03:51] [share 5.0% seed 0] budget 8m12s/60m00s used, 51m48s left
+[19:03:51] -> share5.0%s0: ablating 42 components (share 0.0502)
+[19:04:00]     share5.0%s0 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[19:04:09]     share5.0%s0 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:04:18]     share5.0%s0 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[19:04:27]     share5.0%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:04:37]     share5.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:04:37] <- share5.0%s0: ablating 42 components (share 0.0502) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.0, degeneracy 0.972)
+[19:04:37]   share5.0%s0[0]: 's'
+[19:04:37]   share5.0%s0[1]: 's'
+[19:04:37]   share5.0%s0[2]: 's'
+[19:04:37]   share5.0%s0: DEGENERACY 97.2% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:04:37] 0.050/0: BLEU 0.0 · degeneracy 0.972 · 42 components
+[19:04:37] [share 5.0% seed 1] budget 8m57s/60m00s used, 51m03s left
+[19:04:37] -> share5.0%s1: ablating 42 components (share 0.0502)
+[19:04:46]     share5.0%s1 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:04:55]     share5.0%s1 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:05:05]     share5.0%s1 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:05:13]     share5.0%s1 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:05:23]     share5.0%s1 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:05:23] <- share5.0%s1: ablating 42 components (share 0.0502) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 6.9, degeneracy 0.227)
+[19:05:23]   share5.0%s1[0]: 'A Republican strategists say that the a plan to to a a to a'
+[19:05:23]   share5.0%s1[1]: 'The the President of of not included in the previous Constitution.'
+[19:05:23]   share5.0%s1[2]: 'Now, the the Center for Brennan considers this last a a a a a a the'
+[19:05:23]   share5.0%s1: 5/497 generations are empty
+[19:05:23]   share5.0%s1: DEGENERACY 22.7% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:05:23] 0.050/1: BLEU 6.9 · degeneracy 0.227 · 42 components
+[19:05:23] [share 5.0% seed 2] budget 9m44s/60m00s used, 50m16s left
+[19:05:23] -> share5.0%s2: ablating 42 components (share 0.0502)
+[19:05:32]     share5.0%s2 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[19:05:41]     share5.0%s2 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:05:51]     share5.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:05:59]     share5.0%s2 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:06:09]     share5.0%s2 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:06:09] <- share5.0%s2: ablating 42 components (share 0.0502) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 33.29, degeneracy 0.0)
+[19:06:09]   share5.0%s2[0]: "A Republican strategy to block Obama's re-election"
+[19:06:09]   share5.0%s2[1]: 'The Republican leaders justified their policy by the need to fight electoral fraud.'
+[19:06:09]   share5.0%s2[2]: 'Now, the Center Brennan considers this last one a myth and claims that the electoral fraud is l…'
+[19:06:09] 0.050/2: BLEU 33.29 · degeneracy 0.0 · 42 components
+[19:06:09] [share 6.0% seed 0] budget 10m29s/60m00s used, 49m31s left
+[19:06:09] -> share6.0%s0: ablating 59 components (share 0.0601)
+[19:06:18]     share6.0%s0 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[19:06:27]     share6.0%s0 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:06:37]     share6.0%s0 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:06:45]     share6.0%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:06:55]     share6.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:06:55] <- share6.0%s0: ablating 59 components (share 0.0601) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.0, degeneracy 0.753)
+[19:06:55]   share6.0%s0[0]: 'sssamentessssssssssssssssssssssssssssssssssssssssssssssssssssssssssss'
+[19:06:55]   share6.0%s0[1]: 'ssideon againssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss'
+[19:06:55]   share6.0%s0[2]: 'ss agains agains againsssssssssssssssssssssssssssssssssssssssssssssssssssssssss'
+[19:06:55]   share6.0%s0: DEGENERACY 75.3% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:06:55] 0.060/0: BLEU 0.0 · degeneracy 0.753 · 59 components
+[19:06:55] [share 6.0% seed 1] budget 11m16s/60m00s used, 48m44s left
+[19:06:55] -> share6.0%s1: ablating 59 components (share 0.0601)
+[19:07:04]     share6.0%s1 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:07:13]     share6.0%s1 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:07:23]     share6.0%s1 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:07:32]     share6.0%s1 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:07:41]     share6.0%s1 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:07:42] <- share6.0%s1: ablating 59 components (share 0.0601) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 3.95, degeneracy 0.551)
+[19:07:42]   share6.0%s1[0]: 'A strategy for a a a a for to a the the the the the the the the the the the the the the the the'
+[19:07:42]   share6.0%s1[1]: 'The the  the the the the the the the the the the the the the the the the the'
+[19:07:42]   share6.0%s1[2]: 'Now, the the the the the the the the the the the the the the the the the the the the'
+[19:07:42]   share6.0%s1: 12/497 generations are empty
+[19:07:42]   share6.0%s1: DEGENERACY 55.1% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:07:42] 0.060/1: BLEU 3.95 · degeneracy 0.551 · 59 components
+[19:07:42] [share 6.0% seed 2] budget 12m02s/60m00s used, 47m58s left
+[19:07:42] -> share6.0%s2: ablating 59 components (share 0.0601)
+[19:07:51]     share6.0%s2 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[19:08:00]     share6.0%s2 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:08:09]     share6.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:08:18]     share6.0%s2 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:08:28]     share6.0%s2 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:08:28] <- share6.0%s2: ablating 59 components (share 0.0601) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 25.17, degeneracy 0.004)
+[19:08:28]   share6.0%s2[0]: 'A strategy to block the re-election of Obama'
+[19:08:28]   share6.0%s2[1]: 'The Republican leaders justified their policy by the need to fight the electoral fraud.'
+[19:08:28]   share6.0%s2[2]: 'Ahora bien, the Center considers this last one a myth and claims that the electoral fraud is le…'
+[19:08:28]   share6.0%s2: DEGENERACY 0.4% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:08:28] 0.060/2: BLEU 25.17 · degeneracy 0.004 · 59 components
+[19:08:28] [share 7.0% seed 0] budget 12m48s/60m00s used, 47m12s left
+[19:08:28] -> share7.0%s0: ablating 76 components (share 0.0699)
+[19:08:37]     share7.0%s0 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:08:46]     share7.0%s0 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:08:56]     share7.0%s0 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:09:04]     share7.0%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:09:14]     share7.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:09:14] <- share7.0%s0: ablating 76 components (share 0.0699) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.0, degeneracy 0.978)
+[19:09:14]   share7.0%s0[0]: 'εεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεε'
+[19:09:14]   share7.0%s0[1]: 'εεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεε'
+[19:09:14]   share7.0%s0[2]: 'εεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεεε'
+[19:09:14]   share7.0%s0: DEGENERACY 97.8% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:09:14] 0.070/0: BLEU 0.0 · degeneracy 0.978 · 76 components
+[19:09:14] [share 7.0% seed 1] budget 13m34s/60m00s used, 46m26s left
+[19:09:14] -> share7.0%s1: ablating 76 components (share 0.0699)
+[19:09:23]     share7.0%s1 1/5 · 9s elapsed · eta 37s · 9.3s/item · 100/497 sentences
+[19:09:32]     share7.0%s1 2/5 · 18s elapsed · eta 28s · 9.2s/item · 200/497 sentences
+[19:09:42]     share7.0%s1 3/5 · 28s elapsed · eta 19s · 9.3s/item · 300/497 sentences
+[19:09:51]     share7.0%s1 4/5 · 37s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:10:01]     share7.0%s1 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:10:01] <- share7.0%s1: ablating 76 components (share 0.0699) in 47s (3.2/14.4 GiB, peak 7.0, BLEU 0.07, degeneracy 0.71)
+[19:10:01]   share7.0%s1[0]: 'InChildren      InChildren    InChildren      InChildrenInChildren'
+[19:10:01]   share7.0%s1[1]: ','
+[19:10:01]   share7.0%s1[2]: ',,InChildren. InChildrenInChildrenInChildrenInChildrenInChildrenInChildrenInChildrenInChildrenI…'
+[19:10:01]   share7.0%s1: 11/497 generations are empty
+[19:10:01]   share7.0%s1: DEGENERACY 71.0% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:10:01] 0.070/1: BLEU 0.07 · degeneracy 0.71 · 76 components
+[19:10:01] [share 7.0% seed 2] budget 14m21s/60m00s used, 45m39s left
+[19:10:01] -> share7.0%s2: ablating 32 components (share 0.0703)
+[19:10:10]     share7.0%s2 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[19:10:19]     share7.0%s2 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:10:28]     share7.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:10:37]     share7.0%s2 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:10:46]     share7.0%s2 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:10:46] <- share7.0%s2: ablating 32 components (share 0.0703) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 31.3, degeneracy 0.002)
+[19:10:46]   share7.0%s2[0]: "A Republican strategy to block Obama's re-election"
+[19:10:46]   share7.0%s2[1]: 'The Republican leaders justified their policy by the need to fight electoral fraud.'
+[19:10:46]   share7.0%s2[2]: 'In conclusion, the Center Brennan considers this last as a myth and states that the electoral f…'
+[19:10:46]   share7.0%s2: DEGENERACY 0.2% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:10:46] 0.070/2: BLEU 31.3 · degeneracy 0.002 · 32 components
+[19:10:47] [share 8.0% seed 0] budget 15m07s/60m00s used, 44m53s left
+[19:10:47] -> share8.0%s0: ablating 49 components (share 0.0801)
+[19:10:56]     share8.0%s0 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[19:11:05]     share8.0%s0 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:11:14]     share8.0%s0 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:11:23]     share8.0%s0 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:11:33]     share8.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:11:33] <- share8.0%s0: ablating 49 components (share 0.0801) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.0, degeneracy 1.0)
+[19:11:33]   share8.0%s0[0]: ''
+[19:11:33]   share8.0%s0[1]: ''
+[19:11:33]   share8.0%s0[2]: ''
+[19:11:33]   share8.0%s0: 497/497 generations are empty
+[19:11:33]   share8.0%s0: DEGENERACY 100.0% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:11:33] 0.080/0: BLEU 0.0 · degeneracy 1.0 · 49 components
+[19:11:33] [share 8.0% seed 1] budget 15m53s/60m00s used, 44m07s left
+[19:11:33] -> share8.0%s1: ablating 49 components (share 0.0801)
+[19:11:42]     share8.0%s1 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:11:51]     share8.0%s1 2/5 · 18s elapsed · eta 27s · 9.2s/item · 200/497 sentences
+[19:12:00]     share8.0%s1 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:12:09]     share8.0%s1 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:12:19]     share8.0%s1 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:12:19] <- share8.0%s1: ablating 49 components (share 0.0801) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 4.46, degeneracy 0.419)
+[19:12:19]   share8.0%s1[0]: 'a a a'
+[19:12:19]   share8.0%s1[1]: 'The the President of of justify his policy by the the need to to fight against electoral fraud.'
+[19:12:19]   share8.0%s1[2]: 'Now, well, the the the the the'
+[19:12:19]   share8.0%s1: 63/497 generations are empty
+[19:12:19]   share8.0%s1: DEGENERACY 41.9% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:12:19] 0.080/1: BLEU 4.46 · degeneracy 0.419 · 49 components
+[19:12:19] [share 8.0% seed 2] budget 16m39s/60m00s used, 43m21s left
+[19:12:19] -> share8.0%s2: ablating 49 components (share 0.0801)
+[19:12:28]     share8.0%s2 1/5 · 9s elapsed · eta 37s · 9.2s/item · 100/497 sentences
+[19:12:37]     share8.0%s2 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:12:46]     share8.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:12:55]     share8.0%s2 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:13:05]     share8.0%s2 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:13:05] <- share8.0%s2: ablating 49 components (share 0.0801) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 23.12, degeneracy 0.008)
+[19:13:05]   share8.0%s2[0]: "A strategy to block Obama's re-election"
+[19:13:05]   share8.0%s2[1]: "The Republicans' leaders justified their policy by the need to fight electoral fraud."
+[19:13:05]   share8.0%s2[2]: 'Ahora bien, el Centro Brennan considera esto último un mito y afirma que el fraud electoral es …'
+[19:13:05]   share8.0%s2: DEGENERACY 0.8% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:13:05] 0.080/2: BLEU 23.12 · degeneracy 0.008 · 49 components
+[19:13:05] [share 9.0% seed 0] budget 17m25s/60m00s used, 42m35s left
+[19:13:05] -> share9.0%s0: ablating 66 components (share 0.09)
+[19:13:14]     share9.0%s0 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[19:13:23]     share9.0%s0 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:13:33]     share9.0%s0 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:13:41]     share9.0%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:13:51]     share9.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:13:51] <- share9.0%s0: ablating 66 components (share 0.09) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.01, degeneracy 0.978)
+[19:13:51]   share9.0%s0[0]: 'behalf, behalf, behalf, behalf, behalf,, behalf, behalf, behalf, behalf, behalf, behalf, behalf…'
+[19:13:51]   share9.0%s0[1]: 'behalf, behalf, behalf,, behalf'
+[19:13:51]   share9.0%s0[2]: 'behalf'
+[19:13:51]   share9.0%s0: 1/497 generations are empty
+[19:13:51]   share9.0%s0: DEGENERACY 97.8% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:13:51] 0.090/0: BLEU 0.01 · degeneracy 0.978 · 66 components
+[19:13:51] [share 9.0% seed 1] budget 18m12s/60m00s used, 41m48s left
+[19:13:51] -> share9.0%s1: ablating 66 components (share 0.09)
+[19:14:00]     share9.0%s1 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:14:09]     share9.0%s1 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:14:19]     share9.0%s1 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[19:14:27]     share9.0%s1 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:14:37]     share9.0%s1 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:14:37] <- share9.0%s1: ablating 66 components (share 0.09) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 3.78, degeneracy 0.533)
+[19:14:37]   share9.0%s1[0]: 'a a a a a a a a the the the the the the the the the the the the the'
+[19:14:37]   share9.0%s1[1]: "The the Republican's leaders justified their political   for against the election fraud."
+[19:14:37]   share9.0%s1[2]: 'Now,, the the the the the the the the the the the the the the the the the the the'
+[19:14:37]   share9.0%s1: 72/497 generations are empty
+[19:14:37]   share9.0%s1: DEGENERACY 53.3% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:14:37] 0.090/1: BLEU 3.78 · degeneracy 0.533 · 66 components
+[19:14:37] [share 9.0% seed 2] budget 18m58s/60m00s used, 41m02s left
+[19:14:37] -> share9.0%s2: ablating 66 components (share 0.09)
+[19:14:46]     share9.0%s2 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:14:56]     share9.0%s2 2/5 · 18s elapsed · eta 27s · 9.2s/item · 200/497 sentences
+[19:15:05]     share9.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:15:13]     share9.0%s2 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:15:24]     share9.0%s2 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:15:24] <- share9.0%s2: ablating 66 components (share 0.09) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 16.24, degeneracy 0.01)
+[19:15:24]   share9.0%s2[0]: "A strategy to block Obama's re-election"
+[19:15:24]   share9.0%s2[1]: 'The Republican leaders justified their policy by the need to fight electoral fraud.'
+[19:15:24]   share9.0%s2[2]: 'Ahora bien, the Center Brennan considers this as a myth and states that the electoral fraud is …'
+[19:15:24]   share9.0%s2: DEGENERACY 1.0% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:15:24] 0.090/2: BLEU 16.24 · degeneracy 0.01 · 66 components
+[19:15:24] [share 10.0% seed 0] budget 19m44s/60m00s used, 40m16s left
+[19:15:24] -> share10.0%s0: ablating 83 components (share 0.0998)
+[19:15:33]     share10.0%s0 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:15:42]     share10.0%s0 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:15:51]     share10.0%s0 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:16:00]     share10.0%s0 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:16:10]     share10.0%s0 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:16:10] <- share10.0%s0: ablating 83 components (share 0.0998) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.01, degeneracy 1.0)
+[19:16:10]   share10.0%s0[0]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:16:10]   share10.0%s0[1]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:16:10]   share10.0%s0[2]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:16:10]   share10.0%s0: DEGENERACY 100.0% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:16:10] 0.100/0: BLEU 0.01 · degeneracy 1.0 · 83 components
+[19:16:10] [share 10.0% seed 1] budget 20m30s/60m00s used, 39m30s left
+[19:16:10] -> share10.0%s1: ablating 83 components (share 0.0998)
+[19:16:19]     share10.0%s1 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:16:28]     share10.0%s1 2/5 · 18s elapsed · eta 28s · 9.2s/item · 200/497 sentences
+[19:16:38]     share10.0%s1 3/5 · 28s elapsed · eta 19s · 9.3s/item · 300/497 sentences
+[19:16:46]     share10.0%s1 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:16:56]     share10.0%s1 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:16:56] <- share10.0%s1: ablating 83 components (share 0.0998) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.0, degeneracy 0.996)
+[19:16:56]   share10.0%s1[0]: ''
+[19:16:56]   share10.0%s1[1]: ''
+[19:16:56]   share10.0%s1[2]: ''
+[19:16:56]   share10.0%s1: 441/497 generations are empty
+[19:16:56]   share10.0%s1: DEGENERACY 99.6% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:16:56] 0.100/1: BLEU 0.0 · degeneracy 0.996 · 83 components
+[19:16:56] [share 10.0% seed 2] budget 21m17s/60m00s used, 38m43s left
+[19:16:56] -> share10.0%s2: ablating 83 components (share 0.0998)
+[19:17:05]     share10.0%s2 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:17:14]     share10.0%s2 2/5 · 18s elapsed · eta 27s · 9.0s/item · 200/497 sentences
+[19:17:24]     share10.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:17:33]     share10.0%s2 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:17:42]     share10.0%s2 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:17:43] <- share10.0%s2: ablating 83 components (share 0.0998) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 15.97, degeneracy 0.014)
+[19:17:43]   share10.0%s2[0]: "A strategy to block Obama's re election"
+[19:17:43]   share10.0%s2[1]: 'The leaders of the Republic justified their policy for the need to fight against the electoral …'
+[19:17:43]   share10.0%s2[2]: 'Ahora bien, the Center considers this a myth and states that the electoral fraud is less freque…'
+[19:17:43]   share10.0%s2: DEGENERACY 1.4% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:17:43] 0.100/2: BLEU 15.97 · degeneracy 0.014 · 83 components
+[19:17:43] [share 15.0% seed 0] budget 22m03s/60m00s used, 37m57s left
+[19:17:43] -> share15.0%s0: ablating 80 components (share 0.1498)
+[19:17:52]     share15.0%s0 1/5 · 9s elapsed · eta 37s · 9.3s/item · 100/497 sentences
+[19:18:01]     share15.0%s0 2/5 · 18s elapsed · eta 27s · 9.2s/item · 200/497 sentences
+[19:18:10]     share15.0%s0 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:18:19]     share15.0%s0 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:18:29]     share15.0%s0 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:18:29] <- share15.0%s0: ablating 80 components (share 0.1498) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.01, degeneracy 1.0)
+[19:18:29]   share15.0%s0[0]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:18:29]   share15.0%s0[1]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:18:29]   share15.0%s0[2]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:18:29]   share15.0%s0: DEGENERACY 100.0% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:18:29] 0.150/0: BLEU 0.01 · degeneracy 1.0 · 80 components
+[19:18:29] [share 15.0% seed 1] budget 22m49s/60m00s used, 37m11s left
+[19:18:29] -> share15.0%s1: ablating 125 components (share 0.15)
+[19:18:38]     share15.0%s1 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:18:47]     share15.0%s1 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:18:57]     share15.0%s1 3/5 · 28s elapsed · eta 19s · 9.3s/item · 300/497 sentences
+[19:19:05]     share15.0%s1 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:19:15]     share15.0%s1 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:19:15] <- share15.0%s1: ablating 125 components (share 0.15) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.0, degeneracy 0.883)
+[19:19:15]   share15.0%s1[0]: 'el'
+[19:19:15]   share15.0%s1[1]: 'el'
+[19:19:15]   share15.0%s1[2]: 'el número de person, el'
+[19:19:15]   share15.0%s1: 41/497 generations are empty
+[19:19:15]   share15.0%s1: DEGENERACY 88.3% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:19:15] 0.150/1: BLEU 0.0 · degeneracy 0.883 · 125 components
+[19:19:15] [share 15.0% seed 2] budget 23m36s/60m00s used, 36m24s left
+[19:19:15] -> share15.0%s2: ablating 80 components (share 0.1498)
+[19:19:25]     share15.0%s2 1/5 · 9s elapsed · eta 37s · 9.3s/item · 100/497 sentences
+[19:19:34]     share15.0%s2 2/5 · 18s elapsed · eta 27s · 9.2s/item · 200/497 sentences
+[19:19:43]     share15.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:19:52]     share15.0%s2 4/5 · 37s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:20:02]     share15.0%s2 5/5 · 47s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:20:02] <- share15.0%s2: ablating 80 components (share 0.1498) in 47s (3.2/14.4 GiB, peak 7.0, BLEU 9.79, degeneracy 0.038)
+[19:20:02]   share15.0%s2[0]: "A strategy to block Obama's re election"
+[19:20:02]   share15.0%s2[1]: 'The leaders of the Republic will fight for the election.'
+[19:20:02]   share15.0%s2[2]: 'Ahora bien, the Center of the Center considers this last as a'
+[19:20:02]   share15.0%s2: DEGENERACY 3.8% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:20:02] 0.150/2: BLEU 9.79 · degeneracy 0.038 · 80 components
+[19:20:02] [share 20.0% seed 0] budget 24m22s/60m00s used, 35m38s left
+[19:20:02] -> share20.0%s0: ablating 122 components (share 0.2)
+[19:20:11]     share20.0%s0 1/5 · 9s elapsed · eta 36s · 9.1s/item · 100/497 sentences
+[19:20:20]     share20.0%s0 2/5 · 18s elapsed · eta 28s · 9.2s/item · 200/497 sentences
+[19:20:30]     share20.0%s0 3/5 · 28s elapsed · eta 19s · 9.3s/item · 300/497 sentences
+[19:20:38]     share20.0%s0 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:20:48]     share20.0%s0 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:20:48] <- share20.0%s0: ablating 122 components (share 0.2) in 46s (3.2/14.4 GiB, peak 7.0, BLEU 0.01, degeneracy 1.0)
+[19:20:48]   share20.0%s0[0]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:20:48]   share20.0%s0[1]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:20:48]   share20.0%s0[2]: ',,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,'
+[19:20:48]   share20.0%s0: DEGENERACY 100.0% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:20:48] 0.200/0: BLEU 0.01 · degeneracy 1.0 · 122 components
+[19:20:48] [share 20.0% seed 1] budget 25m09s/60m00s used, 34m51s left
+[19:20:48] -> share20.0%s1: ablating 122 components (share 0.2)
+[19:20:58]     share20.0%s1 1/5 · 9s elapsed · eta 37s · 9.3s/item · 100/497 sentences
+[19:21:07]     share20.0%s1 2/5 · 18s elapsed · eta 28s · 9.2s/item · 200/497 sentences
+[19:21:16]     share20.0%s1 3/5 · 28s elapsed · eta 19s · 9.3s/item · 300/497 sentences
+[19:21:25]     share20.0%s1 4/5 · 37s elapsed · eta 9s · 9.2s/item · 400/497 sentences
+[19:21:35]     share20.0%s1 5/5 · 47s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:21:35] <- share20.0%s1: ablating 122 components (share 0.2) in 47s (3.2/14.4 GiB, peak 7.0, BLEU 0.03, degeneracy 0.581)
+[19:21:35]   share20.0%s1[0]: '...,...,...,,,,,,,,,,,,,,,, desde..............................'
+[19:21:35]   share20.0%s1[1]: '... el... el... el... el... el... el... el... el... el... el... el... el... el... el... el... e…'
+[19:21:35]   share20.0%s1[2]: 'el, el, el, el, el,, el,,,,,, el se el que,, se el que, se el que se el el que se el el que se …'
+[19:21:35]   share20.0%s1: DEGENERACY 58.1% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:21:35] 0.200/1: BLEU 0.03 · degeneracy 0.581 · 122 components
+[19:21:35] [share 20.0% seed 2] budget 25m55s/60m00s used, 34m05s left
+[19:21:35] -> share20.0%s2: ablating 122 components (share 0.2)
+[19:21:44]     share20.0%s2 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:21:53]     share20.0%s2 2/5 · 18s elapsed · eta 27s · 9.2s/item · 200/497 sentences
+[19:22:03]     share20.0%s2 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:22:11]     share20.0%s2 4/5 · 36s elapsed · eta 9s · 9.1s/item · 400/497 sentences
+[19:22:22]     share20.0%s2 5/5 · 46s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:22:22] <- share20.0%s2: ablating 122 components (share 0.2) in 47s (3.2/14.4 GiB, peak 7.0, BLEU 0.18, degeneracy 0.326)
+[19:22:22]   share20.0%s2[0]: 'La estró (s estró) estró estró estró estró estr estr estr estr estr estr estr estr estr estr es…'
+[19:22:22]   share20.0%s2[1]: 'Los dirigentes del presidente de la Republica se dirigieron por la necesia de hacer frente cont…'
+[19:22:22]   share20.0%s2[2]: 'La palabra "fraccionar" significa "fraccionar" "fraccionar" "fr Fr Fr " Fr Fr " Fr Fr Fr Fr Fr …'
+[19:22:22]   share20.0%s2: DEGENERACY 32.6% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:22:22] 0.200/2: BLEU 0.18 · degeneracy 0.326 · 122 components
+[19:22:22] survival frontier (model): below the smallest share probed
+[19:22:22]      0.5%     9 comps  BLEU  34.48  dBLEU   0.35  degeneracy   0.0  ok
+[19:22:22]      0.5%     9 comps  BLEU   6.96  dBLEU  27.87  degeneracy 0.406  BROKEN
+[19:22:22]      0.5%     9 comps  BLEU  35.24  dBLEU  -0.41  degeneracy   0.0  ok
+[19:22:22]      1.0%    17 comps  BLEU   33.9  dBLEU   0.93  degeneracy   0.0  ok
+[19:22:22]      1.0%    17 comps  BLEU   4.78  dBLEU  30.05  degeneracy 0.676  BROKEN
+[19:22:22]      1.0%    17 comps  BLEU  34.49  dBLEU   0.34  degeneracy   0.0  ok
+[19:22:22]      2.0%    35 comps  BLEU  29.05  dBLEU   5.78  degeneracy 0.006  BROKEN
+[19:22:22]      2.0%    35 comps  BLEU   7.48  dBLEU  27.35  degeneracy 0.398  BROKEN
+[19:22:22]      2.0%    35 comps  BLEU  33.36  dBLEU   1.47  degeneracy   0.0  ok
+[19:22:22]      5.0%    42 comps  BLEU    0.0  dBLEU  34.83  degeneracy 0.972  BROKEN
+[19:22:22]      5.0%    42 comps  BLEU    6.9  dBLEU  27.93  degeneracy 0.227  BROKEN
+[19:22:22]      5.0%    42 comps  BLEU  33.29  dBLEU   1.54  degeneracy   0.0  ok
+[19:22:22]      6.0%    59 comps  BLEU    0.0  dBLEU  34.83  degeneracy 0.753  BROKEN
+[19:22:22]      6.0%    59 comps  BLEU   3.95  dBLEU  30.88  degeneracy 0.551  BROKEN
+[19:22:22]      6.0%    59 comps  BLEU  25.17  dBLEU   9.66  degeneracy 0.004  BROKEN
+[19:22:22]      7.0%    76 comps  BLEU    0.0  dBLEU  34.83  degeneracy 0.978  BROKEN
+[19:22:22]      7.0%    76 comps  BLEU   0.07  dBLEU  34.76  degeneracy  0.71  BROKEN
+[19:22:22]      7.0%    32 comps  BLEU   31.3  dBLEU   3.53  degeneracy 0.002  BROKEN
+[19:22:22]      8.0%    49 comps  BLEU    0.0  dBLEU  34.83  degeneracy   1.0  BROKEN
+[19:22:22]      8.0%    49 comps  BLEU   4.46  dBLEU  30.37  degeneracy 0.419  BROKEN
+[19:22:22]      8.0%    49 comps  BLEU  23.12  dBLEU  11.71  degeneracy 0.008  BROKEN
+[19:22:22]      9.0%    66 comps  BLEU   0.01  dBLEU  34.82  degeneracy 0.978  BROKEN
+[19:22:22]      9.0%    66 comps  BLEU   3.78  dBLEU  31.05  degeneracy 0.533  BROKEN
+[19:22:22]      9.0%    66 comps  BLEU  16.24  dBLEU  18.59  degeneracy  0.01  BROKEN
+[19:22:22]     10.0%    83 comps  BLEU   0.01  dBLEU  34.82  degeneracy   1.0  BROKEN
+[19:22:22]     10.0%    83 comps  BLEU    0.0  dBLEU  34.83  degeneracy 0.996  BROKEN
+[19:22:22]     10.0%    83 comps  BLEU  15.97  dBLEU  18.86  degeneracy 0.014  BROKEN
+[19:22:22]     15.0%    80 comps  BLEU   0.01  dBLEU  34.82  degeneracy   1.0  BROKEN
+[19:22:22]     15.0%   125 comps  BLEU    0.0  dBLEU  34.83  degeneracy 0.883  BROKEN
+[19:22:22]     15.0%    80 comps  BLEU   9.79  dBLEU  25.04  degeneracy 0.038  BROKEN
+[19:22:22]     20.0%   122 comps  BLEU   0.01  dBLEU  34.82  degeneracy   1.0  BROKEN
+[19:22:22]     20.0%   122 comps  BLEU   0.03  dBLEU   34.8  degeneracy 0.581  BROKEN
+[19:22:22]     20.0%   122 comps  BLEU   0.18  dBLEU  34.65  degeneracy 0.326  BROKEN
+[19:22:22] -> results/qwen3-1.7b/phase1b-survival-frontier.json

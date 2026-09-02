@@ -91,6 +91,19 @@ def frontier() -> float | None:
         return None
     return json.loads(FRONTIER.read_text()).get("survival_frontier_share")
 
+def frontier_was_measured() -> bool:
+    """Whether a frontier run happened at all, regardless of what it concluded
+
+    frontier() returns None for two situations that are not the same thing:
+    nobody has run the frontier, and the frontier ran and found that this model
+    survives nothing it was asked to survive. The first is a missing input. The
+    second is a result -- and the stronger one, because it says every circuit
+    claim on this model at this granularity is measuring destruction. Reporting
+    them with the same message would tell an operator to go run the thing they
+    already ran.
+    """
+    return FRONTIER.exists()
+
 def setup(config: str):
     with step(f"loading {config}"):
         adapter = load_adapter(config)
@@ -222,6 +235,17 @@ def stage_greedy(config: str, budget: float) -> None:
         raise SystemExit("no component passed the significance gate; there is no set to grow")
 
     ceiling = frontier()
+    if ceiling is None and frontier_was_measured():
+        record = json.loads(FRONTIER.read_text())
+        raise SystemExit(
+            f"the frontier ran and found none: {record.get('first_broken_share')} of model MACs already "
+            "breaks this model on at least one draw, and that is the smallest share probed. There is no "
+            "ablation budget here inside which a knockout measures localization rather than destruction, "
+            "so growing a set would produce a number with nothing behind it.\n\n"
+            "That is a finding about the model, not a missing input. Probe smaller shares if you think "
+            "the frontier is merely below the grid, or take the result: this model does not host a "
+            "measurable circuit claim at this granularity."
+        )
     if ceiling is None:
         log("!! no survival frontier measured, so nothing stops this growing into a broken model. "
             "Run `frontier` in phase1b_random_control first; continuing on marginal dBLEU alone.")
