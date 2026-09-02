@@ -43,6 +43,7 @@ from scripts.phase1b_ablation import (
     _migrate_baseline,
     ablate,
     bleu_of,
+    candidate_layers,
     capture_means,
     eval_data,
     load_progress,
@@ -96,8 +97,13 @@ def setup(config: str):
         adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
     wmt, prompts, references = eval_data()
     log(f"eval set: {len(prompts)} sentences · model {adapter.cfg.n_layers}x{adapter.cfg.n_heads} · {gpu()}")
-    with step("counterfactual means over the candidate band"):
-        means = capture_means(adapter, reference_prompts(wmt))
+    # resolved against the model that loaded, not against the 8B's layer indices.
+    # capture_means defaults to CANDIDATE_LAYERS, which is 27-35 and exists on a
+    # 36-layer model and nowhere else -- on a 28-layer one it indexed past the end
+    # of adapter.projections and took the whole greedy stage down with it.
+    band = candidate_layers(adapter.cfg)
+    with step(f"counterfactual means over the candidate band ({band[0]}-{band[-1]})"):
+        means = capture_means(adapter, reference_prompts(wmt), layers=band)
     return adapter, wmt, prompts, references, means
 
 def run_combo(adapter, means, prompts, references, components, label: str = "combo"):
