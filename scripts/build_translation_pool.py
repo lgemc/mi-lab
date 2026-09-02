@@ -68,10 +68,10 @@ from pathlib import Path
 
 import torch
 
-from scripts.observe import Progress, banner, log
 from src.data.tasks import single_tokens
 from src.data.translation import WORD_FRAME, pool_path
 from src.model.adapter import load_adapter
+from src.telemetry.observe import Progress, banner, log
 
 MUSE = "https://dl.fbaipublicfiles.com/arrival/dictionaries/es-en.txt"
 EXTERNAL = Path("data/external/translation")

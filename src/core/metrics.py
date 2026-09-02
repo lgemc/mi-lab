@@ -1,7 +1,8 @@
 import time
+from collections import Counter
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Iterable, Iterator, List, Sequence, Tuple
+from typing import Dict, Iterable, Iterator, List, Sequence, Tuple
 
 import torch
 
@@ -19,6 +20,12 @@ logit_difference is what "the model got it right" means when the answer is one
 of two tokens, and recovery is how a patched run is read against the clean and
 corrupted runs it sits between. Both are arithmetic on numbers a model already
 produced, so both stay model-free.
+
+Two more for the ablation studies, model-free for the same reason.
+`degeneracy` is the fraction of generations that have stopped being language,
+which a corpus BLEU cannot distinguish from translating badly and which turned
+a retracted 32x threshold pass into `a a a a a`. `benjamini_hochberg` is the
+correction for having screened many components to find one.
 
 A common pipe could be: score | roc_auc | best_threshold
 """
@@ -225,3 +232,76 @@ def measure(items: int) -> Iterator[List[Cost]]:
         yield holder
     finally:
         holder.append(Cost(seconds=time.perf_counter() - started, items=items))
+
+DEGENERACY_TYPES = 0.30   # unique tokens / total tokens below this is repetition, not translation
+DEGENERACY_SHARE = 0.50   # or one token taking this much of the output on its own
+DEGENERACY_DUPLICATE = 0.02  # or the identical output on this share of the corpus
+
+def degeneracy(hypotheses: Sequence[str]) -> float:
+    """The fraction of outputs that have stopped being language
+
+    Deliberately crude and deliberately automatic. The checklist item it
+    implements is "read ten generations at the largest ablation and stop if
+    they are not language"; a human still should, but a sweep that runs
+    unattended needs the machine to raise its hand. It lives here rather than
+    beside any one experiment because every arm of every ablation wants it,
+    and a second copy would be a second threshold to disagree with the first.
+    """
+    if not hypotheses:
+        return 0.0
+    # Collapse is not always visible inside one hypothesis. A model ablated past
+    # the frontier answers 'the' to all 200 sources: each one is three tokens or
+    # fewer, so the repetition rules below never examine it, and the corpus
+    # scored 8.5% broken while BLEU said 0.01. The signal is only there across
+    # hypotheses -- 200 distinct news sentences do not share a translation --
+    # so the same text landing on a share of the corpus is counted as collapse
+    # whatever its length. The floor of 3 keeps a short list from making any
+    # coincidence fatal, and the healthy arms of this project peak at 2.
+    repeats = Counter(normalized for text in hypotheses if (normalized := " ".join(text.split()).casefold()))
+    duplicate_limit = max(3, round(DEGENERACY_DUPLICATE * len(hypotheses)))
+    broken = 0
+    for text in hypotheses:
+        tokens = text.split()
+        # an empty generation is the most degenerate outcome there is, and an
+        # early version scored it 0.0 by falling through the too-short guard
+        # below -- a matched random ablation that silenced the model entirely
+        # was reported as perfectly healthy
+        if not tokens:
+            broken += 1
+            continue
+        # punctuation with no letters in it is not a translation at any length:
+        # '...', '(', '(   (   (' all scored clean under a rule that only looked
+        # for repetition among four or more tokens
+        if not any(character.isalpha() for character in text):
+            broken += 1
+            continue
+        if repeats[" ".join(tokens).casefold()] >= duplicate_limit:
+            broken += 1
+            continue
+        if len(tokens) < 4:
+            continue
+        counts = Counter(tokens)
+        if (len(counts) / len(tokens) < DEGENERACY_TYPES
+                or counts.most_common(1)[0][1] / len(tokens) > DEGENERACY_SHARE):
+            broken += 1
+    return round(broken / len(hypotheses), 3)
+
+def benjamini_hochberg(pvalues: Dict[str, float]) -> Dict[str, float]:
+    """FDR-corrected q-values, because 18 tests at alpha .05 buy ~1 false positive for free
+
+    Reported beside the raw p rather than instead of it. The raw value answers
+    "would this component look real if it were the only one tested", which is
+    the question a reader of a single row asks; the q-value answers "does it
+    look real given that 18 rows were screened to find it", which is the
+    question the sweep actually poses. They disagree here, and a table showing
+    only one of them would be arguing for a conclusion rather than reporting.
+    """
+    ordered = sorted(pvalues.items(), key=lambda item: item[1])
+    total = len(ordered)
+    qvalues: Dict[str, float] = {}
+    running = 1.0
+    for rank in range(total, 0, -1):
+        name, pvalue = ordered[rank - 1]
+        running = min(running, pvalue * total / rank)
+        qvalues[name] = round(running, 5)
+    return qvalues

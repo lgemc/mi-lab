@@ -6,7 +6,9 @@ from src.core.metrics import (
     Cost,
     MetricError,
     accuracy,
+    benjamini_hochberg,
     best_threshold,
+    degeneracy,
     jaccard,
     logit_difference,
     measure,
@@ -151,3 +153,48 @@ class TestJaccard(TestCase):
     def test_two_empty_sets_are_not_a_perfect_overlap(self):
         with self.assertRaises(MetricError):
             jaccard([], [])
+
+class TestDegeneracy(TestCase):
+    """The machine's hand raised when a generation stops being language"""
+
+    def test_healthy_sentences_score_zero(self):
+        self.assertEqual(0.0, degeneracy(["The cat sat on the mat today.", "It rained all night in the valley."]))
+        self.assertEqual(0.0, degeneracy([]))
+
+    def test_an_empty_generation_is_the_most_degenerate_outcome(self):
+        """An early version fell through the too-short guard and scored silence as healthy"""
+        self.assertEqual(0.5, degeneracy(["", "It rained all night in the valley."]))
+
+    def test_punctuation_without_letters_is_not_a_translation_at_any_length(self):
+        self.assertEqual(1.0, degeneracy(["...", "(   (   ("]))
+
+    def test_a_repeated_token_is_collapse(self):
+        self.assertEqual(1.0, degeneracy(["the the the the the the"]))
+        self.assertEqual(1.0, degeneracy(["yes no yes yes yes yes yes yes"]))
+
+    def test_the_same_short_answer_across_the_corpus_is_collapse(self):
+        """Three tokens or fewer never reach the repetition rules; the signal is across hypotheses"""
+        clean = [f"A different sentence number {i} here." for i in range(20)]
+        self.assertEqual(0.0, degeneracy([*clean, "the", "the"]))
+        self.assertAlmostEqual(3 / 23, degeneracy([*clean, "the", "the", "the"]), places=3)
+
+class TestBenjaminiHochberg(TestCase):
+    def test_q_values_are_monotone_in_p_and_never_below_it(self):
+        raw = {"a": 0.001, "b": 0.02, "c": 0.03, "d": 0.5}
+        q = benjamini_hochberg(raw)
+        # b and c tie at .04: the running minimum from the bottom is what makes q monotone
+        self.assertLessEqual(q["a"], q["b"])
+        self.assertLessEqual(q["b"], q["c"])
+        self.assertLessEqual(q["c"], q["d"])
+        for name, p in raw.items():
+            self.assertGreaterEqual(q[name], p)
+        self.assertEqual(0.5, q["d"])
+
+    def test_the_smallest_p_is_multiplied_by_the_number_of_tests(self):
+        """One row at .01 among ten screened is a .1 finding"""
+        raw = {f"c{i}": 0.9 for i in range(9)}
+        raw["hit"] = 0.01
+        self.assertAlmostEqual(0.1, benjamini_hochberg(raw)["hit"], places=5)
+
+    def test_nothing_in_is_nothing_out(self):
+        self.assertEqual({}, benjamini_hochberg({}))

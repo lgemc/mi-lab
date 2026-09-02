@@ -15,6 +15,8 @@ experiment would not use:
 Shape facts (layer count, heads, MLP width) are read off the loaded model,
 never stated, and land in results/phase0-feasibility.json.
 
+A common pipe could be: capture | head_outputs | decompose | patch | merge_section
+
 Run: uv run python -m scripts.phase0_hooks qwen3-8b
 """
 
@@ -24,7 +26,9 @@ import torch
 
 from scripts.phase0_smoke import merge
 from src.core.config import Position
+from src.experiment import translation_study as study
 from src.model.adapter import load_adapter, require_circuits
+from src.telemetry.results import guard
 
 PROMPTS = [
     "El gato duerme al sol. The cat sleeps in the sun.",
@@ -32,7 +36,8 @@ PROMPTS = [
 ]
 
 def main() -> None:
-    config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
+    config = sys.argv[1] if len(sys.argv) > 1 else study.DEFAULT_CONFIG
+    guard(config)
     adapter = require_circuits(load_adapter(config))
     cfg = adapter.cfg
     layers = list(range(cfg.n_layers))

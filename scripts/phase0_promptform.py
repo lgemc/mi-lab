@@ -2,46 +2,46 @@
 
 Doc §7 Q3: does the model translate under a bare few-shot WMT-style prompt,
 or does it need the instruction form? Both forms are run over the same FLORES
-sentences, completions are cut at the first line break (everything after it is
-the model talking to itself, not the translation), and each form gets a
-sentence-level BLEU against the references. The decision and one sample
-exchange land in results/phase0-feasibility.json.
+sentences, completions are cut at the first line break (`clean_completion`:
+everything after it is the model talking to itself, not the translation), and
+each form gets a corpus BLEU against the references. The decision and one
+sample exchange land in results/phase0-feasibility.json.
+
+A common pipe could be: forms | translation_prompt | generate | clean_completion | bleu | merge_section
 
 Run: uv run python -m scripts.phase0_promptform qwen3-8b
 """
 
 import sys
 
-import sacrebleu
-
 from scripts.phase0_smoke import merge
-from src.data.translation import default_pairs_path, load_pairs, translation_prompt
+from src.data.translation import SHOTS, clean_completion, default_pairs_path, load_pairs, translation_prompt
+from src.experiment import translation_study as study
+from src.methods.quality import bleu
 from src.model.adapter import load_adapter
+from src.telemetry.results import guard
 
 SAMPLE = 12
-SHOTS = 3
-
-def clean_completion(text: str) -> str:
-    """The first line of the completion is the translation; the rest is drift"""
-    return text.strip().split("\n")[0].strip()
+FORMS = ("instruction", "few_shot")
+MAX_NEW_TOKENS = 96
 
 def main() -> None:
-    config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
+    config = sys.argv[1] if len(sys.argv) > 1 else study.DEFAULT_CONFIG
+    guard(config)
     adapter = load_adapter(config)
 
     flores = load_pairs(str(default_pairs_path("flores-es-en-dev")), limit=SAMPLE)
-    wmt = load_pairs(str(default_pairs_path("wmt-newstest2013-es-en-500")))
+    wmt = load_pairs(str(default_pairs_path(study.CORPUS)))
     shots = wmt[-SHOTS:]  # drawn from the tail so a WMT eval over the head never sees its own shots
 
     sources = [spanish for spanish, _ in flores]
     references = [english for _, english in flores]
-    outputs = {}
-    scores = {}
-    for form in ("instruction", "few_shot"):
+    outputs, scores = {}, {}
+    for form in FORMS:
         prompts = [translation_prompt(source, form=form, shots=shots) for source in sources]
-        raw = adapter.generate(prompts, max_new_tokens=96)
+        raw = adapter.generate(prompts, max_new_tokens=MAX_NEW_TOKENS)
         outputs[form] = [clean_completion(text) for text in raw]
-        scores[form] = round(sacrebleu.corpus_bleu(outputs[form], [references]).score, 2)
+        scores[form] = bleu(outputs[form], references)
 
     chosen = max(scores, key=lambda form: scores[form])
     merge("prompt_form", {

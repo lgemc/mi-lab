@@ -1,4 +1,5 @@
 import random
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -36,7 +37,15 @@ on the same test. So the repo's "run it on gpt2-small first" rule does not
 apply to this task, and the substitute is to debug the *method* on gpt2-small
 with `ioi` and spend the large model only on translation.
 
-A common pipe could be: load_pairs | translation_prompt | generate | score
+The sentence shape has one more convention, `eval_split`, which is the way a
+pairs file becomes an evaluation: the last `SHOTS` pairs are the worked
+examples every prompt shares and the first `size` are what gets scored. The
+shots come off the *end* so that growing `size` never turns a scored sentence
+into a shot, and the same split names the counterfactual reference prompts a
+mean ablation averages over -- the eval prompt with its translation logic
+removed and nothing else changed.
+
+A common pipe could be: load_pairs | eval_split | generate | clean_completion | score
 """
 
 # One frame, ending where the English word has to go. The trailing space stays
@@ -171,6 +180,70 @@ def translation_prompt(source: str, form: str = "instruction", shots: Sequence[T
     raise DatasetError(
         f"unknown prompt form '{form}'; known forms are ['counterfactual', 'few_shot', 'instruction']"
     )
+
+# Worked examples per few-shot prompt. Phase 0 settled on three: the smallest
+# count at which the model stopped treating the frame as an instruction to
+# ignore, and small enough that the prompt stays one screen.
+SHOTS = 3
+
+def clean_completion(text: str) -> str:
+    """The first line of the completion is the translation; the rest is drift"""
+    return text.strip().split("\n")[0].strip()
+
+@dataclass(frozen=True)
+class EvalSplit:
+    """A pairs file cut into what is prompted, what it is scored against, and what every prompt shares"""
+    shots: Tuple[Tuple[str, str], ...]
+    pairs: Tuple[Tuple[str, str], ...]
+    form: str = "few_shot"
+
+    @property
+    def sources(self) -> List[str]:
+        return [spanish for spanish, _ in self.pairs]
+
+    @property
+    def references(self) -> List[str]:
+        return [english for _, english in self.pairs]
+
+    @property
+    def prompts(self) -> List[str]:
+        return [translation_prompt(spanish, form=self.form, shots=self.shots) for spanish in self.sources]
+
+    def __len__(self) -> int:
+        return len(self.pairs)
+
+def eval_split(pairs: Sequence[Tuple[str, str]], size: Optional[int] = None, shots: int = SHOTS,
+               form: str = "few_shot") -> EvalSplit:
+    """The last `shots` pairs as worked examples, the first `size` as the scored set
+
+    A pair cannot be both: the split refuses a `size` that reaches into the
+    shots, because a sentence the model was shown translated is not a sentence
+    it translated.
+    """
+    pairs = list(pairs)
+    if shots < 1 or shots >= len(pairs):
+        raise DatasetError(f"{shots} shots out of {len(pairs)} pairs leaves nothing to score")
+    scored = pairs[:size] if size is not None else pairs[:-shots]
+    if len(scored) > len(pairs) - shots:
+        raise DatasetError(
+            f"{len(scored)} scored sentences and {shots} shots overlap in a file of {len(pairs)} pairs; "
+            f"the most this file can score is {len(pairs) - shots}"
+        )
+    return EvalSplit(shots=tuple(pairs[-shots:]), pairs=tuple(scored), form=form)
+
+def counterfactual_prompts(pairs: Sequence[Tuple[str, str]], shots: int = SHOTS) -> List[str]:
+    """The distribution a mean ablation averages over: every non-shot source in the counterfactual form
+
+    The mean has to strip the task and preserve everything else -- the same
+    skeleton, the same shots, the same Spanish sources -- which is what the
+    counterfactual form is. An earlier version averaged over raw English
+    reference sentences, which differ from the eval prompts in format and
+    in-context task as well as in translation, and ablating toward it removed
+    the model's ability to continue the prompt at all.
+    """
+    pairs = list(pairs)
+    worked = pairs[-shots:]
+    return [translation_prompt(spanish, form="counterfactual", shots=worked) for spanish, _ in pairs[:-shots]]
 
 def pool_path(config: str) -> Path:
     """Where the derived word pool for one model lands

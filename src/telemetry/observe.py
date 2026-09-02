@@ -1,7 +1,7 @@
 """What a long GPU run has to say about itself while it is still running.
 
-Every script in this phase is a chain of multi-minute passes over an 8B model:
-a means capture, a baseline translation, one ablated translation per component.
+Every ablation script is a chain of multi-minute passes over a large model: a
+means capture, a baseline translation, one ablated translation per component.
 Between them the terminal shows nothing, and a silent process is
 indistinguishable from a hung one -- which is exactly what happened on the
 first run of the random-control arm, where the checkpoint loaded and the next
@@ -19,49 +19,50 @@ finishes. Everything is timestamped and mirrored to a log file, because a
 terminal scrollback is not a record and the interesting line is always the one
 that scrolled away.
 
-`preview` is the observability that matters most here and is the least like
-logging: it prints actual generations. A corpus BLEU cannot distinguish "this
-translates badly" from "this has stopped emitting language", those are
-entirely different findings, and the retracted run of 2026-08-31 reported a
-32x threshold pass on a model whose output was `a a a a a`. Anything that
-ablates prints samples of what came out, at every arm, with no flag to turn it
-off.
+`Budget` owns one more contract. A run that exits on its allowance prints
+`BUDGET_MARKER`, and `experiment/pipeline.py` re-invokes a step on seeing it,
+so the marker is a fact both sides read from here rather than a string each
+guessed.
 
 GPU memory is read through torch rather than nvidia-smi: on the GB10 the smi
 query returns N/A for used and total, and unified memory makes the number
-worth watching anyway.
+worth watching anyway. torch is imported lazily and inside a guard, which is
+how this stays usable from a process that has no torch at all -- the journal
+rule, kept for the same reason.
 
-A common pipe could be: banner | step | Progress.tick | preview | log
+A common pipe could be: banner | step | Progress.tick | Budget.fits | log
 """
 
 import sys
 import time
-from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterator, Optional, Sequence
+from typing import Iterator, Optional
 
 _LOG_FILE: Optional[Path] = None
 
-PREVIEW_SAMPLES = 3
-PREVIEW_WIDTH = 96
-
-DEGENERACY_TYPES = 0.30   # unique tokens / total tokens below this is repetition, not translation
-DEGENERACY_SHARE = 0.50   # or one token taking this much of the output on its own
-DEGENERACY_DUPLICATE = 0.02  # or the identical output on this share of the corpus
+# The line Budget prints when it exits on the allowance rather than on finishing.
+BUDGET_MARKER = "stopping cleanly:"
 
 def set_log_file(path) -> None:
-    """Mirror everything logged from here on into `path`, appending
+    """Mirror everything logged from here on into `path`, appending; None goes back to stdout only
 
     Appending rather than truncating because these scripts are resumed: a run
     is a chain of invocations against one budget, and a log that kept only the
     last of them would lose the part where the interesting thing happened.
     """
     global _LOG_FILE
+    if path is None:
+        _LOG_FILE = None
+        return
     _LOG_FILE = Path(path)
     _LOG_FILE.parent.mkdir(parents=True, exist_ok=True)
     with _LOG_FILE.open("a") as handle:
         handle.write(f"\n=== {time.strftime('%Y-%m-%d %H:%M:%S')} :: {' '.join(sys.argv)}\n")
+
+def log_file() -> Optional[Path]:
+    """Where `log` is mirroring to, or None while it only prints"""
+    return _LOG_FILE
 
 def log(message: str = "", indent: int = 0) -> None:
     """One timestamped line, flushed, and mirrored to the log file if one is set"""
@@ -87,6 +88,30 @@ def gpu() -> str:
                 f"{torch.cuda.max_memory_allocated() / giga:.1f}")
     except Exception as error:  # observability must never be the thing that fails a run
         return f"gpu unreadable ({type(error).__name__})"
+
+def host_memory_gib(field: str = "MemFree") -> float:
+    """A /proc/meminfo figure in GiB, or 0 where it cannot be read
+
+    Unified memory on the GB10 means the accelerator and the host draw on one
+    pool, so the host figure is the binding one and `torch.cuda.mem_get_info`
+    would report the same pool twice.
+
+    The default is MemFree rather than MemAvailable, which is the more
+    pessimistic of the two on purpose. MemAvailable adds the page cache the
+    kernel would reclaim under pressure, and a CUDA allocation does not get to
+    wait for that: a run once read 27 GiB available here and took
+    NV_ERR_NO_MEMORY from the driver two seconds later. The number that
+    matters before a big allocation is what is free right now; a feasibility
+    report that wants the kernel's own estimate asks for MemAvailable.
+    """
+    try:
+        with Path("/proc/meminfo").open() as handle:
+            for line in handle:
+                if line.startswith(f"{field}:"):
+                    return int(line.split()[1]) / 2 ** 20
+    except OSError:
+        pass
+    return 0.0
 
 def duration(seconds: float) -> str:
     """Seconds as the unit a human compares against a budget"""
@@ -195,74 +220,6 @@ class Budget:
     def state(self) -> str:
         return f"budget {duration(self.spent)}/{duration(self.seconds)} used, {duration(self.left)} left"
 
-def degeneracy(hypotheses: Sequence[str]) -> float:
-    """The fraction of outputs that have stopped being language
-
-    Deliberately crude and deliberately automatic. The checklist item it
-    implements is "read ten generations at the largest ablation and stop if
-    they are not language"; a human still should, but a sweep that runs
-    unattended needs the machine to raise its hand. It lives here rather than
-    beside any one experiment because every arm of every ablation wants it,
-    and a second copy would be a second threshold to disagree with the first.
-    """
-    if not hypotheses:
-        return 0.0
-    # Collapse is not always visible inside one hypothesis. A model ablated past
-    # the frontier answers 'the' to all 200 sources: each one is three tokens or
-    # fewer, so the repetition rules below never examine it, and the corpus
-    # scored 8.5% broken while BLEU said 0.01. The signal is only there across
-    # hypotheses -- 200 distinct news sentences do not share a translation --
-    # so the same text landing on a share of the corpus is counted as collapse
-    # whatever its length. The floor of 3 keeps a short list from making any
-    # coincidence fatal, and the healthy arms of this project peak at 2.
-    repeats = Counter(normalized for text in hypotheses if (normalized := " ".join(text.split()).casefold()))
-    duplicate_limit = max(3, round(DEGENERACY_DUPLICATE * len(hypotheses)))
-    broken = 0
-    for text in hypotheses:
-        tokens = text.split()
-        # an empty generation is the most degenerate outcome there is, and an
-        # early version scored it 0.0 by falling through the too-short guard
-        # below -- a matched random ablation that silenced the model entirely
-        # was reported as perfectly healthy
-        if not tokens:
-            broken += 1
-            continue
-        # punctuation with no letters in it is not a translation at any length:
-        # '...', '(', '(   (   (' all scored clean under a rule that only looked
-        # for repetition among four or more tokens
-        if not any(character.isalpha() for character in text):
-            broken += 1
-            continue
-        if repeats[" ".join(tokens).casefold()] >= duplicate_limit:
-            broken += 1
-            continue
-        if len(tokens) < 4:
-            continue
-        counts = Counter(tokens)
-        if (len(counts) / len(tokens) < DEGENERACY_TYPES
-                or counts.most_common(1)[0][1] / len(tokens) > DEGENERACY_SHARE):
-            broken += 1
-    return round(broken / len(hypotheses), 3)
-
-def preview(hypotheses: Sequence[str], label: str = "sample", count: int = PREVIEW_SAMPLES,
-            indent: int = 1) -> None:
-    """Print a few actual generations, because a metric cannot show you a broken model
-
-    Not optional and not behind a flag. The checklist item is "read ten
-    generations at the largest ablation and stop if they are not language",
-    and the run that skipped it reported a threshold pass by a factor of 32 on
-    a model emitting a single repeated token.
-    """
-    if not hypotheses:
-        log(f"{label}: no generations at all -- the pass produced nothing", indent=indent)
-        return
-    for index, text in enumerate(hypotheses[:count]):
-        shown = text if len(text) <= PREVIEW_WIDTH else text[:PREVIEW_WIDTH - 1] + "…"
-        log(f"{label}[{index}]: {shown!r}", indent=indent)
-    empty = sum(1 for text in hypotheses if not text.strip())
-    if empty:
-        log(f"{label}: {empty}/{len(hypotheses)} generations are empty", indent=indent)
-    broken = degeneracy(hypotheses)
-    if broken:
-        log(f"{label}: DEGENERACY {broken:.1%} of generations are repeated tokens, not language -- "
-            "this is a broken model, not an ablated one", indent=indent)
+    def stop_line(self, estimate: float, item: str = "next item") -> str:
+        """The line to log when the next item does not fit -- the one the pipeline re-invokes on"""
+        return f"{BUDGET_MARKER} {self.state()}, {item} needs ~{duration(estimate)}"

@@ -5,36 +5,33 @@ Loads the config named on the command line through the repo's own adapter
 runs a short capture + greedy generation on one FLORES sentence, and merges
 what happened into results/phase0-feasibility.json.
 
+A common pipe could be: load_adapter | capture | generate | merge_section
+
 Run: uv run python -m scripts.phase0_smoke qwen3-8b
 """
 
 import json
 import sys
 import time
-from pathlib import Path
 
 import torch
 
 from src.data.translation import default_pairs_path, load_pairs, translation_prompt
+from src.experiment import translation_study as study
 from src.model.adapter import load_adapter
+from src.telemetry.observe import host_memory_gib
+from src.telemetry.results import guard, merge_section, result
 
-RESULTS = Path("results/phase0-feasibility.json")
+RESULTS = result("phase0-feasibility.json")
 
 def merge(section: str, payload: dict) -> None:
-    RESULTS.parent.mkdir(exist_ok=True)
-    data = json.loads(RESULTS.read_text()) if RESULTS.exists() else {}
-    data[section] = payload
-    RESULTS.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-
-def available_gib() -> float:
-    fields = dict(
-        line.split(":") for line in Path("/proc/meminfo").read_text().splitlines() if ":" in line
-    )
-    return int(fields["MemAvailable"].strip().split()[0]) / 1024**2
+    """One deliverable's section of the feasibility report, the others left as they were"""
+    merge_section(RESULTS, section, payload)
 
 def main() -> None:
-    config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
-    before = available_gib()
+    config = sys.argv[1] if len(sys.argv) > 1 else study.DEFAULT_CONFIG
+    guard(config)
+    before = host_memory_gib("MemAvailable")
     start = time.time()
     adapter = load_adapter(config)
     loaded = time.time() - start
@@ -63,7 +60,7 @@ def main() -> None:
         "capture_seconds": round(capture_time, 2),
         "generate_seconds_48_tokens": round(generate_time, 2),
         "mem_available_gib_before": round(before, 1),
-        "mem_available_gib_after": round(available_gib(), 1),
+        "mem_available_gib_after": round(host_memory_gib("MemAvailable"), 1),
         "cuda_allocated_gib": round(torch.cuda.memory_allocated() / 1024**3, 1) if torch.cuda.is_available() else None,
         "prompt": prompt,
         "completion": completion,

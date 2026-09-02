@@ -22,15 +22,19 @@ Everything under `src/` is a namespace package except `src/cli/commands/viz/`, w
 modules explicitly:
 
 ```bash
-# everything: 458 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
+# everything: 602 tests, ~90s on a CPU and ~60s on a GPU (the online half needs GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.ie tests.probing \
-    tests.runner tests.adapter tests.circuits tests.discovery tests.comparison \
-    tests.faithfulness tests.edges tests.sheaves tests.telemetry
+    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
+    tests.results tests.components tests.cost tests.quality tests.pipeline \
+    tests.translation_study tests.ie tests.probing tests.runner tests.adapter tests.circuits \
+    tests.discovery tests.comparison tests.faithfulness tests.edges tests.sheaves \
+    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes
 
-# offline subset: 258 tests, no checkpoint needed, seconds
+# offline subset: 374 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact
+    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
+    tests.results tests.components tests.cost tests.quality tests.pipeline \
+    tests.translation_study
 
 # one module / class / method
 uv run python -m unittest tests.spec
@@ -93,13 +97,17 @@ side effect of another change.
 
 ```
 core        config, metrics                          imports nothing
-telemetry   journal                                  imports nothing
-model       adapter, backends/                       -> core
-data        dataset, prompts, torchdata, ioi, tasks  -> core
+telemetry   journal, tracking, observe, results      imports nothing
+model       adapter, passes, backends/               -> core
+data        dataset, prompts, torchdata, ioi, tasks, -> core
+            translation
 methods     probing, steering, circuits,             -> core, model, data, telemetry
-            discovery, comparison, sheaves
+            discovery, comparison, sheaves,
+            components, knockout, cost, quality,
+            neurons, gates
 share       schema/, storage, converters/      -> core, data, methods
-experiment  spec, run, runner                  -> core, model, data, methods, share
+experiment  spec, run, runner, pipeline,       -> core, model, data, methods, share
+            translation_study
 viz                                            -> core
 cli                                            -> everything
 ie          app, session, stack, view, views/  -> everything, and nothing imports it
@@ -205,6 +213,61 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   grows a circuit greedily and `verify` checks it three ways. **The two halves disagree and the
   disagreement is the finding** — on GPT-2 small the negative name movers write hard against the
   answer and patching says the model needs them.
+
+### The translation study, and where its machinery lives
+
+`scripts/phase*.py`, `scripts/sheaf_*.py` and `scripts/pipeline.py` are the reproductions of
+the Spanish-to-English knockout study. They are **thin**: each one composes library calls and
+formats a report, and everything two of them had to agree on lives in `src/` once, under a test.
+The split, by the question each module answers:
+
+- `telemetry/observe.py` — what a long GPU run says about itself: `step` announces a stage and
+  reports its elapsed time and peak memory, `Progress` carries a rate and an ETA, `Budget` owns
+  the wall-clock allowance and the `BUDGET_MARKER` a run prints when it exits on it (the string
+  `experiment/pipeline.py` re-invokes a step on seeing, read from here rather than guessed by
+  each side). `set_log_file` mirrors everything to a file with a timestamped `=== argv` header;
+  `set_log_file(None)` unsets it, which is what a test does in its cleanup.
+- `telemetry/results.py` — where a phase's artifacts land. `MI_LAB_RESULTS` moves every file in
+  one place; `guard` stamps the config that first wrote a directory into `.model` and **refuses a
+  second one**, because a sweep pointed at another checkpoint would read the first one's cached
+  scores as its own and a means cache would ablate toward another model's activations. `load_state`
+  / `save_state` / `merge_section` are the two resumable shapes on disk — a progress document
+  rewritten whole, and a report several scripts each own one section of.
+- `model/passes.py` — the observed forward pass: `forward_batches` right-pads, runs under
+  `no_grad` and yields ids and mask *after* each pass, the moment a hook has filled what it was
+  pointed at; `hooked` removes handles even when the body raises; `attention_of` finds the
+  attention module by which module owns the projection rather than by a name.
+- `methods/components.py` — the vocabulary `mlp:L`, `heads:L`, `head:L:H` and the set algebra
+  over it. `CANDIDATE_BAND` is a pair of depth fractions (invariant 1) resolved on the loaded
+  model: `(0.75, 1.0)` is layers 27–35 on 36 layers and 9–11 on 12, where the `range(27, 36)` it
+  replaced was silently bound to one checkpoint.
+- `methods/knockout.py` — mean ablation of whole components on a *generation*. `Means` carries
+  the model's geometry and `check` refuses another checkpoint; `cached_means` slices a superset
+  capture rather than re-capturing; `ablate` replaces a head's write at the attention output
+  projection input and an MLP's at its output, under hooks removed on exit.
+- `methods/cost.py` — MACs per head and per MLP read off the checkpoint config with no weights
+  loaded, and `matched_draw`: a random control matched to the discovered set **by cost, not by
+  count**, since one MLP is worth dozens of heads.
+- `methods/quality.py` — BLEU, chrF, COMET, the paired bootstrap with FDR over the systems
+  screened, split-half `agreement`, and `survival_frontier`, whose rule is that one lucky seed
+  does not raise the ceiling.
+- `methods/neurons.py` — the Tang et al. activation contrast: neurons read at the input to the
+  MLP down projection (the one honest "neuron"), a two-sigma `flag`, and a per-token `trace`
+  that decodes from the padded batch so position `i` is the token printed at `i`.
+- `methods/gates.py` — a trained weight mask after training: `circuit_loaded` multiplies it into
+  the weights and restores them **exactly**, `per_component` reduces it to the component
+  vocabulary (GPT-2's `c_proj` is filed by branch), `budget` prices a band in memory before the
+  model loads.
+- `data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
+  head so a pair is never both, and `counterfactual_prompts` keep the form and drop the task.
+- `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`
+  names every file by key, the band, the pre-registered ceiling and saturation rule, `Corpus`,
+  and `score_set`, so a BLEU in one script is the same BLEU in the next.
+- `experiment/pipeline.py` — a phase as steps in a Hydra config under `pipelines/`, run as
+  **subprocesses** (each script reads its environment at import time) with the results root and
+  corpus size exported once; completed steps are recorded in `pipeline-state.json` and skipped.
+  Note that `pipelines/run/*.yaml` sets `MI_LAB_RESULTS` for its steps, so a dry run of a shipped
+  pipeline still writes `pipeline.log` under that tracked root.
 
 ### Invariants that the code enforces (don't break these)
 
@@ -571,7 +634,13 @@ data URIs, so the file survives being moved or attached. Every `viz` command tak
 - Every module opens with a docstring stating what it is *for* and which decision it encodes,
   usually ending in a `A common pipe could be: a | b | c` line. Match that when adding a module.
 - Each subsystem raises its own `ValueError` subclass (`ConfigError`, `SpecError`, `DatasetError`,
-  `ProbeError`, `MetricError`, `RunError`) with a message that says what to do instead.
+  `ProbeError`, `MetricError`, `RunError`, `ResultsError`, `PipelineError`, `StudyError`; the
+  knockout modules subclass `CircuitError` as `ComponentError`, `KnockoutError`, `CostError`,
+  `NeuronError`, `GateError`, and `QualityError` is a `MetricError`) with a message that says
+  what to do instead.
+- A script under `scripts/` imports from `src/` and holds no shared helper of its own —
+  `scripts/observe.py` and `scripts/paths.py` were the last two and are gone. If two scripts
+  need the same function, it goes into the package whose question it answers, with a test.
 - Comments explain the trap, not the mechanics — they exist where a reasonable reading of the code
   would be wrong.
 - Everything must run on `gpt2-small` on a CPU laptop first; a result that needs a big model to

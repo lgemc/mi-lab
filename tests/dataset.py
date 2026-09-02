@@ -5,7 +5,7 @@ from unittest import TestCase
 
 from src.data.dataset import _SUBJECTS, DatasetError, LabeledPrompts, load_csv, load_jsonl, save_jsonl, synthetic
 from src.data.prompts import dumps, parse
-from src.data.translation import translation_prompt
+from src.data.translation import SHOTS, clean_completion, counterfactual_prompts, eval_split, translation_prompt
 
 """
 The dataset object is small enough that the only things worth testing are the
@@ -273,3 +273,37 @@ class TestCounterfactualPromptForm(TestCase):
     def test_one_shot_is_refused_because_a_rotation_needs_somewhere_to_go(self):
         with self.assertRaises(DatasetError):
             translation_prompt("cuatro", form="counterfactual", shots=(("uno", "one"),))
+
+
+class TestEvalSplit(TestCase):
+    """The pairs file cut into shots and a scored set, and the rule that a pair is never both"""
+
+    pairs = tuple((f"es {i}", f"en {i}") for i in range(10))
+
+    def test_the_shots_are_the_tail_and_the_scored_set_is_the_head(self):
+        split = eval_split(self.pairs, size=4)
+        self.assertEqual(tuple(self.pairs[-SHOTS:]), split.shots)
+        self.assertEqual(["en 0", "en 1", "en 2", "en 3"], split.references)
+        self.assertEqual(4, len(split))
+        self.assertTrue(all(prompt.endswith("English:") for prompt in split.prompts))
+        self.assertIn("es 9", split.prompts[0])
+
+    def test_no_size_scores_everything_that_is_not_a_shot(self):
+        self.assertEqual(10 - SHOTS, len(eval_split(self.pairs)))
+
+    def test_a_size_that_reaches_into_the_shots_is_refused(self):
+        """A sentence the model was shown translated is not a sentence it translated"""
+        with self.assertRaises(DatasetError):
+            eval_split(self.pairs, size=8)
+        with self.assertRaises(DatasetError):
+            eval_split(self.pairs[:SHOTS])
+
+    def test_counterfactual_prompts_cover_every_non_shot_source_with_the_shots(self):
+        prompts = counterfactual_prompts(self.pairs)
+        self.assertEqual(10 - SHOTS, len(prompts))
+        self.assertTrue(all("Nothing:" in prompt and "es 9" in prompt for prompt in prompts))
+        self.assertNotIn("English:", prompts[0])
+
+    def test_a_completion_is_its_first_line(self):
+        self.assertEqual("The cat.", clean_completion("  The cat.\nSpanish: otra cosa\n"))
+        self.assertEqual("", clean_completion("\n\n"))

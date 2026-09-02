@@ -30,16 +30,9 @@ from src.telemetry.journal import (
     read_metrics,
     read_run,
 )
+from src.telemetry.observe import duration
 
 COLUMNS = ("step", "elapsed", "loss", "faith", "open", "complete", "density", "price")
-
-def duration(seconds: float) -> str:
-    seconds = int(max(0, seconds))
-    if seconds < 60:
-        return f"{seconds}s"
-    if seconds < 3600:
-        return f"{seconds // 60}m{seconds % 60:02d}s"
-    return f"{seconds // 3600}h{(seconds % 3600) // 60:02d}m"
 
 def cell(value) -> str:
     if value is None:

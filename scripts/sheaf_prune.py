@@ -25,7 +25,7 @@ with six tunables addressed by position is a script that gets run wrong. The
 convention it does keep is the one that matters: the config is the first
 argument, so moving from the 1.7B to the 8B is that argument and nothing else.
 
-A common pipe could be: config | task | prune | budget | sheaf
+A common pipe could be: parse_layers | run_budget | build_task | load_bearing | prune | sheaf
 
 Run: uv run python -m scripts.sheaf_prune qwen3-1.7b
      uv run python -m scripts.sheaf_prune qwen3-1.7b --layers 21-27 --steps 2000
@@ -34,112 +34,31 @@ Run: uv run python -m scripts.sheaf_prune qwen3-1.7b
 
 import argparse
 import json
-from pathlib import Path
 
 import torch
 
-from scripts.observe import banner, log, set_log_file, step
-from scripts.paths import guard, result
 from src.data.tasks import build_task, task_names
-from src.methods.sheaves import gateable, load_bearing, prune, span
+from src.methods.gates import parse_layers, run_budget
+from src.methods.sheaves import load_bearing, prune, span
 from src.model.adapter import load_adapter
 from src.telemetry.journal import Journal, env_root, run_id
+from src.telemetry.observe import banner, host_memory_gib, log, set_log_file, step
+from src.telemetry.results import guard, result
 from src.telemetry.tracking import Tracker, load_tracking
 
-# gate logit, gradient, and AdamW's two moments, all float32 and all one per
-# gated weight. The originals are kept too, at the model's own dtype, which is
-# the fifth term and the only one that is not four bytes.
-STATE_BYTES_PER_GATE = 4 * 4
-
-# What the autograd graph costs on top of the state, as a fixed part plus a
-# per-gate part. It is not proportional to the gate count, which is what the
-# first two versions of this assumed and why both were wrong: a multiplier
-# fitted on a 151M-gate band said 39.6 B/gate and projected 79 GiB for the
-# whole model, which then ran at 37.1. The caching allocator reuses blocks
-# across parameter tensors, so most of the small-band peak is a constant --
-# activations, the model's own forward buffers, allocator slack -- and only the
-# tensors gumbel retains for the backward pass actually scale.
-#
-# Fitted on the two runs that have been measured here, and it reproduces both
-# exactly: 151M gates peaked at 11.3 GiB and 1409M at 37.1. Rounded up from
-# 5.00 and 4.02 for margin, so the projection sits a little above each.
-#
-# Both numbers come from torch's peak counter, which misses the driver's own
-# allocations -- half of why a run once cleared a check and took
-# NV_ERR_NO_MEMORY anyway. The other half was MemAvailable, fixed separately.
-GRAPH_BASE_GIB = 6.0
-GRAPH_BYTES_PER_GATE = 5
-
-def budget(n_gates: int, weight_bytes: int, model_bytes: int) -> dict:
-    """What the run costs before it starts: the model, the state, one graph
-
-    Reported rather than discovered. The run loads the model first, so a band
-    that does not fit fails after the expensive part rather than before it --
-    and on a unified-memory host it fails as a driver error with no traceback,
-    which reads as a broken script rather than as a band that was too wide.
-    """
-    optimizer = n_gates * STATE_BYTES_PER_GATE
-    originals = n_gates * weight_bytes
-    state = (optimizer + originals) / 2 ** 30
-    model = model_bytes / 2 ** 30
-    graph = GRAPH_BASE_GIB + n_gates * GRAPH_BYTES_PER_GATE / 2 ** 30
-    return {
-        "gates": n_gates,
-        "optimizer_gib": round(optimizer / 2 ** 30, 2),
-        "originals_gib": round(originals / 2 ** 30, 2),
-        "model_gib": round(model, 2),
-        "graph_gib": round(graph, 2),
-        "total_gib": round(state, 2),
-        "peak_gib": round(model + state + graph, 2),
-    }
-
-def available_gib() -> float:
-    """Host memory this run can actually have, or 0 where that cannot be read
-
-    Unified memory on the GB10 means the accelerator and the host draw on one
-    pool, so the host figure is the binding one and `torch.cuda.mem_get_info`
-    would report the same pool twice.
-
-    MemFree rather than MemAvailable, which is the more pessimistic of the two
-    on purpose. MemAvailable adds the page cache the kernel would reclaim under
-    pressure, and a CUDA allocation does not get to wait for that: a run once
-    read 27 GiB available here and took NV_ERR_NO_MEMORY from the driver two
-    seconds later. The number that matters is what is free right now.
-    """
-    try:
-        with Path("/proc/meminfo").open() as handle:
-            for line in handle:
-                if line.startswith("MemFree:"):
-                    return int(line.split()[1]) / 2 ** 20
-    except OSError:
-        pass
-    return 0.0
-
-def parse_layers(text: str) -> list:
-    """`21-27`, `21,23,26` or `all` into layer indices"""
-    if text in ("", "all"):
-        return None
-    chosen = set()
-    for piece in text.split(","):
-        if "-" in piece.strip("-"):
-            low, high = piece.split("-", 1)
-            chosen.update(range(int(low), int(high) + 1))
-        else:
-            chosen.add(int(piece))
-    return sorted(chosen)
 
 def run(args: argparse.Namespace) -> None:
     set_log_file(result(f"sheaf-{args.task}.log"))
     with step("load model"):
         adapter = load_adapter(args.config)
     layers = parse_layers(args.layers)
-    targets = gateable(adapter, layers)
-    n_gates = sum(parameter.numel() for parameter in targets.values())
-    weight_bytes = next(iter(targets.values())).element_size()
-    model_bytes = sum(parameter.numel() * parameter.element_size()
-                      for parameter in adapter.model.parameters())
-    cost = budget(n_gates, weight_bytes, model_bytes)
-    free = available_gib()
+    # the budget is reported before anything else is allocated: the failure it
+    # replaces is an OOM after the model has loaded, which on a unified-memory
+    # host is a driver error with no traceback
+    cost = run_budget(adapter, layers)
+    n_gates = cost["gates"]
+    # MemFree, not MemAvailable: a CUDA allocation cannot wait for the page cache
+    free = host_memory_gib("MemFree")
 
     with step(f"build '{args.task}'"):
         task = build_task(args.task, adapter, size=args.size, seed=args.seed)

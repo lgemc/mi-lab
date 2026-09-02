@@ -2,14 +2,21 @@
 
 Solo ablations in the sweep moved BLEU by at most ~1.6 points, so the set
 question -- how much does the *candidate space* carry jointly -- is answered
-first by three upper-bound combos (all 9 candidate MLPs, all 288 candidate
-heads, both together = the full 25%-FLOPs set). The greedy stage then grows a
-set from the solo ranking: at each step the highest-ranked unused component
-joins, the union is re-ablated and re-scored on the full 200-sentence
-shortlist, and the run stops when the marginal dBLEU stays under 0.3 for
+first by three upper-bound combos (all candidate MLPs, all candidate heads,
+both together = the full candidate set). The greedy stage then grows a set
+from the solo ranking: at each step the highest-ranked unused component
+joins, the union is re-ablated and re-scored on the full shortlist, and the
+run stops when the marginal dBLEU stays under the saturation margin for
 three consecutive additions. This is rank-ordered greedy (one pass per
 step); full greedy re-evaluation of every remaining candidate each round
 would cost O(n^2) generation passes and is recorded as out of budget.
+
+The ranking is gated on the paired bootstrap `phase1b_ablation significance`
+writes, and growth is bounded by the survival frontier `phase1b_random_control
+frontier` measures: dBLEU keeps rising long after the model has stopped
+producing language, so a set grown past the frontier is a measurement of
+destruction, not a stronger circuit. The saturation rule, the pre-registered
+ceiling and the COMET threshold are `experiment.translation_study` constants.
 
 Stages: combo | greedy | comet (baseline + candidate set + truncations).
 
@@ -19,187 +26,127 @@ Run: uv run python -m scripts.phase1b_greedy qwen3-8b combo
 """
 
 import json
-import os
+import sys
 import time
-from dataclasses import replace
-from functools import lru_cache
+from typing import Any, Dict, List
 
-from scripts.observe import (
-    Budget,
-    banner,
-    degeneracy,
-    duration,
-    gpu,
-    log,
-    preview,
-    set_log_file,
-    step,
-)
-from scripts.paths import guard, result
-from scripts.phase1b_ablation import (
-    CANDIDATE_LAYERS,
-    EVAL_SENTENCES,
-    GENERATION_BATCH,
-    PROGRESS,
-    _migrate_baseline,
-    ablate,
-    bleu_of,
-    candidate_layers,
-    capture_means,
-    eval_data,
-    load_progress,
-    parse_component,
-    reference_prompts,
-    save_progress,
-    translate,
-)
-from src.model.adapter import load_adapter
+from scripts.phase1b_ablation import PROGRESS, load_progress, migrate_baseline, save_progress
+from src.experiment import translation_study as study
+from src.methods.quality import Comet
+from src.telemetry.observe import Budget, banner, duration, log, set_log_file
+from src.telemetry.results import guard, load_state
 
-CANDIDATE = result("phase1b-circuit-candidate.json")
+CANDIDATE = study.artifact("candidate")
+FRONTIER = study.artifact("frontier")
+LOG = study.log_path("greedy")
 
-COMBOS = {
-    "all_candidate_mlps": [f"mlp:{layer}" for layer in CANDIDATE_LAYERS],
-    "all_candidate_heads": [f"heads:{layer}" for layer in CANDIDATE_LAYERS],
-    "full_candidate_set": [f"mlp:{layer}" for layer in CANDIDATE_LAYERS]
-                          + [f"heads:{layer}" for layer in CANDIDATE_LAYERS],
-}
+def baseline_bleu(state: Dict[str, Any]) -> float:
+    return migrate_baseline(state["baseline"])["bleu_eval"]
 
-SATURATION_MARGIN = 0.3
-SATURATION_RUNS = 3
-
-FRONTIER = result("phase1b-survival-frontier.json")
-
-# The pre-registered ceiling, kept because it was pre-registered. It is not a
-# measured quantity and nothing here should read it as one -- see frontier().
-PREREGISTERED_CEILING = 0.25
-
-def frontier() -> float | None:
-    """The largest ablation share the model was measured to survive, or None if unmeasured
-
-    Read off the frontier run rather than written down here. The number moves
-    when the evidence moves -- it was 5% at one seed per level and the interval
-    up to 10% was open -- and a literal copied into this file would keep
-    reporting the old answer after the run that changed it.
-
-    It matters here because the greedy set is grown by marginal dBLEU alone,
-    and dBLEU keeps rising long after the model has stopped producing language:
-    every arm past the frontier scores a huge drop for the same reason a
-    switched-off model would. Growth past it is not a stronger circuit, it is a
-    measurement of destruction, and `all_candidate_mlps` at 19.4% is what that
-    looks like when nobody checks.
-    """
-    if not FRONTIER.exists():
-        return None
-    return json.loads(FRONTIER.read_text()).get("survival_frontier_share")
-
-def frontier_was_measured() -> bool:
-    """Whether a frontier run happened at all, regardless of what it concluded
-
-    frontier() returns None for two situations that are not the same thing:
-    nobody has run the frontier, and the frontier ran and found that this model
-    survives nothing it was asked to survive. The first is a missing input. The
-    second is a result -- and the stronger one, because it says every circuit
-    claim on this model at this granularity is measuring destruction. Reporting
-    them with the same message would tell an operator to go run the thing they
-    already ran.
-    """
-    return FRONTIER.exists()
-
-def setup(config: str):
-    with step(f"loading {config}"):
-        adapter = load_adapter(config)
-        adapter.cfg = replace(adapter.cfg, batch_size=GENERATION_BATCH)
-    wmt, prompts, references = eval_data()
-    log(f"eval set: {len(prompts)} sentences · model {adapter.cfg.n_layers}x{adapter.cfg.n_heads} · {gpu()}")
-    # resolved against the model that loaded, not against the 8B's layer indices.
-    # capture_means defaults to CANDIDATE_LAYERS, which is 27-35 and exists on a
-    # 36-layer model and nowhere else -- on a 28-layer one it indexed past the end
-    # of adapter.projections and took the whole greedy stage down with it.
-    band = candidate_layers(adapter.cfg)
-    with step(f"counterfactual means over the candidate band ({band[0]}-{band[-1]})"):
-        means = capture_means(adapter, reference_prompts(wmt), layers=band)
-    return adapter, wmt, prompts, references, means
-
-def run_combo(adapter, means, prompts, references, components, label: str = "combo"):
-    with step(f"{label}: {len(components)} components (share {round(flops_share(components), 4)})") as facts:
-        with ablate(adapter, means, components):
-            hypotheses = translate(adapter, prompts, label=label)
-        facts["BLEU"] = bleu_of(hypotheses, references)
-        facts["degeneracy"] = degeneracy(hypotheses)
-    preview(hypotheses, label)
-    return bleu_of(hypotheses, references), hypotheses
+def run_combo(adapter, means, corpus: study.Corpus, components: List[str], label: str = "combo") -> Dict[str, Any]:
+    return study.score_set(adapter, means, corpus, components, label=label, cost=study.cost_model())
 
 def stage_combo(config: str) -> None:
-    set_log_file(result("phase1b-greedy.log"))
+    set_log_file(LOG)
     state = load_progress()
     state.setdefault("combos", {})
     banner("phase1b upper-bound combos", {
         "config": config,
-        "combos": f"{len(COMBOS)} ({', '.join(COMBOS)})",
         "done": f"{len(state['combos'])} already scored",
         "reference": "counterfactual prompt form (eval prompt minus translation logic)",
         "progress": str(PROGRESS),
     })
-    adapter, _, prompts, references, means = setup(config)
-    for name, components in COMBOS.items():
+    adapter, corpus, means = study.setup(config)
+    combos = study.combos(means.layers)
+    log(f"combos: {', '.join(combos)}")
+    for name, components in combos.items():
         if name in state["combos"]:
             log(f"{name} already scored: BLEU {state['combos'][name]['bleu']} (cached)")
             continue
-        start = time.time()
-        bleu, hypotheses = run_combo(adapter, means, prompts, references, components, label=name)
+        record = run_combo(adapter, means, corpus, components, label=name)
         state["combos"][name] = {
             "components": components,
-            "bleu": bleu,
-            "dbleu": round(_migrate_baseline(state["baseline"])["bleu_eval"] - bleu, 2),
-            "seconds": round(time.time() - start, 1),
-            "hypotheses": hypotheses,
+            "bleu": record["bleu"],
+            "dbleu": round(baseline_bleu(state) - record["bleu"], 2),
+            "seconds": record["seconds"],
+            "hypotheses": record["hypotheses"],
         }
         save_progress(state)
-        log(f"{name}: BLEU {bleu} · dBLEU {state['combos'][name]['dbleu']} · "
-            f"{duration(state['combos'][name]['seconds'])}")
+        log(f"{name}: BLEU {record['bleu']} · dBLEU {state['combos'][name]['dbleu']} · "
+            f"{duration(record['seconds'])}")
 
-def solo_ranking(state):
+def solo_ranking(state: Dict[str, Any]) -> List[str]:
     """Components that beat the baseline significantly, by solo dBLEU, strongest first
 
-    Ranking by dBLEU alone was the original form and it ranks noise. The sweep's
-    own numbers say so: 288 single heads landed at mean -0.037 with stdev 0.214
-    and 45.8% of them "helping" the model when ablated, a split-half of 30 of
-    them did not reproduce (rho -0.22, top group keeping its sign 4/10), and the
-    whole-layer groups contradict their own members -- ablating all 32 heads of
-    layer 28 gains 0.51 BLEU where ablating its best single head costs 0.51.
-    Growing a set down that order is assembling coin flips, and SATURATION_MARGIN
-    of 0.3 cannot stop it because the noise floor is wider than the threshold.
+    Ranking by dBLEU alone was the original form and it ranks noise: single
+    heads landed at a mean near zero with half of them "helping" the model
+    when ablated, a split-half of 30 of them did not reproduce, and the
+    whole-layer groups contradict their own members. Growing a set down that
+    order is assembling coin flips, and the saturation margin cannot stop it
+    because the noise floor is wider than the threshold.
 
-    So the ranking is gated on the paired bootstrap that `phase1b_ablation
-    significance` writes. A component with no entry is not silently dropped as
-    if it had failed: heads store no generations, so they were never testable,
-    and that is a different statement from having been tested and found wanting.
-    Both end in exclusion here and the caller's log says which one applied.
+    So the ranking is gated on the paired bootstrap. A component with no entry
+    is not silently dropped as if it had failed: heads store no generations,
+    so they were never testable, and that is a different statement from
+    having been tested and found wanting. Both end in exclusion here and the
+    caller's log says which one applied.
     """
     significance = state.get("significance")
     if not significance:
         raise SystemExit(
             "no significance test has been run, so every ranking available here is a ranking of dBLEU "
             "point estimates whose own spread is wider than the effects they order. Run "
-            "`uv run python -m scripts.phase1b_ablation qwen3-8b significance` first -- it needs no GPU."
+            "`uv run python -m scripts.phase1b_ablation <config> significance` first -- it needs no GPU."
         )
     tested = significance["components"]
     passing = [cid for cid in state["components"] if tested.get(cid, {}).get("significant")]
     return sorted(passing, key=lambda cid: -state["components"][cid]["dbleu"])
 
-def redundant(cid: str, chosen) -> bool:
-    """Skip a component already inside a chosen layer-level one, and vice versa"""
-    kind, layer, _ = parse_component(cid)
-    for other in chosen:
-        other_kind, other_layer, _ = parse_component(other)
-        if layer != other_layer:
-            continue
-        if kind == other_kind or {kind, other_kind} == {"head", "heads"}:
-            return True
-    return False
+def frontier_gate(greedy: Dict[str, Any], state: Dict[str, Any]) -> float | None:
+    """The ceiling growth stops at, or a refusal when the frontier ran and found none
+
+    `frontier_share()` returns None for two situations that are not the same:
+    nobody has run the frontier, and the frontier ran and found that this
+    model survives nothing it was asked to survive. The second is a result --
+    the stronger one -- and it is refused unless overridden, in which case the
+    artifact carries the override so nobody downstream reads the set as one
+    grown inside a measurable budget.
+    """
+    ceiling = study.frontier_share()
+    measured = study.frontier_measured()
+    if ceiling is None and measured:
+        record = load_state(FRONTIER)
+        if not study.past_frontier_allowed():
+            raise SystemExit(
+                f"the frontier ran and found none: {record.get('first_broken_share')} of model MACs already "
+                "breaks this model on at least one draw, and that is the smallest share probed. There is no "
+                "ablation budget here inside which a knockout measures localization rather than destruction, "
+                "so growing a set would produce a number with nothing behind it.\n\n"
+                "That is a finding about the model, not a missing input. Probe smaller shares if you think "
+                "the frontier is merely below the grid, or take the result: this model does not host a "
+                "measurable circuit claim at this granularity.\n\n"
+                f"{study.ENV_ALLOW_PAST_FRONTIER}=1 grows the set anyway and stamps the artifact with what it "
+                "cost, for when the sequence has to run end to end regardless."
+            )
+        greedy["grown_without_frontier"] = {
+            "first_broken_share": record.get("first_broken_share"),
+            "note": f"{study.ENV_ALLOW_PAST_FRONTIER}=1 was set. No probed ablation share left this model "
+                    "intact on every seed, so every number grown below is a measurement of a model "
+                    "that has partly stopped emitting language. It is not evidence of localization.",
+        }
+        save_progress(state)
+        log(f"!! {study.ENV_ALLOW_PAST_FRONTIER}=1: growing a set on a model with no survival frontier. "
+            f"{record.get('first_broken_share')} of MACs already breaks it on at least one draw. "
+            "Every number from here measures destruction; it is recorded in the artifact as such.")
+    elif ceiling is None:
+        log("!! no survival frontier measured, so nothing stops this growing into a broken model. "
+            "Run `frontier` in phase1b_random_control first; continuing on marginal dBLEU alone.")
+    else:
+        log(f"growth stops at the measured survival frontier: {ceiling:.1%} of model MACs")
+    return ceiling
 
 def stage_greedy(config: str, budget: float) -> None:
-    set_log_file(result("phase1b-greedy.log"))
+    set_log_file(LOG)
     allowance = Budget(budget)
     state = load_progress()
     state.setdefault("greedy", {"chosen": [], "trajectory": []})
@@ -208,18 +155,14 @@ def stage_greedy(config: str, budget: float) -> None:
         "config": config,
         "resuming at": f"{len(greedy['chosen'])} components chosen, "
                        f"{len(greedy['trajectory'])} steps recorded",
-        "saturation": f"marginal dBLEU < {SATURATION_MARGIN} for {SATURATION_RUNS} consecutive additions",
+        "saturation": f"marginal dBLEU < {study.SATURATION_MARGIN} for {study.SATURATION_RUNS} "
+                      "consecutive additions",
         "budget": duration(budget),
         "progress": str(PROGRESS),
     })
-    adapter, _, prompts, references, means = setup(config)
-    baseline = _migrate_baseline(state["baseline"])["bleu_eval"]
-
-    def saturated() -> bool:
-        marginals = [step["marginal_dbleu"] for step in greedy["trajectory"]]
-        return len(marginals) >= SATURATION_RUNS and all(
-            marginal < SATURATION_MARGIN for marginal in marginals[-SATURATION_RUNS:]
-        )
+    adapter, corpus, means = study.setup(config)
+    baseline = baseline_bleu(state)
+    cost = study.cost_model()
 
     ranking = solo_ranking(state)
     significance = state["significance"]
@@ -234,60 +177,25 @@ def stage_greedy(config: str, budget: float) -> None:
             "of components screened. It is a hypothesis, not a discovered circuit.", indent=1)
     if not ranking:
         raise SystemExit("no component passed the significance gate; there is no set to grow")
+    ceiling = frontier_gate(greedy, state)
 
-    ceiling = frontier()
-    override = os.environ.get("MI_LAB_ALLOW_PAST_FRONTIER") == "1"
-    if ceiling is None and frontier_was_measured() and override:
-        record = json.loads(FRONTIER.read_text())
-        # An override, not a reinterpretation. The frontier still says what it said;
-        # what changes is that the operator has asked for the set anyway, and the
-        # artifact has to carry that so nobody downstream reads the result as one
-        # taken inside a measurable budget. Deleting the guard would have lost this.
-        greedy["grown_without_frontier"] = {
-            "first_broken_share": record.get("first_broken_share"),
-            "note": "MI_LAB_ALLOW_PAST_FRONTIER=1 was set. No probed ablation share left this model "
-                    "intact on every seed, so every number grown below is a measurement of a model "
-                    "that has partly stopped emitting language. It is not evidence of localization.",
-        }
-        save_progress(state)
-        log("!! MI_LAB_ALLOW_PAST_FRONTIER=1: growing a set on a model with no survival frontier. "
-            f"{record.get('first_broken_share')} of MACs already breaks it on at least one draw. "
-            "Every number from here measures destruction; it is recorded in the artifact as such.")
-    elif ceiling is None and frontier_was_measured():
-        record = json.loads(FRONTIER.read_text())
-        raise SystemExit(
-            f"the frontier ran and found none: {record.get('first_broken_share')} of model MACs already "
-            "breaks this model on at least one draw, and that is the smallest share probed. There is no "
-            "ablation budget here inside which a knockout measures localization rather than destruction, "
-            "so growing a set would produce a number with nothing behind it.\n\n"
-            "That is a finding about the model, not a missing input. Probe smaller shares if you think "
-            "the frontier is merely below the grid, or take the result: this model does not host a "
-            "measurable circuit claim at this granularity.\n\n"
-            "MI_LAB_ALLOW_PAST_FRONTIER=1 grows the set anyway and stamps the artifact with what it "
-            "cost, for when the sequence has to run end to end regardless."
-        )
-    if ceiling is None:
-        log("!! no survival frontier measured, so nothing stops this growing into a broken model. "
-            "Run `frontier` in phase1b_random_control first; continuing on marginal dBLEU alone.")
-    else:
-        log(f"growth stops at the measured survival frontier: {ceiling:.1%} of model MACs")
+    def marginals() -> List[float]:
+        return [entry["marginal_dbleu"] for entry in greedy["trajectory"]]
 
     steps = []
     stopped_at_frontier = False
-    while not saturated():
+    while not study.saturated(marginals()):
         estimate = sum(steps) / len(steps) if steps else state["baseline"]["seconds"]
         if not allowance.fits(estimate):
-            log(f"stopping cleanly: {allowance.state()}, next step needs ~{duration(estimate)}")
+            log(allowance.stop_line(estimate, "next step"))
             log(f"{len(greedy['chosen'])} components chosen so far -- re-run the same command to continue")
             return
-        candidates = [cid for cid in ranking
-                      if cid not in greedy["chosen"] and not redundant(cid, greedy["chosen"])]
-        if not candidates:
+        cid = study.next_candidate(ranking, greedy["chosen"])
+        if cid is None:
             break
-        cid = candidates[0]
         trial = [*greedy["chosen"], cid]
-        if ceiling is not None and flops_share(trial) > ceiling:
-            log(f"stopping at the frontier: adding {cid} would cost {flops_share(trial):.2%} of model MACs, "
+        if ceiling is not None and cost.share(trial) > ceiling:
+            log(f"stopping at the frontier: adding {cid} would cost {cost.share(trial):.2%} of model MACs, "
                 f"past the {ceiling:.1%} the model was measured to survive. "
                 f"{len(greedy['chosen'])} components chosen.")
             stopped_at_frontier = True
@@ -295,132 +203,121 @@ def stage_greedy(config: str, budget: float) -> None:
         log(f"[step {len(greedy['trajectory']) + 1}] adding {cid} -> {len(trial)} components · "
             f"{allowance.state()}")
         started = time.time()
-        bleu, _ = run_combo(adapter, means, prompts, references, trial, label=f"greedy+{cid}")
+        record = run_combo(adapter, means, corpus, trial, label=f"greedy+{cid}")
         steps.append(time.time() - started)
-        cumulative = round(baseline - bleu, 2)
+        cumulative = round(baseline - record["bleu"], 2)
         previous = greedy["trajectory"][-1]["cumulative_dbleu"] if greedy["trajectory"] else 0.0
         greedy["chosen"] = trial
         greedy["trajectory"].append({
             "added": cid,
-            "bleu": bleu,
+            "bleu": record["bleu"],
             "cumulative_dbleu": cumulative,
             "marginal_dbleu": round(cumulative - previous, 2),
         })
         save_progress(state)
-        print(f"+{cid}: BLEU {bleu} cumulative d {cumulative} (marginal {round(cumulative - previous, 2)})",
-              flush=True)
+        print(f"+{cid}: BLEU {record['bleu']} cumulative d {cumulative} "
+              f"(marginal {round(cumulative - previous, 2)})", flush=True)
     if stopped_at_frontier:
         outcome = (f"greedy stopped at the survival frontier ({ceiling:.1%} of MACs) -- the set is bounded "
                    "by what the model survives, not by saturation")
-    elif saturated():
+    elif study.saturated(marginals()):
         outcome = "greedy saturated"
     else:
         outcome = "greedy exhausted the candidate ranking"
     print(outcome, flush=True)
 
-@lru_cache(maxsize=1)
-def _flops_model() -> dict:
-    """The MAC bookkeeping, read once
-
-    flops_share is called per candidate while a matched random set is being
-    drawn -- thousands of times per seed -- and re-reading the file each time
-    made the draw cost more than the forward pass it was setting up.
-    """
-    return json.loads(result("phase1b-flops-model.json").read_text())
-
-def flops_share(components) -> float:
-    model = _flops_model()
-    head = model["per_component_macs"]["head"]
-    mlp = model["per_component_macs"]["mlp"]
-    total = model["totals"]["model_macs_per_token"]
-    n_heads = model["model"]["n_heads"]
-    macs = 0
-    for cid in components:
-        kind, _, _ = parse_component(cid)
-        macs += mlp if kind == "mlp" else head * (n_heads if kind == "heads" else 1)
-    return macs / total
+def frontier_note(ceiling, measured: bool, candidate_share: float, interpretable) -> str:
+    if ceiling is None and measured:
+        return ("the frontier ran and found none: no probed share left this model intact on every "
+                "seed, so there is no budget inside which this candidate's dCOMET measures "
+                "localization rather than destruction, and the pre-registered pass above is not "
+                "evidence of a circuit")
+    if ceiling is None:
+        return ("no frontier has been measured, so nothing here establishes that the ablated model "
+                "was still a language model; run the frontier stage of phase1b_random_control")
+    verdict = ("inside it, so its dCOMET is a translation loss" if interpretable else
+               "outside it, so its dCOMET measures destruction rather than localization and the "
+               "pre-registered pass above is not evidence of a circuit")
+    return (f"the model was measured to survive ablation up to {ceiling:.1%} of MACs; this "
+            f"candidate costs {candidate_share:.2%}, {verdict}")
 
 def stage_comet(config: str) -> None:
     state = load_progress()
     greedy = state["greedy"]
-    adapter, wmt, prompts, references, means = setup(config)
-    sources = [spanish for spanish, _ in wmt[:EVAL_SENTENCES]]
+    adapter, corpus, means = study.setup(config)
+    cost = study.cost_model()
+    comet = Comet()
 
-    from comet import download_model, load_from_checkpoint
-    comet = load_from_checkpoint(download_model("Unbabel/wmt22-comet-da"))
-
-    def score(hypotheses):
-        data = [{"src": s, "mt": m, "ref": r} for s, m, r in zip(sources, hypotheses, references, strict=True)]
-        return round(float(comet.predict(data, batch_size=16, gpus=1).system_score), 4)
+    def score(hypotheses) -> float:
+        return comet.score(corpus.sources, hypotheses, corpus.references)
 
     chosen = greedy["chosen"]
-    evaluations = {
-        "baseline": {"bleu": _migrate_baseline(state["baseline"])["bleu_eval"],
-                     "comet22": score(state["baseline"]["hypotheses"])},
-        "candidate": {"components": chosen, "flops_share": round(flops_share(chosen), 4),
-                      "bleu": state["combos"]["full_candidate_set"]["bleu"]
-                      if set(chosen) == set(COMBOS["full_candidate_set"]) else None,
-                      "comet22": score(state["combos"]["full_candidate_set"]["hypotheses"])
-                      if set(chosen) == set(COMBOS["full_candidate_set"]) else None},
+    full = state["combos"]["full_candidate_set"]
+    is_full = set(chosen) == set(full["components"])
+    evaluations: Dict[str, Dict[str, Any]] = {
+        "baseline": {"bleu": baseline_bleu(state), "comet22": score(state["baseline"]["hypotheses"])},
+        "candidate": {"components": chosen, "flops_share": round(cost.share(chosen), 4),
+                      "bleu": full["bleu"] if is_full else None,
+                      "comet22": score(full["hypotheses"]) if is_full else None},
     }
     if evaluations["candidate"]["comet22"] is None:
-        bleu, hypotheses = run_combo(adapter, means, prompts, references, chosen)
-        evaluations["candidate"].update(bleu=bleu, comet22=score(hypotheses))
+        record = run_combo(adapter, means, corpus, chosen, label="candidate")
+        evaluations["candidate"].update(bleu=record["bleu"], comet22=score(record["hypotheses"]))
     # the smallest greedy prefixes: the pre-registered test asks for *a* set under
-    # 25% FLOPs, and the interesting one is the cheapest that still clears it
+    # the ceiling, and the interesting one is the cheapest that still clears it
     for size in (1, 2, 4):
         prefix = chosen[:size]
-        bleu, hypotheses = run_combo(adapter, means, prompts, references, prefix)
+        record = run_combo(adapter, means, corpus, prefix, label=f"greedy_prefix_{size}")
         evaluations[f"greedy_prefix_{size}"] = {
-            "components": prefix, "flops_share": round(flops_share(prefix), 4),
-            "bleu": bleu, "comet22": score(hypotheses),
+            "components": prefix, "flops_share": round(cost.share(prefix), 4),
+            "bleu": record["bleu"], "comet22": score(record["hypotheses"]),
         }
-        print(f"prefix {size}: BLEU {bleu} COMET {evaluations[f'greedy_prefix_{size}']['comet22']}", flush=True)
+        print(f"prefix {size}: BLEU {record['bleu']} COMET {evaluations[f'greedy_prefix_{size}']['comet22']}",
+              flush=True)
     for name, record in evaluations.items():
         if name == "baseline":
             continue
         record["dcomet"] = round(evaluations["baseline"]["comet22"] - record["comet22"], 4)
         record["dbleu"] = round(evaluations["baseline"]["bleu"] - record["bleu"], 2)
+    threshold = study.COMET_THRESHOLD
     passing = [name for name, record in evaluations.items()
-               if name != "baseline" and record["dcomet"] >= 0.020
-               and record["flops_share"] <= PREREGISTERED_CEILING]
+               if name != "baseline" and record["dcomet"] >= threshold
+               and record["flops_share"] <= study.PREREGISTERED_CEILING]
     smallest = min(passing, key=lambda name: evaluations[name]["flops_share"], default=None)
 
-    threshold = 0.020
-    # The pre-registered criterion is reported exactly as pre-registered, 25% ceiling
-    # and all -- rewriting a threshold after seeing the data is the thing pre-registration
-    # exists to prevent. The frontier is reported *beside* it instead, because a set can
-    # satisfy the criterion and still be uninterpretable: dCOMET only measures a loss of
-    # translation on a model that was still translating, and past the frontier every set
-    # clears any threshold for the same reason an unplugged model would. So `pass` keeps
-    # its pre-registered meaning and `interpretable` says whether that pass is evidence.
-    ceiling = frontier()
-    measured = frontier_was_measured()
+    # The pre-registered criterion is reported exactly as pre-registered, ceiling
+    # and all -- rewriting a threshold after seeing the data is the thing
+    # pre-registration exists to prevent. The frontier is reported *beside* it,
+    # because a set can satisfy the criterion and still be uninterpretable: past
+    # the frontier every set clears any threshold for the same reason an
+    # unplugged model would. So `pass` keeps its pre-registered meaning and
+    # `interpretable` says whether that pass is evidence.
+    ceiling = study.frontier_share()
+    measured = study.frontier_measured()
     candidate_share = evaluations["candidate"]["flops_share"]
     if ceiling is not None:
         interpretable = bool(candidate_share <= ceiling)
     elif measured:
-        # the frontier ran and found none, which is not the same as not having run.
-        # A set of any size is outside a budget that does not exist.
-        interpretable = False
+        interpretable = False    # a set of any size is outside a budget that does not exist
     else:
         interpretable = None
     CANDIDATE.write_text(json.dumps({
         "protocol": "greedy rank-ordered set growth over the solo-ablation ranking, cumulative mean-ablation "
-                    "re-scored on the full WMT-200 shortlist each step; saturation = marginal dBLEU < "
-                    f"{SATURATION_MARGIN} for {SATURATION_RUNS} consecutive additions. COMET-22 on the same "
-                    "200 sentences for the pre-registered test.",
+                    "re-scored on the full WMT shortlist each step; saturation = marginal dBLEU < "
+                    f"{study.SATURATION_MARGIN} for {study.SATURATION_RUNS} consecutive additions. COMET-22 on "
+                    "the same sentences for the pre-registered test.",
         "greedy_trajectory": greedy["trajectory"],
         "combos": {name: {key: value for key, value in record.items() if key != "hypotheses"}
                    for name, record in state.get("combos", {}).items()},
         "evaluations": evaluations,
         "pre_registered_test": {
-            "criterion": "component set <= 25% FLOPs whose ablation drops COMET-22 by >= 0.020",
+            "criterion": f"component set <= {study.PREREGISTERED_CEILING:.0%} FLOPs whose ablation drops "
+                         f"COMET-22 by >= {threshold}",
             "threshold_dcomet": threshold,
             "candidate_dcomet": evaluations["candidate"]["dcomet"],
-            "candidate_flops_share": evaluations["candidate"]["flops_share"],
+            "candidate_flops_share": candidate_share,
             "pass": bool(evaluations["candidate"]["dcomet"] >= threshold
-                         and candidate_share <= PREREGISTERED_CEILING),
+                         and candidate_share <= study.PREREGISTERED_CEILING),
             "smallest_passing_set": smallest,
             "smallest_passing_flops_share": evaluations[smallest]["flops_share"] if smallest else None,
         },
@@ -430,20 +327,7 @@ def stage_comet(config: str) -> None:
             "candidate_flops_share": candidate_share,
             "interpretable": interpretable,
             "measured": measured,
-            "note": ("the frontier ran and found none: no probed share left this model intact on every "
-                     "seed, so there is no budget inside which this candidate's dCOMET measures "
-                     "localization rather than destruction, and the pre-registered pass above is not "
-                     "evidence of a circuit"
-                     if ceiling is None and measured else
-                     "no frontier has been measured, so nothing here establishes that the ablated model "
-                     "was still a language model; run the frontier stage of phase1b_random_control"
-                     if ceiling is None else
-                     f"the model was measured to survive ablation up to {ceiling:.1%} of MACs; this "
-                     f"candidate costs {candidate_share:.2%}, "
-                     + ("inside it, so its dCOMET is a translation loss"
-                        if interpretable else
-                        "outside it, so its dCOMET measures destruction rather than localization and the "
-                        "pre-registered pass above is not evidence of a circuit")),
+            "note": frontier_note(ceiling, measured, candidate_share, interpretable),
         },
         "command": f"uv run python -m scripts.phase1b_greedy {config} combo|greedy|comet (chained)",
     }, indent=2, ensure_ascii=False) + "\n")
@@ -455,16 +339,12 @@ def stage_comet(config: str) -> None:
               "Every set this large scores a large dCOMET because the model has stopped emitting "
               "language, so the pre-registered pass above is not evidence of a circuit. "
               "Read the generations.", flush=True)
-        if not measured:
-            print("   (no frontier has been measured at all)", flush=True)
     elif interpretable is None:
         print("\n!! WARNING: no survival frontier measured; nothing establishes that the ablated model "
               "was still a language model.", flush=True)
 
 def main() -> None:
-    import sys
-
-    config = sys.argv[1] if len(sys.argv) > 1 else "qwen3-8b"
+    config = sys.argv[1] if len(sys.argv) > 1 else study.DEFAULT_CONFIG
     stage = sys.argv[2] if len(sys.argv) > 2 else "combo"
     guard(config)
     if stage == "combo":
@@ -474,7 +354,7 @@ def main() -> None:
     elif stage == "comet":
         stage_comet(config)
     else:
-        raise SystemExit(f"unknown stage '{stage}'")
+        raise SystemExit(f"unknown stage '{stage}'; stages are combo, greedy, comet")
 
 if __name__ == "__main__":
     main()
