@@ -1,0 +1,104 @@
+{
+  "protocol": "random-component control at matched FLOPs (Zhang et al. 2502.11806 Fig. 2 shape). Each random arm is a component set drawn without replacement from the scope until its MACs match the discovered set's within 5%, ablated toward the same counterfactual means and scored on the same WMT-200 shortlist. A discovered set that does not clear the random band is not evidence of a circuit.",
+  "scopes": {
+    "candidate": "atomic components drawn from layers 27-35 only: are these the right components within the right layers",
+    "model": "atomic components drawn from the whole stack: is the localization real at all"
+  },
+  "baseline_bleu": 34.83,
+  "baseline_degeneracy": 0.0,
+  "degeneracy_note": "fraction of hypotheses that are repeated tokens rather than language; any arm with a non-zero value here has its BLEU read as a broken-model number, not a translation-quality one",
+  "results": {
+    "model/greedy": {
+      "discovered": {
+        "components": [
+          "mlp:23",
+          "mlp:26",
+          "mlp:24",
+          "mlp:21",
+          "heads:23"
+        ],
+        "n_components": 5,
+        "flops_share": 0.115,
+        "bleu": 25.4,
+        "degeneracy": 0.022,
+        "seconds": 46.7,
+        "empty": 0
+      },
+      "discovered_dbleu": 9.43,
+      "random_seeds": 8,
+      "random_dbleu": {
+        "min": 8.96,
+        "median": 26.41,
+        "max": 34.83,
+        "all": [
+          8.96,
+          10.75,
+          15.97,
+          22.79,
+          26.41,
+          34.79,
+          34.82,
+          34.83
+        ]
+      },
+      "random_flops_shares": [
+        0.1149,
+        0.1153
+      ],
+      "random_degeneracy_max": 1.0,
+      "random_empty_max": 213,
+      "discovered_empty": 0,
+      "random_match_error_max": 0.0023,
+      "match_tolerance": 0.05,
+      "separation": -25.4,
+      "clears_random_band": false
+    },
+    "candidate/greedy": {
+      "discovered": {
+        "components": [
+          "mlp:23",
+          "mlp:26",
+          "mlp:24",
+          "mlp:21",
+          "heads:23"
+        ],
+        "n_components": 5,
+        "flops_share": 0.115,
+        "bleu": 25.4,
+        "degeneracy": 0.022,
+        "seconds": 47.1,
+        "empty": 0
+      },
+      "discovered_dbleu": 9.43,
+      "random_seeds": 8,
+      "random_dbleu": {
+        "min": 9.18,
+        "median": 20.2,
+        "max": 22.95,
+        "all": [
+          9.18,
+          9.72,
+          10.51,
+          17.43,
+          20.2,
+          20.21,
+          21.38,
+          22.95
+        ]
+      },
+      "random_flops_shares": [
+        0.1149,
+        0.115,
+        0.1153
+      ],
+      "random_degeneracy_max": 0.117,
+      "random_empty_max": 1,
+      "discovered_empty": 0,
+      "random_match_error_max": 0.0023,
+      "match_tolerance": 0.05,
+      "separation": -13.52,
+      "clears_random_band": false
+    }
+  },
+  "command": "uv run python -m scripts.phase1b_random_control qwen3-1.7b run <scope> (chained), then report"
+}

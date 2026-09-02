@@ -1,0 +1,108 @@
+{
+  "protocol": "greedy rank-ordered set growth over the solo-ablation ranking, cumulative mean-ablation re-scored on the full WMT-200 shortlist each step; saturation = marginal dBLEU < 0.3 for 3 consecutive additions. COMET-22 on the same 200 sentences for the pre-registered test.",
+  "greedy_trajectory": [
+    {
+      "added": "mlp:23",
+      "bleu": 33.25,
+      "cumulative_dbleu": 1.58,
+      "marginal_dbleu": 1.58
+    },
+    {
+      "added": "mlp:26",
+      "bleu": 32.36,
+      "cumulative_dbleu": 2.47,
+      "marginal_dbleu": 0.89
+    },
+    {
+      "added": "mlp:24",
+      "bleu": 30.02,
+      "cumulative_dbleu": 4.81,
+      "marginal_dbleu": 2.34
+    },
+    {
+      "added": "mlp:21",
+      "bleu": 26.96,
+      "cumulative_dbleu": 7.87,
+      "marginal_dbleu": 3.06
+    },
+    {
+      "added": "heads:23",
+      "bleu": 25.4,
+      "cumulative_dbleu": 9.43,
+      "marginal_dbleu": 1.56
+    }
+  ],
+  "combos": {},
+  "evaluations": {
+    "baseline": {
+      "bleu": 34.83,
+      "comet22": 0.8562
+    },
+    "candidate": {
+      "components": [
+        "mlp:23",
+        "mlp:26",
+        "mlp:24",
+        "mlp:21",
+        "heads:23"
+      ],
+      "flops_share": 0.115,
+      "bleu": 25.4,
+      "comet22": 0.7919,
+      "dcomet": 0.0643,
+      "dbleu": 9.43
+    },
+    "greedy_prefix_1": {
+      "components": [
+        "mlp:23"
+      ],
+      "flops_share": 0.0264,
+      "bleu": 33.25,
+      "comet22": 0.8489,
+      "dcomet": 0.0073,
+      "dbleu": 1.58
+    },
+    "greedy_prefix_2": {
+      "components": [
+        "mlp:23",
+        "mlp:26"
+      ],
+      "flops_share": 0.0529,
+      "bleu": 32.36,
+      "comet22": 0.8442,
+      "dcomet": 0.012,
+      "dbleu": 2.47
+    },
+    "greedy_prefix_4": {
+      "components": [
+        "mlp:23",
+        "mlp:26",
+        "mlp:24",
+        "mlp:21"
+      ],
+      "flops_share": 0.1058,
+      "bleu": 26.96,
+      "comet22": 0.8049,
+      "dcomet": 0.0513,
+      "dbleu": 7.87
+    }
+  },
+  "pre_registered_test": {
+    "criterion": "component set <= 25% FLOPs whose ablation drops COMET-22 by >= 0.020",
+    "threshold_dcomet": 0.02,
+    "candidate_dcomet": 0.0643,
+    "candidate_flops_share": 0.115,
+    "pass": true,
+    "smallest_passing_set": "greedy_prefix_4",
+    "smallest_passing_flops_share": 0.1058
+  },
+  "survival_frontier": {
+    "share": null,
+    "source": "results/qwen3-1.7b/phase1b-survival-frontier.json",
+    "candidate_flops_share": 0.115,
+    "interpretable": false,
+    "measured": true,
+    "note": "the frontier ran and found none: no probed share left this model intact on every seed, so there is no budget inside which this candidate's dCOMET measures localization rather than destruction, and the pre-registered pass above is not evidence of a circuit"
+  },
+  "command": "uv run python -m scripts.phase1b_greedy qwen3-1.7b combo|greedy|comet (chained)"
+}

@@ -395,8 +395,16 @@ def stage_comet(config: str) -> None:
     # clears any threshold for the same reason an unplugged model would. So `pass` keeps
     # its pre-registered meaning and `interpretable` says whether that pass is evidence.
     ceiling = frontier()
+    measured = frontier_was_measured()
     candidate_share = evaluations["candidate"]["flops_share"]
-    interpretable = None if ceiling is None else bool(candidate_share <= ceiling)
+    if ceiling is not None:
+        interpretable = bool(candidate_share <= ceiling)
+    elif measured:
+        # the frontier ran and found none, which is not the same as not having run.
+        # A set of any size is outside a budget that does not exist.
+        interpretable = False
+    else:
+        interpretable = None
     CANDIDATE.write_text(json.dumps({
         "protocol": "greedy rank-ordered set growth over the solo-ablation ranking, cumulative mean-ablation "
                     "re-scored on the full WMT-200 shortlist each step; saturation = marginal dBLEU < "
@@ -421,7 +429,13 @@ def stage_comet(config: str) -> None:
             "source": str(FRONTIER),
             "candidate_flops_share": candidate_share,
             "interpretable": interpretable,
-            "note": ("no frontier has been measured, so nothing here establishes that the ablated model "
+            "measured": measured,
+            "note": ("the frontier ran and found none: no probed share left this model intact on every "
+                     "seed, so there is no budget inside which this candidate's dCOMET measures "
+                     "localization rather than destruction, and the pre-registered pass above is not "
+                     "evidence of a circuit"
+                     if ceiling is None and measured else
+                     "no frontier has been measured, so nothing here establishes that the ablated model "
                      "was still a language model; run the frontier stage of phase1b_random_control"
                      if ceiling is None else
                      f"the model was measured to survive ablation up to {ceiling:.1%} of MACs; this "
@@ -435,10 +449,14 @@ def stage_comet(config: str) -> None:
     }, indent=2, ensure_ascii=False) + "\n")
     print(json.dumps(json.loads(CANDIDATE.read_text())["pre_registered_test"], indent=2))
     if interpretable is False:
-        print(f"\n!! WARNING: the candidate costs {candidate_share:.2%} of model MACs, past the "
-              f"{ceiling:.1%} survival frontier. Every set this large scores a large dCOMET because the "
-              "model has stopped emitting language, so the pre-registered pass above is not evidence of "
-              "a circuit. Read the generations.", flush=True)
+        where = (f"past the {ceiling:.1%} survival frontier" if ceiling is not None
+                 else "and this model has no survival frontier at all")
+        print(f"\n!! WARNING: the candidate costs {candidate_share:.2%} of model MACs, {where}. "
+              "Every set this large scores a large dCOMET because the model has stopped emitting "
+              "language, so the pre-registered pass above is not evidence of a circuit. "
+              "Read the generations.", flush=True)
+        if not measured:
+            print("   (no frontier has been measured at all)", flush=True)
     elif interpretable is None:
         print("\n!! WARNING: no survival frontier measured; nothing establishes that the ablated model "
               "was still a language model.", flush=True)

@@ -137,3 +137,91 @@
 [19:22:43]         handles.append(adapter.projections[layer].register_forward_pre_hook(head_hook(layer)))
 [19:22:43]                        ~~~~~~~~~~~~~~~~~~~^^^^^^^
 [19:22:43]     IndexError: list index out of range
+
+=== 2026-09-01 19:41:23 :: /home/lmanrique/Do/mi-lab/scripts/pipeline.py run=phase1b-1.7b-full dry_run=true
+[19:41:23] ==============================================================================
+[19:41:23] pipeline: phase1b on qwen3-1.7b, end to end
+[19:41:23]             config: qwen3-1.7b
+[19:41:23]              steps: 10 selected of 10, 5 already done
+[19:41:23]        environment: MI_LAB_RESULTS=results/qwen3-1.7b, MI_LAB_EVAL_SENTENCES=497, MI_LAB_ALLOW_PAST_FRONTIER=1
+[19:41:23]             resume: True
+[19:41:23]              state: results/qwen3-1.7b/pipeline-state.json
+[19:41:24]                gpu: 0.0/0.0 GiB, peak 0.0
+[19:41:24] ==============================================================================
+[19:41:24] [1/10] flops already done (2s) -- skipping
+[19:41:24] [2/10] sweep-layers already done (12m00s) -- skipping
+[19:41:24] [3/10] assemble already done (1s) -- skipping
+[19:41:24] [4/10] significance already done (2s) -- skipping
+[19:41:24] [5/10] frontier already done (26m44s) -- skipping
+[19:41:24] [6/10] greedy
+[19:41:24]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_greedy qwen3-1.7b greedy 1800
+[19:41:24] [7/10] comet
+[19:41:24]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_greedy qwen3-1.7b comet
+[19:41:24] [8/10] control-model
+[19:41:24]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_random_control qwen3-1.7b run model greedy 8 3600
+[19:41:24] [9/10] control-candidate
+[19:41:24]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_random_control qwen3-1.7b run candidate greedy 8 3600
+[19:41:24] [10/10] control-report
+[19:41:24]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_random_control qwen3-1.7b report
+[19:41:24] dry run: nothing executed
+
+=== 2026-09-01 19:41:46 :: /home/lmanrique/Do/mi-lab/scripts/pipeline.py run=phase1b-1.7b-full
+[19:41:46] ==============================================================================
+[19:41:46] pipeline: phase1b on qwen3-1.7b, end to end
+[19:41:46]             config: qwen3-1.7b
+[19:41:46]              steps: 10 selected of 10, 5 already done
+[19:41:46]        environment: MI_LAB_RESULTS=results/qwen3-1.7b, MI_LAB_EVAL_SENTENCES=497, MI_LAB_ALLOW_PAST_FRONTIER=1
+[19:41:46]             resume: True
+[19:41:46]              state: results/qwen3-1.7b/pipeline-state.json
+[19:41:46]                gpu: 0.0/0.0 GiB, peak 0.0
+[19:41:46] ==============================================================================
+[19:41:46] [1/10] flops already done (2s) -- skipping
+[19:41:46] [2/10] sweep-layers already done (12m00s) -- skipping
+[19:41:46] [3/10] assemble already done (1s) -- skipping
+[19:41:46] [4/10] significance already done (2s) -- skipping
+[19:41:46] [5/10] frontier already done (26m44s) -- skipping
+[19:41:46] [6/10] greedy
+[19:41:46]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_greedy qwen3-1.7b greedy 1800
+[19:45:57]     [19:45:56]   greedy+heads:23[0]: "a Republican strategy to block Obama's re-election"
+[19:45:57]     [19:45:56]   greedy+heads:23[1]: 'The republican leaders justify the policy by the need to fight electoral fraud.'
+[19:45:57]     [19:45:56]   greedy+heads:23[2]: 'Well, the Brennan Center considers this last thing a myth and says that electoral fraud is more…'
+[19:45:57]     [19:45:56]   greedy+heads:23: DEGENERACY 2.2% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:45:57]     +heads:23: BLEU 25.4 cumulative d 9.43 (marginal 1.56)
+[19:45:57]     greedy exhausted the candidate ranking
+[19:45:57]   greedy done in 4m11s (1 invocation(s))
+[19:45:57] [7/10] comet
+[19:45:57]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_greedy qwen3-1.7b comet
+[19:51:01]       "pass": true,
+[19:51:01]       "smallest_passing_set": "greedy_prefix_4",
+[19:51:01]       "smallest_passing_flops_share": 0.1058
+[19:51:01]     }
+[19:51:01]     
+[19:51:01]     !! WARNING: no survival frontier measured; nothing establishes that the ablated model was still a language model.
+[19:51:01]   comet done in 5m03s (1 invocation(s))
+[19:51:01] [8/10] control-model
+[19:51:01]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_random_control qwen3-1.7b run model greedy 8 3600
+[19:58:21]     [19:58:20]   random_7[2]: ','
+[19:58:21]     [19:58:20]   random_7: 213/497 generations are empty
+[19:58:21]     [19:58:20]   random_7: DEGENERACY 100.0% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:58:21]     [19:58:20] random_7: BLEU 0.0 · dBLEU 34.83 · 65 components · match 0.23% · degeneracy 1.0
+[19:58:21]     [19:58:20]   running verdict: discovered dBLEU 9.43 vs random band 8.96..34.83 over 8 seeds -- discovered is NOT ahead
+[19:58:21]     [19:58:20] scope 'model' target 'greedy' done in 7m19s -- run the report stage next
+[19:58:21]   control-model done in 7m20s (1 invocation(s))
+[19:58:21] [9/10] control-candidate
+[19:58:21]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_random_control qwen3-1.7b run candidate greedy 8 3600
+[20:05:39]     [20:05:38]   random_7[1]: 'The republican leaders justify the political policy by the need of the political of the politic…'
+[20:05:39]     [20:05:38]   random_7[2]: 'In the case of the C. (The) 1900, the first of the 1900, the first of the 1900, the first of th…'
+[20:05:39]     [20:05:38]   random_7: DEGENERACY 7.4% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[20:05:39]     [20:05:38] random_7: BLEU 14.63 · dBLEU 20.2 · 65 components · match 0.23% · degeneracy 0.074
+[20:05:39]     [20:05:38]   running verdict: discovered dBLEU 9.43 vs random band 9.18..22.95 over 8 seeds -- discovered is NOT ahead
+[20:05:39]     [20:05:38] scope 'candidate' target 'greedy' done in 7m16s -- run the report stage next
+[20:05:39]   control-candidate done in 7m18s (1 invocation(s))
+[20:05:39] [10/10] control-report
+[20:05:39]   $ /home/lmanrique/Do/mi-lab/.venv/bin/python3 -m scripts.phase1b_random_control qwen3-1.7b report
+[20:05:40]     [model/greedy] discovered dBLEU 9.43 vs random max 34.83 over 8 seeds -> DOES NOT clear the random band (separation -25.4)
+[20:05:40]     [model/greedy] WARNING: degeneracy is non-zero (discovered 0.022, random max 1.0); read the generations before quoting any of this
+[20:05:40]     [candidate/greedy] discovered dBLEU 9.43 vs random max 22.95 over 8 seeds -> DOES NOT clear the random band (separation -13.52)
+[20:05:40]     [candidate/greedy] WARNING: degeneracy is non-zero (discovered 0.022, random max 0.117); read the generations before quoting any of this
+[20:05:40]     -> results/qwen3-1.7b/phase1b-random-control.json
+[20:05:40]   control-report done in 1s (1 invocation(s))
+[20:05:40] pipeline 'phase1b on qwen3-1.7b, end to end' complete

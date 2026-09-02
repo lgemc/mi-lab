@@ -32,3 +32,82 @@
 [19:24:42] <- counterfactual means over the candidate band (21-27) in 0s (3.2/3.2 GiB, peak 3.2)
 [19:24:42] ranking gated on the paired bootstrap: 5 of 14 components pass raw p < 0.05 (0 were never testable, no stored generations)
 [19:24:42]   surviving FDR correction across the 14 tested: ['mlp:23', 'mlp:26', 'mlp:21', 'heads:23']
+
+=== 2026-09-01 19:41:47 :: /home/lmanrique/Do/mi-lab/scripts/phase1b_greedy.py qwen3-1.7b greedy 1800
+[19:41:47] ==============================================================================
+[19:41:47] phase1b greedy set growth
+[19:41:47]             config: qwen3-1.7b
+[19:41:47]        resuming at: 0 components chosen, 0 steps recorded
+[19:41:47]         saturation: marginal dBLEU < 0.3 for 3 consecutive additions
+[19:41:47]             budget: 30m00s
+[19:41:47]           progress: results/qwen3-1.7b/phase1b-ablation-progress.json
+[19:41:47]                gpu: 0.0/0.0 GiB, peak 0.0
+[19:41:47] ==============================================================================
+[19:41:47] -> loading qwen3-1.7b
+[19:42:06] <- loading qwen3-1.7b in 19s (3.2/3.2 GiB, peak 3.2)
+[19:42:06] eval set: 497 sentences · model 28x16 · 3.2/3.2 GiB, peak 3.2
+[19:42:06] -> counterfactual means over the candidate band (21-27)
+[19:42:06] <- counterfactual means over the candidate band (21-27) in 0s (3.2/3.2 GiB, peak 3.2)
+[19:42:06] ranking gated on the paired bootstrap: 5 of 14 components pass raw p < 0.05 (0 were never testable, no stored generations)
+[19:42:06]   surviving FDR correction across the 14 tested: ['mlp:23', 'mlp:26', 'mlp:21', 'heads:23']
+[19:42:06] !! MI_LAB_ALLOW_PAST_FRONTIER=1: growing a set on a model with no survival frontier. 0.005 of MACs already breaks it on at least one draw. Every number from here measures destruction; it is recorded in the artifact as such.
+[19:42:06] !! no survival frontier measured, so nothing stops this growing into a broken model. Run `frontier` in phase1b_random_control first; continuing on marginal dBLEU alone.
+[19:42:06] [step 1] adding mlp:23 -> 1 components · budget 19s/30m00s used, 29m41s left
+[19:42:06] -> greedy+mlp:23: 1 components (share 0.0264)
+[19:42:16]     greedy+mlp:23 1/5 · 10s elapsed · eta 39s · 9.7s/item · 100/497 sentences
+[19:42:25]     greedy+mlp:23 2/5 · 19s elapsed · eta 28s · 9.4s/item · 200/497 sentences
+[19:42:34]     greedy+mlp:23 3/5 · 28s elapsed · eta 19s · 9.4s/item · 300/497 sentences
+[19:42:43]     greedy+mlp:23 4/5 · 37s elapsed · eta 9s · 9.2s/item · 400/497 sentences
+[19:42:53]     greedy+mlp:23 5/5 · 47s elapsed · eta 0s · 9.3s/item · 497/497 sentences
+[19:42:53] <- greedy+mlp:23: 1 components (share 0.0264) in 47s (3.2/9.3 GiB, peak 6.8, BLEU 33.25, degeneracy 0.0)
+[19:42:53]   greedy+mlp:23[0]: "A republican strategy to block Obama's re-election"
+[19:42:53]   greedy+mlp:23[1]: 'The republican leaders justified their policy by the need to fight against electoral fraud.'
+[19:42:53]   greedy+mlp:23[2]: 'In any case, the Brennan Center considers this last thing a myth and states that the electoral …'
+[19:42:53] [step 2] adding mlp:26 -> 2 components · budget 66s/30m00s used, 28m54s left
+[19:42:53] -> greedy+mlp:26: 2 components (share 0.0529)
+[19:43:02]     greedy+mlp:26 1/5 · 9s elapsed · eta 35s · 8.9s/item · 100/497 sentences
+[19:43:11]     greedy+mlp:26 2/5 · 18s elapsed · eta 27s · 8.9s/item · 200/497 sentences
+[19:43:20]     greedy+mlp:26 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[19:43:29]     greedy+mlp:26 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:43:38]     greedy+mlp:26 5/5 · 46s elapsed · eta 0s · 9.1s/item · 497/497 sentences
+[19:43:38] <- greedy+mlp:26: 2 components (share 0.0529) in 46s (3.2/9.3 GiB, peak 6.8, BLEU 32.36, degeneracy 0.002)
+[19:43:38]   greedy+mlp:26[0]: "A republican strategy to block Obama's re-election"
+[19:43:38]   greedy+mlp:26[1]: 'The republican leaders justified their policy by the need to fight against electoral fraud.'
+[19:43:38]   greedy+mlp:26[2]: 'Now, the Brennan Center considers this last statement a myth and claims that electoral fraud is…'
+[19:43:38]   greedy+mlp:26: DEGENERACY 0.2% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:43:38] [step 3] adding mlp:24 -> 3 components · budget 1m52s/30m00s used, 28m08s left
+[19:43:38] -> greedy+mlp:24: 3 components (share 0.0793)
+[19:43:47]     greedy+mlp:24 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:43:57]     greedy+mlp:24 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:44:06]     greedy+mlp:24 3/5 · 27s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:44:14]     greedy+mlp:24 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:44:24]     greedy+mlp:24 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:44:24] <- greedy+mlp:24: 3 components (share 0.0793) in 46s (3.2/9.3 GiB, peak 6.8, BLEU 30.02, degeneracy 0.006)
+[19:44:24]   greedy+mlp:24[0]: "A republican strategy to block Obama's re-election"
+[19:44:24]   greedy+mlp:24[1]: 'Republican leaders justify their policy by the need to fight against electoral fraud.'
+[19:44:24]   greedy+mlp:24[2]: 'Now, the Brennan Center considers this last one a myth and says that electoral fraud is less fr…'
+[19:44:24]   greedy+mlp:24: DEGENERACY 0.6% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:44:25] [step 4] adding mlp:21 -> 4 components · budget 2m38s/30m00s used, 27m22s left
+[19:44:25] -> greedy+mlp:21: 4 components (share 0.1058)
+[19:44:33]     greedy+mlp:21 1/5 · 9s elapsed · eta 36s · 8.9s/item · 100/497 sentences
+[19:44:42]     greedy+mlp:21 2/5 · 18s elapsed · eta 27s · 8.9s/item · 200/497 sentences
+[19:44:52]     greedy+mlp:21 3/5 · 27s elapsed · eta 18s · 9.1s/item · 300/497 sentences
+[19:45:00]     greedy+mlp:21 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:45:10]     greedy+mlp:21 5/5 · 46s elapsed · eta 0s · 9.1s/item · 497/497 sentences
+[19:45:10] <- greedy+mlp:21: 4 components (share 0.1058) in 46s (3.2/9.3 GiB, peak 6.8, BLEU 26.96, degeneracy 0.018)
+[19:45:10]   greedy+mlp:21[0]: "a republican strategy to block Obama's re-election"
+[19:45:10]   greedy+mlp:21[1]: 'The republican leaders justify their policy by the need to fight electoral fraud.'
+[19:45:10]   greedy+mlp:21[2]: 'Well, the Brennan Center considers this last thing a myth and says that electoral fraud is more…'
+[19:45:10]   greedy+mlp:21: DEGENERACY 1.8% of generations are repeated tokens, not language -- this is a broken model, not an ablated one
+[19:45:10] [step 5] adding heads:23 -> 5 components · budget 3m23s/30m00s used, 26m37s left
+[19:45:10] -> greedy+heads:23: 5 components (share 0.115)
+[19:45:19]     greedy+heads:23 1/5 · 9s elapsed · eta 36s · 9.0s/item · 100/497 sentences
+[19:45:29]     greedy+heads:23 2/5 · 18s elapsed · eta 27s · 9.1s/item · 200/497 sentences
+[19:45:38]     greedy+heads:23 3/5 · 28s elapsed · eta 18s · 9.2s/item · 300/497 sentences
+[19:45:46]     greedy+heads:23 4/5 · 36s elapsed · eta 9s · 9.0s/item · 400/497 sentences
+[19:45:56]     greedy+heads:23 5/5 · 46s elapsed · eta 0s · 9.2s/item · 497/497 sentences
+[19:45:56] <- greedy+heads:23: 5 components (share 0.115) in 46s (3.2/9.3 GiB, peak 6.8, BLEU 25.4, degeneracy 0.022)
+[19:45:56]   greedy+heads:23[0]: "a Republican strategy to block Obama's re-election"
+[19:45:56]   greedy+heads:23[1]: 'The republican leaders justify the policy by the need to fight electoral fraud.'
+[19:45:56]   greedy+heads:23[2]: 'Well, the Brennan Center considers this last thing a myth and says that electoral fraud is more…'
+[19:45:56]   greedy+heads:23: DEGENERACY 2.2% of generations are repeated tokens, not language -- this is a broken model, not an ablated one

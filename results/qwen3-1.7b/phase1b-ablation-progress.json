@@ -7698,5 +7698,50 @@
         "significant_fdr": false
       }
     }
+  },
+  "greedy": {
+    "chosen": [
+      "mlp:23",
+      "mlp:26",
+      "mlp:24",
+      "mlp:21",
+      "heads:23"
+    ],
+    "trajectory": [
+      {
+        "added": "mlp:23",
+        "bleu": 33.25,
+        "cumulative_dbleu": 1.58,
+        "marginal_dbleu": 1.58
+      },
+      {
+        "added": "mlp:26",
+        "bleu": 32.36,
+        "cumulative_dbleu": 2.47,
+        "marginal_dbleu": 0.89
+      },
+      {
+        "added": "mlp:24",
+        "bleu": 30.02,
+        "cumulative_dbleu": 4.81,
+        "marginal_dbleu": 2.34
+      },
+      {
+        "added": "mlp:21",
+        "bleu": 26.96,
+        "cumulative_dbleu": 7.87,
+        "marginal_dbleu": 3.06
+      },
+      {
+        "added": "heads:23",
+        "bleu": 25.4,
+        "cumulative_dbleu": 9.43,
+        "marginal_dbleu": 1.56
+      }
+    ],
+    "grown_without_frontier": {
+      "first_broken_share": 0.005,
+      "note": "MI_LAB_ALLOW_PAST_FRONTIER=1 was set. No probed ablation share left this model intact on every seed, so every number grown below is a measurement of a model that has partly stopped emitting language. It is not evidence of localization."
+    }
   }
 }

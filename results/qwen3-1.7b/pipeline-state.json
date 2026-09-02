@@ -24,6 +24,31 @@
       "invocations": 1,
       "budget_exits": 0,
       "seconds": 1603.8
+    },
+    "scripts.phase1b_greedy:greedy": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 251.1
+    },
+    "scripts.phase1b_greedy:comet": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 303.2
+    },
+    "scripts.phase1b_random_control:control-model": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 440.4
+    },
+    "scripts.phase1b_random_control:control-candidate": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 438.0
+    },
+    "scripts.phase1b_random_control:control-report": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 0.9
     }
   }
 }
