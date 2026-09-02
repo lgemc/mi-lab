@@ -92,6 +92,39 @@ def _mlp(block, index: int):
         raise ConfigError(f"cannot find the MLP of block {index} ({type(block).__name__}); teach _mlp its layout")
     return found
 
+def _attention_norm(block, index: int):
+    """The norm a block applies before attention reads the residual stream
+
+    Its *input* is the residual as attention sees it, which is the destination
+    end of every edge into this layer's attention. Nodes need only the
+    projection above; an edge needs to know what the destination read, because
+    ablating an edge changes one reader's input and leaves every other reader's
+    alone -- which is the whole difference between an edge and a node.
+    """
+    found = _first_attribute(block, ("ln_1", "input_layernorm", "ln1", "norm1", "input_layer_norm"))
+    if found is None:
+        raise ConfigError(
+            f"cannot find the pre-attention norm of block {index} ({type(block).__name__}); "
+            "teach _attention_norm its layout"
+        )
+    return found
+
+def _mlp_norm(block, index: int):
+    """The norm a block applies before its MLP reads the residual stream
+
+    The second destination in a block, and the one that sees this layer's own
+    attention write. A source in layer L reaches L's MLP and not L's attention.
+    """
+    found = _first_attribute(
+        block, ("ln_2", "post_attention_layernorm", "ln2", "norm2", "post_attention_layer_norm")
+    )
+    if found is None:
+        raise ConfigError(
+            f"cannot find the pre-MLP norm of block {index} ({type(block).__name__}); "
+            "teach _mlp_norm its layout"
+        )
+    return found
+
 def _final_norm(model):
     """The normalization sitting between the last block and the unembedding"""
     found = _first_attribute(
@@ -697,6 +730,272 @@ class TransformersAdapter:
             "embedding": _last_real(embedding[0], mask).float().cpu(),
             "residual": _last_real(residual[layers[-1]], mask).float().cpu(),
         }
+
+    def _head_writes_at(self, index: int, merged: torch.Tensor) -> torch.Tensor:
+        """_head_writes at every position rather than one, as [batch, seq, head, d_model]
+
+        Same construction and the same reason for it: run the projection with
+        every other head zeroed rather than slicing its weight, and subtract
+        the bias back out because it is written once per layer and not once per
+        head. The only difference is that the position axis is kept, which is
+        what an edge needs and what a final-token attribution does not.
+        """
+        batch, seq, width = merged.shape
+        selector = torch.eye(self.cfg.n_heads, dtype=merged.dtype, device=merged.device)
+        split = self._split_heads(merged)
+        isolated = (split[:, :, None] * selector[None, None, :, :, None]).reshape(
+            batch, seq, self.cfg.n_heads, width
+        )
+        with torch.no_grad():
+            projection = self.projections[index]
+            bias = projection(merged.new_zeros(1, width))
+            return projection(isolated) - bias
+
+    def residual_sources(self, prompts: Sequence[str]) -> Dict[str, torch.Tensor]:
+        """Every per-position write into the residual stream, and what each destination read
+
+        The residual stream is a sum, so a transformer is already a graph and
+        this is its adjacency: `heads`, `mlps`, `biases` and `embedding` are
+        what each source wrote at each position, and `attention_in`/`mlp_in`
+        are what the two destinations in each block actually saw.
+
+        The receipt is that they agree. A destination's input has to equal the
+        embedding plus every upstream write, and `residual_remainder` reports
+        the gap. Nothing here is worth anything if that number is not float
+        noise: an edge ablation swaps terms in that sum, so a sum that does not
+        reproduce the forward pass is a graph of a different model.
+
+        One forward pass plus n_heads projection calls per layer, all of which
+        are position-wise and cheap next to attention itself.
+        """
+        if not prompts:
+            raise ConfigError("residual_sources needs at least one prompt")
+        layers = list(range(self.cfg.n_layers))
+        input_ids, attention_mask = self._encode(prompts, padding_side="right")
+        collected: Dict[str, List[torch.Tensor]] = {
+            name: [] for name in ("embedding", "heads", "biases", "mlps", "attention_in", "mlp_in")
+        }
+
+        for ids, mask in self._chunks(input_ids, attention_mask):
+            merged: Dict[int, torch.Tensor] = {}
+            mlp_out: Dict[int, torch.Tensor] = {}
+            attention_in: Dict[int, torch.Tensor] = {}
+            mlp_in: Dict[int, torch.Tensor] = {}
+            handles = []
+
+            def make(store, index, on_output=False):
+                def hook(module, args, output=None):
+                    value = output if on_output else args[0]
+                    value = value[0] if isinstance(value, tuple) else value
+                    store[index] = value.detach()
+                return hook
+
+            for index in layers:
+                handles.append(self.projections[index].register_forward_pre_hook(make(merged, index)))
+                handles.append(self.mlps[index].register_forward_hook(make(mlp_out, index, on_output=True)))
+                handles.append(_attention_norm(self.blocks[index], index)
+                               .register_forward_pre_hook(make(attention_in, index)))
+                handles.append(_mlp_norm(self.blocks[index], index)
+                               .register_forward_pre_hook(make(mlp_in, index)))
+            try:
+                with torch.no_grad():
+                    self.model(ids, attention_mask=mask, use_cache=False)
+            finally:
+                for handle in handles:
+                    handle.remove()
+
+            width = merged[0].shape[-1]
+            heads = torch.stack([self._head_writes_at(index, merged[index]) for index in layers], dim=1)
+            with torch.no_grad():
+                biases = torch.stack([
+                    self.projections[index](merged[index].new_zeros(1, width)).expand(
+                        merged[index].shape[0], merged[index].shape[1], width)
+                    for index in layers], dim=1)
+            collected["embedding"].append(attention_in[0].float().cpu())
+            collected["heads"].append(heads.permute(0, 1, 3, 2, 4).float().cpu())
+            collected["biases"].append(biases.float().cpu())
+            collected["mlps"].append(torch.stack([mlp_out[i] for i in layers], dim=1).float().cpu())
+            collected["attention_in"].append(
+                torch.stack([attention_in[i] for i in layers], dim=1).float().cpu())
+            collected["mlp_in"].append(torch.stack([mlp_in[i] for i in layers], dim=1).float().cpu())
+        return {name: torch.cat(values, dim=0) for name, values in collected.items()}
+
+    def residual_remainder(self, sources: Dict[str, torch.Tensor]) -> Dict[str, float]:
+        """How far the sum of the writes is from what the destinations actually read
+
+        The check `decompose` makes at the final token, made at every position
+        and every destination. Float noise means the graph is the model's;
+        anything larger means a write is missing or double counted, and every
+        edge intervention built on it would be intervening on a fiction.
+        """
+        heads, mlps = sources["heads"].sum(dim=2), sources["mlps"]
+        attention_gap, mlp_gap = 0.0, 0.0
+        for layer in range(heads.shape[1]):
+            upstream = sources["embedding"].clone()
+            for earlier in range(layer):
+                upstream = upstream + heads[:, earlier] + sources["biases"][:, earlier] + mlps[:, earlier]
+            attention_gap = max(attention_gap, float((upstream - sources["attention_in"][:, layer]).abs().max()))
+            here = upstream + heads[:, layer] + sources["biases"][:, layer]
+            mlp_gap = max(mlp_gap, float((here - sources["mlp_in"][:, layer]).abs().max()))
+        scale = float(sources["attention_in"].abs().max())
+        return {"attention_in": attention_gap, "mlp_in": mlp_gap,
+                "relative": max(attention_gap, mlp_gap) / scale if scale else float("nan")}
+
+    @contextmanager
+    def edge_patch(self, off: Dict[str, torch.Tensor], edges: Sequence[Tuple[str, str]]) -> Iterator[None]:
+        """Ablate individual (source, destination) edges, leaving the source's other edges alone
+
+        A node ablation deletes a component's output everywhere at once. An
+        edge ablation deletes what one *reader* sees of it, which is a strictly
+        finer intervention and a different claim: a head that matters through
+        one path and not another is indistinguishable from an unimportant head
+        under node ablation, and separable under this.
+
+        Because the residual stream is a sum, an edge is a term in it, and
+        ablating one is arithmetic on the destination's input:
+
+            input := input + (off_write_source - live_write_source)
+
+        The live write is subtracted rather than the captured clean one, so
+        edits compose: a destination late in the stack reads sources that
+        earlier edits already changed, and freezing them at their un-edited
+        values would silently make every edge independent of every other.
+
+        Source ids are `embed`, `head:L:H`, `mlp:L`, `bias:L`; destinations are
+        `attn:L` and `mlp:L`. An edge whose source is not upstream of its
+        destination is refused rather than ignored -- attention at layer L
+        cannot read layer L's own MLP, and an experiment that thought it could
+        is not one whose other edges should be trusted.
+        """
+        wanted: Dict[str, List[str]] = {}
+        for source, destination in edges:
+            self._check_edge(source, destination)
+            wanted.setdefault(destination, []).append(source)
+        if not wanted:
+            yield
+            return
+
+        merged: Dict[int, torch.Tensor] = {}
+        mlp_out: Dict[int, torch.Tensor] = {}
+        # the live embedding, which is what block 0 is handed. Without it `embed`
+        # had no live value to subtract and its counterfactual was added on top of
+        # the real one -- the strict receipt (all edges into a destination must
+        # equal replacing that destination's input) is what caught it, at a delta
+        # of 2.16 where float noise was expected.
+        embedded: Dict[int, torch.Tensor] = {}
+        handles = []
+        # Reconstructing a head's write calls the projection again, which re-enters
+        # the pre-hook capturing that projection's input -- so without this the
+        # first call (the bias, on a zero vector) overwrites the merged heads and
+        # every head after it is computed from zeros. The identity check caught it:
+        # ablating an edge toward the run's own values moved the logits by 2.5.
+        reconstructing = {"busy": False}
+
+        def capture_embedding(module, args):
+            if not reconstructing["busy"]:
+                embedded[0] = args[0].detach()
+
+        def capture_merged(index):
+            def hook(module, args):
+                if not reconstructing["busy"]:
+                    merged[index] = args[0].detach()
+            return hook
+
+        def capture_mlp(index):
+            def hook(module, args, output):
+                if not reconstructing["busy"]:
+                    mlp_out[index] = (output[0] if isinstance(output, tuple) else output).detach()
+            return hook
+
+        def destination_hook(destination):
+            sources = wanted[destination]
+            def hook(module, args):
+                residual = args[0]
+                if off["embedding"].shape[1] != residual.shape[1]:
+                    raise ConfigError(
+                        f"the counterfactual run is {off['embedding'].shape[1]} positions and this one is "
+                        f"{residual.shape[1]}. An edge is a term in one position's residual sum, so the two "
+                        "runs have to be length-aligned; pad or pick prompts that tokenize alike."
+                    )
+                delta = torch.zeros_like(residual)
+                reconstructing["busy"] = True
+                try:
+                    for source in sources:
+                        live = self._live_write(source, merged, mlp_out, embedded, residual)
+                        delta = delta + (
+                            self._off_write(source, off).to(residual.device, residual.dtype) - live)
+                finally:
+                    reconstructing["busy"] = False
+                return (residual + delta, *args[1:])
+            return hook
+
+        # registered first, so it records what block 0 received before any
+        # destination hook on that same block has edited it
+        handles.append(self.blocks[0].register_forward_pre_hook(capture_embedding))
+        for index in range(self.cfg.n_layers):
+            handles.append(self.projections[index].register_forward_pre_hook(capture_merged(index)))
+            handles.append(self.mlps[index].register_forward_hook(capture_mlp(index)))
+        for destination in wanted:
+            kind, layer = destination.split(":")
+            norm = (_attention_norm if kind == "attn" else _mlp_norm)(self.blocks[int(layer)], int(layer))
+            handles.append(norm.register_forward_pre_hook(destination_hook(destination)))
+        try:
+            yield
+        finally:
+            for handle in handles:
+                handle.remove()
+
+    def _check_edge(self, source: str, destination: str) -> None:
+        """Refuse an edge that does not exist in a causal residual stream"""
+        kind, layer = destination.split(":")[0], int(destination.split(":")[1])
+        if kind not in ("attn", "mlp"):
+            raise ConfigError(f"destination must be attn:L or mlp:L, got '{destination}'")
+        if source == "embed":
+            return
+        parts = source.split(":")
+        if parts[0] not in ("head", "mlp", "bias"):
+            raise ConfigError(f"source must be embed, head:L:H, mlp:L or bias:L, got '{source}'")
+        at = int(parts[1])
+        # attention at L reads everything written before block L; the MLP at L also
+        # reads L's own attention, and neither can read L's MLP or anything later
+        limit = at < layer or (kind == "mlp" and at == layer and parts[0] in ("head", "bias"))
+        if not limit:
+            raise ConfigError(
+                f"'{source}' is not upstream of '{destination}': a residual stream is causal, so this "
+                "edge does not exist and ablating it would be ablating nothing while reporting a result"
+            )
+
+    def _live_write(self, source: str, merged, mlp_out, embedded, like: torch.Tensor) -> torch.Tensor:
+        """What a source wrote in the run currently executing"""
+        if source == "embed":
+            return embedded[0].to(like.device, like.dtype)
+        parts = source.split(":")
+        layer = int(parts[1])
+        if parts[0] == "mlp":
+            return mlp_out[layer].to(like.device, like.dtype)
+        width = merged[layer].shape[-1]
+        with torch.no_grad():
+            bias = self.projections[layer](merged[layer].new_zeros(1, width))
+            if parts[0] == "bias":
+                return bias.expand_as(like).to(like.device, like.dtype)
+            head = int(parts[2])
+            selector = torch.zeros(self.cfg.n_heads, dtype=merged[layer].dtype, device=merged[layer].device)
+            selector[head] = 1.0
+            isolated = (self._split_heads(merged[layer]) * selector[None, None, :, None]).reshape(
+                merged[layer].shape)
+            return (self.projections[layer](isolated) - bias).to(like.device, like.dtype)
+
+    def _off_write(self, source: str, off: Dict[str, torch.Tensor]) -> torch.Tensor:
+        """What a source wrote in the counterfactual run this ablation falls back to"""
+        if source == "embed":
+            return off["embedding"]
+        parts = source.split(":")
+        layer = int(parts[1])
+        if parts[0] == "mlp":
+            return off["mlps"][:, layer]
+        if parts[0] == "bias":
+            return off["biases"][:, layer]
+        return off["heads"][:, layer, int(parts[2])]
 
     def decompose(self, prompts: Sequence[str]) -> Decomposition:
         """Split the final token's residual stream into the writes that built it

@@ -22,11 +22,11 @@ Everything under `src/` is a namespace package except `src/cli/commands/viz/`, w
 modules explicitly:
 
 ```bash
-# everything: 388 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
+# everything: 396 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.ie tests.probing \
     tests.runner tests.adapter tests.circuits tests.discovery tests.comparison \
-    tests.faithfulness
+    tests.faithfulness tests.edges
 
 # offline subset: 258 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
