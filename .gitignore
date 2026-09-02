@@ -17,3 +17,8 @@ charts/
 data/external/
 data/cities.prompts
 data/neg-cities.prompts
+
+# Extracted circuit weights: derived from the checkpoint plus the component
+# list in the manifest, 312MB for the 1.7B and past GitHub's file limit. Rebuild
+# with `phase1b_extract <config> extract` rather than storing what a command makes.
+results/**/phase1b-circuit-weights.pt

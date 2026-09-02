@@ -1,0 +1,40 @@
+{
+  "protocol": "the same circuit measured in both directions on the same shortlist. knockout ablates the circuit and asks whether the model needs it; extraction ablates the complement -- running the circuit alone -- and asks whether it is enough. Necessity without sufficiency is not a circuit claim.",
+  "circuit": [
+    "mlp:23",
+    "mlp:26",
+    "mlp:24",
+    "mlp:21",
+    "heads:23"
+  ],
+  "circuit_flops_share": 0.115,
+  "complement_flops_share": 0.885,
+  "baseline_bleu": 34.83,
+  "arms": {
+    "whole_model": {
+      "n_components": 0,
+      "flops_share_ablated": 0.0,
+      "bleu": 34.83,
+      "degeneracy": 0.0,
+      "seconds": 46.4
+    },
+    "knockout": {
+      "n_components": 5,
+      "flops_share_ablated": 0.115,
+      "bleu": 25.4,
+      "degeneracy": 0.022,
+      "seconds": 45.8
+    },
+    "extraction": {
+      "n_components": 51,
+      "flops_share_ablated": 0.885,
+      "bleu": 0.01,
+      "degeneracy": 1.0,
+      "seconds": 47.7
+    }
+  },
+  "knockout_dbleu": 9.43,
+  "extraction_retained": 0.0003,
+  "reading": "the complement is most of the network, so a near-zero extraction score is what ablating most of a network gives and says nothing about this circuit in particular. Sufficiency at this granularity needs restoration into a counterfactual run, not deletion of everything else.",
+  "command": "uv run python -m scripts.phase1b_extract qwen3-1.7b measure"
+}

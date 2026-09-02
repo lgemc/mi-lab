@@ -1,0 +1,147 @@
+{
+  "protocol": "the parameters of the components the greedy stage selected, saved with the architecture they came out of. A circuit that exists only as strings in a JSON file cannot be inspected, loaded or compared against another.",
+  "model": {
+    "id": "qwen3-1.7b",
+    "n_layers": 28,
+    "n_heads": 16,
+    "d_model": 2048,
+    "n_parameters": 1720574976
+  },
+  "circuit": {
+    "components": [
+      "mlp:23",
+      "mlp:26",
+      "mlp:24",
+      "mlp:21",
+      "heads:23"
+    ],
+    "n_components": 5,
+    "n_parameters": 163578112,
+    "parameter_share": 0.09507,
+    "flops_share": 0.11504
+  },
+  "components": [
+    {
+      "component": "mlp:23",
+      "kind": "mlp",
+      "layer": 23,
+      "module": "Qwen3MLP",
+      "parameters": {
+        "gate_proj.weight": [
+          6144,
+          2048
+        ],
+        "up_proj.weight": [
+          6144,
+          2048
+        ],
+        "down_proj.weight": [
+          2048,
+          6144
+        ]
+      },
+      "n_parameters": 37748736,
+      "flops_share_alone": 0.02644
+    },
+    {
+      "component": "mlp:26",
+      "kind": "mlp",
+      "layer": 26,
+      "module": "Qwen3MLP",
+      "parameters": {
+        "gate_proj.weight": [
+          6144,
+          2048
+        ],
+        "up_proj.weight": [
+          6144,
+          2048
+        ],
+        "down_proj.weight": [
+          2048,
+          6144
+        ]
+      },
+      "n_parameters": 37748736,
+      "flops_share_alone": 0.02644
+    },
+    {
+      "component": "mlp:24",
+      "kind": "mlp",
+      "layer": 24,
+      "module": "Qwen3MLP",
+      "parameters": {
+        "gate_proj.weight": [
+          6144,
+          2048
+        ],
+        "up_proj.weight": [
+          6144,
+          2048
+        ],
+        "down_proj.weight": [
+          2048,
+          6144
+        ]
+      },
+      "n_parameters": 37748736,
+      "flops_share_alone": 0.02644
+    },
+    {
+      "component": "mlp:21",
+      "kind": "mlp",
+      "layer": 21,
+      "module": "Qwen3MLP",
+      "parameters": {
+        "gate_proj.weight": [
+          6144,
+          2048
+        ],
+        "up_proj.weight": [
+          6144,
+          2048
+        ],
+        "down_proj.weight": [
+          2048,
+          6144
+        ]
+      },
+      "n_parameters": 37748736,
+      "flops_share_alone": 0.02644
+    },
+    {
+      "component": "heads:23",
+      "kind": "heads",
+      "layer": 23,
+      "module": "Qwen3Attention",
+      "parameters": {
+        "q_proj.weight": [
+          2048,
+          2048
+        ],
+        "k_proj.weight": [
+          1024,
+          2048
+        ],
+        "v_proj.weight": [
+          1024,
+          2048
+        ],
+        "o_proj.weight": [
+          2048,
+          2048
+        ],
+        "q_norm.weight": [
+          128
+        ],
+        "k_norm.weight": [
+          128
+        ]
+      },
+      "n_parameters": 12583168,
+      "flops_share_alone": 0.00927
+    }
+  ],
+  "weights_file": "results/qwen3-1.7b/phase1b-circuit-weights.pt",
+  "weights_bytes": 327162989
+}
