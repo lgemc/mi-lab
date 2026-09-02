@@ -1,3 +1,4 @@
+import contextlib
 from contextlib import contextmanager
 from dataclasses import dataclass, field, replace
 from typing import Dict, Iterator, List, Optional, Sequence, Tuple
@@ -945,6 +946,121 @@ class TransformersAdapter:
             for handle in handles:
                 handle.remove()
 
+    @contextmanager
+    def edge_gate(self, gates: Dict[Tuple[str, str], torch.Tensor]) -> Iterator[None]:
+        """Scale each (source, destination) edge by a differentiable gate, for pruning
+
+        `edge_patch` ablates an edge *toward a counterfactual run*: the
+        destination sees what the source wrote in the `off` run instead of this
+        one. Pruning is the other question -- not "what if this edge carried
+        different information" but "what if it were not there" -- so the
+        counterfactual here is zero, and with that substitution the same
+        arithmetic collapses into a gate:
+
+            residual + (0 - live) * (1 - g)  ==  residual - live + g * live
+
+        g = 1 leaves the edge untouched, g = 0 removes the source's whole
+        contribution to that one destination, and anything between scales it.
+
+        The gradient is the point. Every captured write is detached, so the only
+        path from the loss back to `g` is the multiplication above -- but the
+        edited residual feeds every later block, so the gate is trained on its
+        real downstream effect and not on a first-order stand-in.
+
+        Reuses `edge_patch`'s helpers rather than its body, including the
+        `reconstructing` latch: rebuilding a head's write calls the projection
+        again, which re-enters the pre-hook that captures that projection's
+        input, and without the latch the first reconstruction overwrites the
+        merged heads and every head after it is computed from zeros.
+        """
+        wanted: Dict[str, List[str]] = {}
+        for (source, destination) in gates:
+            self._check_edge(source, destination)
+            wanted.setdefault(destination, []).append(source)
+        if not wanted:
+            yield
+            return
+
+        merged: Dict[int, torch.Tensor] = {}
+        mlp_out: Dict[int, torch.Tensor] = {}
+        embedded: Dict[int, torch.Tensor] = {}
+        handles = []
+        reconstructing = {"busy": False}
+
+        # Not detached, unlike edge_patch's. These are what the gate's gradient
+        # has to flow back through: an edge closed at layer 0 changes the
+        # residual at layer 1, which changes what layer 1 writes, and so on.
+        def capture_embedding(module, args):
+            if not reconstructing["busy"]:
+                embedded[0] = args[0]
+
+        def capture_merged(index):
+            def hook(module, args):
+                if not reconstructing["busy"]:
+                    merged[index] = args[0]
+            return hook
+
+        def capture_mlp(index):
+            def hook(module, args, output):
+                if not reconstructing["busy"]:
+                    mlp_out[index] = output[0] if isinstance(output, tuple) else output
+            return hook
+
+        def destination_hook(destination):
+            sources = wanted[destination]
+            def hook(module, args):
+                residual = args[0]
+                delta = torch.zeros_like(residual)
+                reconstructing["busy"] = True
+                try:
+                    for source in sources:
+                        live = self._live_write(source, merged, mlp_out, embedded, residual,
+                                                grad=True)
+                        gate = gates[(source, destination)].to(residual.device)
+                        delta = delta - (1.0 - gate).to(residual.dtype) * live
+                finally:
+                    reconstructing["busy"] = False
+                return (residual + delta, *args[1:])
+            return hook
+
+        handles.append(self.blocks[0].register_forward_pre_hook(capture_embedding))
+        for index in range(self.cfg.n_layers):
+            handles.append(self.projections[index].register_forward_pre_hook(capture_merged(index)))
+            handles.append(self.mlps[index].register_forward_hook(capture_mlp(index)))
+        for destination in wanted:
+            kind, layer = destination.split(":")
+            norm = (_attention_norm if kind == "attn" else _mlp_norm)(self.blocks[int(layer)], int(layer))
+            handles.append(norm.register_forward_pre_hook(destination_hook(destination)))
+        try:
+            yield
+        finally:
+            for handle in handles:
+                handle.remove()
+
+    def edges(self) -> List[Tuple[str, str]]:
+        """Every edge a causal residual stream admits, source before destination
+
+        Enumerated here because which sources exist and which destinations can
+        read them is architecture knowledge, and this file is where that lives.
+        `_check_edge` is the authority on legality; this asks it rather than
+        restating the rule, so the two cannot drift apart.
+        """
+        sources = ["embed"]
+        for layer in range(self.cfg.n_layers):
+            sources.extend(f"head:{layer}:{head}" for head in range(self.cfg.n_heads))
+            sources.append(f"mlp:{layer}")
+            sources.append(f"bias:{layer}")
+        found = []
+        for layer in range(self.cfg.n_layers):
+            for destination in (f"attn:{layer}", f"mlp:{layer}"):
+                for source in sources:
+                    try:
+                        self._check_edge(source, destination)
+                    except ConfigError:
+                        continue
+                    found.append((source, destination))
+        return found
+
     def _check_edge(self, source: str, destination: str) -> None:
         """Refuse an edge that does not exist in a causal residual stream"""
         kind, layer = destination.split(":")[0], int(destination.split(":")[1])
@@ -965,8 +1081,18 @@ class TransformersAdapter:
                 "edge does not exist and ablating it would be ablating nothing while reporting a result"
             )
 
-    def _live_write(self, source: str, merged, mlp_out, embedded, like: torch.Tensor) -> torch.Tensor:
-        """What a source wrote in the run currently executing"""
+    def _live_write(self, source: str, merged, mlp_out, embedded, like: torch.Tensor,
+                    grad: bool = False) -> torch.Tensor:
+        """What a source wrote in the run currently executing
+
+        `grad` keeps the reconstruction inside the autograd graph. False is
+        right for `edge_patch`, whose captures belong to a frozen
+        counterfactual; True is required by `edge_gate`, where a gate on an
+        early edge changes the residual every later component reads, and
+        detaching silently reduces the gradient to its direct-path term. A
+        finite-difference check put that error at 54x, and sign-flipped, on
+        an edge into layer 0.
+        """
         if source == "embed":
             return embedded[0].to(like.device, like.dtype)
         parts = source.split(":")
@@ -974,7 +1100,7 @@ class TransformersAdapter:
         if parts[0] == "mlp":
             return mlp_out[layer].to(like.device, like.dtype)
         width = merged[layer].shape[-1]
-        with torch.no_grad():
+        with contextlib.nullcontext() if grad else torch.no_grad():
             bias = self.projections[layer](merged[layer].new_zeros(1, width))
             if parts[0] == "bias":
                 return bias.expand_as(like).to(like.device, like.dtype)

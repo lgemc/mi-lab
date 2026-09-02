@@ -9,6 +9,7 @@ learned eight sentences. These tests are what stops that being reported again.
 from unittest import TestCase
 
 import torch
+import torch.nn.functional as functional
 
 from src.data.tasks import build_task
 from src.methods.circuits import CircuitError, require_circuits
@@ -227,3 +228,136 @@ class TestSplit(TestCase):
         train, test = _split(prompts, 0.25)
         self.assertEqual({"a", "b", "c"}, {prompts[row] for row in train})
         self.assertEqual({"d"}, {prompts[row] for row in test})
+
+class TestEdges(TestCase):
+    """The other half of the method, absent until the weights-only mask was
+    shown to rank at 0.938 while generating ' Mary Emma Rose the Rose'."""
+
+    adapter = None
+
+    @classmethod
+    def setUpClass(cls):
+        adapter = shared_adapter()
+        if adapter is None:
+            raise cls.skipTest(cls, "gpt2-small is not available; run once with network access")
+        cls.adapter = require_circuits(adapter)
+
+    def test_an_all_open_edge_mask_is_the_model_exactly(self):
+        """Not approximately. If the identity is off, every edge number is off."""
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        prompts = list(task.clean)
+        base = self.adapter.logits(prompts).clone()
+        device = next(self.adapter.model.parameters()).device
+        gates = {edge: torch.ones((), device=device) for edge in self.adapter.edges()}
+        with self.adapter.edge_gate(gates):
+            same = self.adapter.logits(prompts)
+        self.assertTrue(torch.equal(base, same),
+                        "an all-open edge mask changed the model, so the gate is not an identity")
+
+    def test_shutting_every_edge_costs_the_model(self):
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        prompts = list(task.clean)
+        base = self.adapter.logits(prompts).clone()
+        device = next(self.adapter.model.parameters()).device
+        gates = {edge: torch.zeros((), device=device) for edge in self.adapter.edges()}
+        with self.adapter.edge_gate(gates):
+            dead = self.adapter.logits(prompts)
+        self.assertGreater(float((dead - base).abs().max()), 1.0,
+                           "shutting every edge did not change the logits, so nothing was gated")
+
+    def test_every_enumerated_edge_is_legal(self):
+        """`edges()` asks `_check_edge` rather than restating the rule, so the
+        two cannot drift; this is the guard on that."""
+        for source, destination in self.adapter.edges():
+            self.adapter._check_edge(source, destination)
+
+    def test_edges_run_source_before_destination(self):
+        for source, destination in self.adapter.edges():
+            layer = int(destination.split(":")[1])
+            if source == "embed":
+                continue
+            at = int(source.split(":")[1])
+            self.assertLessEqual(at, layer, f"{source} -> {destination} reads forwards in time")
+
+    def test_joint_pruning_learns_both_masks(self):
+        task = build_task("ioi", self.adapter, size=32, seed=0)
+        sheaf = prune(self.adapter, task, steps=3, batch=8, holdout=0.25, seed=0,
+                      sparsity=0.01, edge_sparsity=1.0)
+        self.assertEqual(len(self.adapter.edges()), sheaf.n_edges)
+        self.assertIsNotNone(sheaf.edge_density)
+        self.assertIn("edges", str(sheaf))
+
+    def test_edges_off_leaves_the_weights_only_path_untouched(self):
+        """Zero must mean the function is exactly what it was, not a cheap edge run"""
+        task = build_task("ioi", self.adapter, size=32, seed=0)
+        sheaf = prune(self.adapter, task, steps=3, batch=8, holdout=0.25, seed=0, sparsity=0.01)
+        self.assertEqual(0, sheaf.n_edges)
+        self.assertIsNone(sheaf.edge_density)
+        self.assertNotIn("edges", str(sheaf))
+
+class TestEdgeGradient(TestCase):
+    """The receipt the forward tests could not give.
+
+    `tests/discovery.py` checks head_gradients against a finite difference
+    because a gradient taken at the wrong site produces a plausible wrong
+    ranking. The same trap caught the edge gate: all-open reproduced the model
+    exactly and all-shut destroyed it, both passing, while the gradient was 54x
+    too large and sign-flipped on an edge into layer 0 -- because the captured
+    writes were detached, which severs the path by which closing an early edge
+    changes what every later component writes.
+    """
+
+    adapter = None
+
+    @classmethod
+    def setUpClass(cls):
+        adapter = shared_adapter()
+        if adapter is None:
+            raise cls.skipTest(cls, "gpt2-small is not available; run once with network access")
+        cls.adapter = require_circuits(adapter)
+
+    def _loss(self, task, values, edge_ids, ids, io, subject, device):
+        with self.adapter.edge_gate({e: values[i] for i, e in enumerate(edge_ids)}):
+            out = self.adapter.model(ids["input_ids"].to(device),
+                                     attention_mask=ids["attention_mask"].to(device)).logits
+        last = ids["attention_mask"].sum(dim=1).to(device) - 1
+        index = torch.arange(out.shape[0], device=device)
+        pairs = torch.stack([out[index, last, torch.tensor(io, device=device)],
+                             out[index, last, torch.tensor(subject, device=device)]], dim=-1)
+        return functional.cross_entropy(
+            pairs, torch.zeros(pairs.shape[0], dtype=torch.long, device=device))
+
+    def test_the_edge_gradient_matches_a_finite_difference(self):
+        torch.manual_seed(0)
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        edge_ids = self.adapter.edges()
+        device = next(self.adapter.model.parameters()).device
+        io, subject = task.answers(self.adapter)
+        ids = self.adapter.tokenizer(list(task.clean), return_tensors="pt", padding=True)
+
+        # An edge into layer 0 -- where the indirect path dominates and the
+        # detached version was worst. A late edge would have passed either way.
+        pick = next(index for index, (_, destination) in enumerate(edge_ids)
+                    if destination == "mlp:0")
+        base = torch.full((len(edge_ids),), 0.5, device=device)
+        gates = base.clone().requires_grad_(True)
+        self._loss(task, [gates[i] for i in range(len(edge_ids))],
+                   edge_ids, ids, io, subject, device).backward()
+        analytic = float(gates.grad[pick])
+
+        eps = 1e-2
+        high, low = base.clone(), base.clone()
+        high[pick] += eps
+        low[pick] -= eps
+        with torch.no_grad():
+            difference = float(
+                (self._loss(task, [high[i] for i in range(len(edge_ids))],
+                            edge_ids, ids, io, subject, device)
+                 - self._loss(task, [low[i] for i in range(len(edge_ids))],
+                              edge_ids, ids, io, subject, device)) / (2 * eps))
+        self.assertGreater(abs(difference), 1e-6, "the finite difference is too small to compare")
+        ratio = analytic / difference
+        self.assertAlmostEqual(
+            1.0, ratio, delta=0.25,
+            msg=f"edge gradient is {ratio:.2f}x the finite difference at {edge_ids[pick]}; "
+                "the detached-capture bug reads about 54x here")
