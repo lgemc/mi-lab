@@ -19,6 +19,7 @@ Run: uv run python -m scripts.phase1b_greedy qwen3-8b combo
 """
 
 import json
+import os
 import time
 from dataclasses import replace
 from functools import lru_cache
@@ -235,7 +236,24 @@ def stage_greedy(config: str, budget: float) -> None:
         raise SystemExit("no component passed the significance gate; there is no set to grow")
 
     ceiling = frontier()
-    if ceiling is None and frontier_was_measured():
+    override = os.environ.get("MI_LAB_ALLOW_PAST_FRONTIER") == "1"
+    if ceiling is None and frontier_was_measured() and override:
+        record = json.loads(FRONTIER.read_text())
+        # An override, not a reinterpretation. The frontier still says what it said;
+        # what changes is that the operator has asked for the set anyway, and the
+        # artifact has to carry that so nobody downstream reads the result as one
+        # taken inside a measurable budget. Deleting the guard would have lost this.
+        greedy["grown_without_frontier"] = {
+            "first_broken_share": record.get("first_broken_share"),
+            "note": "MI_LAB_ALLOW_PAST_FRONTIER=1 was set. No probed ablation share left this model "
+                    "intact on every seed, so every number grown below is a measurement of a model "
+                    "that has partly stopped emitting language. It is not evidence of localization.",
+        }
+        save_progress(state)
+        log("!! MI_LAB_ALLOW_PAST_FRONTIER=1: growing a set on a model with no survival frontier. "
+            f"{record.get('first_broken_share')} of MACs already breaks it on at least one draw. "
+            "Every number from here measures destruction; it is recorded in the artifact as such.")
+    elif ceiling is None and frontier_was_measured():
         record = json.loads(FRONTIER.read_text())
         raise SystemExit(
             f"the frontier ran and found none: {record.get('first_broken_share')} of model MACs already "
@@ -244,7 +262,9 @@ def stage_greedy(config: str, budget: float) -> None:
             "so growing a set would produce a number with nothing behind it.\n\n"
             "That is a finding about the model, not a missing input. Probe smaller shares if you think "
             "the frontier is merely below the grid, or take the result: this model does not host a "
-            "measurable circuit claim at this granularity."
+            "measurable circuit claim at this granularity.\n\n"
+            "MI_LAB_ALLOW_PAST_FRONTIER=1 grows the set anyway and stamps the artifact with what it "
+            "cost, for when the sequence has to run end to end regardless."
         )
     if ceiling is None:
         log("!! no survival frontier measured, so nothing stops this growing into a broken model. "
