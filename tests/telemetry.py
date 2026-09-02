@@ -23,6 +23,14 @@ from src.telemetry.journal import (
     tail,
     to_columns,
 )
+from src.telemetry.tracking import (
+    USER_AGENT,
+    Tracker,
+    TrackingConfig,
+    TrackingError,
+    load_tracking,
+)
+from src.telemetry.tracking import from_mapping as tracking_from_mapping
 
 
 class TestJournal(TestCase):
@@ -155,3 +163,77 @@ class TestReading(TestCase):
         raw = (self.root / "nan" / "metrics.jsonl").read_text()
         self.assertIn("Infinity", raw)
         self.assertEqual(float("inf"), json.loads(raw.splitlines()[0])["loss"])
+
+class TestTracking(TestCase):
+    """The sink, whose one hard rule is that it may never break the run"""
+
+    def setUp(self):
+        self.temporary = TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+
+    def test_disabled_config_never_touches_the_network(self):
+        tracker = Tracker(TrackingConfig(enabled=False, uri="http://unreachable.invalid"))
+        self.assertFalse(tracker.active)
+        tracker.log(0, {"loss": 1.0})
+        tracker.finish()
+
+    def test_an_unreachable_server_disables_rather_than_raises(self):
+        """A tracker that kills a two-hour run because a pod restarted is worse
+        than no tracker at all"""
+        tracker = Tracker(TrackingConfig(enabled=True, uri="http://127.0.0.1:9", timeout=0.2),
+                          name="x", params={"a": 1})
+        self.assertFalse(tracker.active)
+        self.assertIsNotNone(tracker.failure)
+        tracker.log(0, {"loss": 1.0})
+        tracker.flush()
+        tracker.finish()
+
+    def test_a_journal_survives_a_sink_that_explodes(self):
+        """The row is on disk before the sink is called, so it stays there"""
+        class Exploding:
+            def log(self, step, metrics):
+                raise RuntimeError("the server is on fire")
+
+        journal = Journal(self.root / "s", params={"steps": 2})
+        journal.sink = Exploding()
+        with self.assertRaises(RuntimeError):
+            journal.log(0, loss=1.0)
+        journal.finish("failed")
+        self.assertEqual([1.0], [r["loss"] for r in read_metrics(self.root / "s")],
+                         "the metric was lost when the sink raised")
+
+    def test_unknown_tracking_keys_are_refused(self):
+        with self.assertRaises(TrackingError):
+            tracking_from_mapping({"enabled": True, "url": "typo-for-uri"})
+
+    def test_none_disables_without_touching_the_filesystem(self):
+        for name in ("none", "off", ""):
+            self.assertFalse(load_tracking(name).enabled)
+
+    def test_an_unknown_config_name_names_the_shipped_ones(self):
+        with self.assertRaises(TrackingError) as raised:
+            load_tracking("nope-not-a-config")
+        self.assertIn("mlflow", str(raised.exception))
+
+    def test_the_shipped_mlflow_config_parses_and_carries_no_secret(self):
+        config = load_tracking("mlflow")
+        self.assertTrue(config.enabled)
+        self.assertTrue(config.uri.startswith("https://"))
+        raw = (Path(__file__).resolve().parents[1] / "configs" / "tracking"
+               / "mlflow.yaml").read_text().lower()
+        for leak in ("password", "secret", "token", "api_key"):
+            self.assertNotIn(f"{leak}:", raw, f"the committed config carries a {leak}")
+
+    def test_the_request_carries_an_identifying_user_agent(self):
+        """Cloudflare 403s `Python-urllib/3.x` as bot traffic, which reads as an
+        auth failure and is not one"""
+        self.assertNotIn("urllib", USER_AGENT.lower())
+        self.assertTrue(USER_AGENT.startswith("mi-lab"))
+
+    def test_non_numeric_metrics_are_skipped_not_sent_as_junk(self):
+        tracker = Tracker(TrackingConfig(enabled=False))
+        tracker.active = True
+        tracker.config = TrackingConfig(enabled=True, uri="http://127.0.0.1:9", flush_every=10_000)
+        tracker.log(0, {"loss": 1.0, "note": "hello", "flag": True, "step": 3})
+        self.assertEqual({"loss", "step"}, {row["key"] for row in tracker._buffer})

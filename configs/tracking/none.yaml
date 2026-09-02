@@ -1,0 +1,6 @@
+# Tracking off, stated rather than absent. A run configured with this and a run
+# whose author forgot to think about tracking are different things, and only
+# one of them is a decision.
+enabled: false
+uri: ""
+experiment: mi-lab-sheaves

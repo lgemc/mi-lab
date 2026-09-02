@@ -10,6 +10,7 @@ defaults:
   - model: gpt2-small
   - data: synthetic
   - method: logistic
+  - tracking: none
   - _self_
 
 experiment: unnamed

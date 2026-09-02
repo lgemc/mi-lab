@@ -44,6 +44,7 @@ from src.data.tasks import build_task, task_names
 from src.methods.sheaves import gateable, load_bearing, prune, span
 from src.model.adapter import load_adapter
 from src.telemetry.journal import Journal, env_root, run_id
+from src.telemetry.tracking import Tracker, load_tracking
 
 # gate logit, gradient, and AdamW's two moments, all float32 and all one per
 # gated weight. The originals are kept too, at the model's own dtype, which is
@@ -207,6 +208,18 @@ def run(args: argparse.Namespace) -> None:
         "holdout": args.holdout, "band_control": control, "budget": cost,
     })
     log(f"journal: {directory} (tail -f {journal.metrics_path})")
+
+    # The journal is the record and the tracker is a mirror, in that order: the
+    # tracker is constructed after the journal and can fail without taking
+    # anything with it. `active` false here means tracking is off or the server
+    # did not answer, and the run proceeds either way.
+    tracking = load_tracking(args.tracking)
+    tracker = Tracker(tracking, name=directory.name, params=journal.params)
+    if tracker.active:
+        log(f"mlflow: {tracking.uri} experiment '{tracking.experiment}' run {tracker.run_id}")
+    elif tracking.enabled:
+        log(f"mlflow: DISABLED for this run -- {tracker.failure}")
+    journal.sink = tracker
     try:
         with step(f"prune {args.steps} steps") as facts:
             sheaf = prune(
@@ -219,11 +232,16 @@ def run(args: argparse.Namespace) -> None:
             facts["held-out"] = f"{sheaf.accuracy:.3f}"
     except BaseException as error:
         journal.finish("failed", error=f"{type(error).__name__}: {error}")
+        tracker.finish("FAILED")
         raise
-    journal.finish("completed", density=sheaf.density, accuracy=sheaf.accuracy,
-                   train_accuracy=sheaf.train_accuracy,
-                   complement_accuracy=sheaf.complement_accuracy,
-                   baseline_accuracy=sheaf.baseline_accuracy)
+    summary = {
+        "density": sheaf.density, "accuracy": sheaf.accuracy,
+        "train_accuracy": sheaf.train_accuracy,
+        "complement_accuracy": sheaf.complement_accuracy,
+        "baseline_accuracy": sheaf.baseline_accuracy,
+    }
+    journal.finish("completed", **summary)
+    tracker.finish("FINISHED", summary=summary)
 
     log(str(sheaf))
     artifact = result(f"sheaf-{args.task}.json")
@@ -288,6 +306,8 @@ def main() -> None:
                         help="GiB of headroom held back on top of the projected peak")
     parser.add_argument("--needs", type=float, default=0.05,
                         help="accuracy the band must cost when shut, or the run is refused")
+    parser.add_argument("--tracking", default="none",
+                        help="tracking config in configs/tracking/ ('mlflow'), or 'none'")
     parser.add_argument("--probe-every", type=int, default=10, dest="probe_every",
                         help="steps between hard-density probes; 0 logs the loss terms only")
     parser.add_argument("--force", action="store_true",

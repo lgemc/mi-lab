@@ -7,12 +7,17 @@ nothing at all -- which has happened here, twice. The only way anyone has read
 a live figure out of this repo is `py-spy dump --locals` against a running PID,
 which is a debugger, not instrumentation.
 
-This is the smallest thing that fixes that, and it is deliberately not MLflow
-or Weights & Biases. Those want a server, a schema and a network call per step;
-what a run here needs is for the number it already computed to reach the disk
-before the process dies. So: one append-only JSONL of metrics, flushed every
-write, plus a `run.json` of the parameters beside it. `tail -f` is a live view,
-`jq` is a query, and nothing has to be running for either to work.
+This is the smallest thing that fixes that, and it is deliberately not a
+tracking server. A server wants to be up, and what a run here needs first is
+for the number it already computed to reach the disk before the process dies.
+So: one append-only JSONL of metrics, flushed every write, plus a `run.json` of
+the parameters beside it. `tail -f` is a live view, `jq` is a query, and
+nothing has to be running for either to work.
+
+A tracking server answers the *other* question -- how does this run compare to
+the four before it -- so `sink` takes one, and `telemetry/tracking.py` mirrors
+to MLflow. The ordering is the design: the row is on disk before it is sent,
+and a sink that fails costs a comparison rather than a result.
 
 Stdlib only, and no torch -- the same rule `experiment/run.py` keeps and for
 the same reason. A journal has to be readable on a machine that cannot load the
@@ -76,12 +81,21 @@ class Journal:
         self.started = _now()
         self.steps = 0
         self._params = dict(params or {})
+        # An optional mirror -- anything with `.log(step, metrics)`. Set after
+        # construction so the journal exists before the sink does, which is the
+        # order that matters: the file is the record and the sink is a copy.
+        self.sink = None
         self._handle = (self.directory / METRICS).open("a", encoding="utf-8")
         self._write_run("running")
 
     @property
     def metrics_path(self) -> Path:
         return self.directory / METRICS
+
+    @property
+    def params(self) -> Dict[str, Any]:
+        """A copy of what this run was started with, for a sink that wants it too"""
+        return dict(self._params)
 
     def _write_run(self, status: str, **extra: Any) -> None:
         record = {
@@ -109,6 +123,11 @@ class Journal:
         self._handle.write(json.dumps(row, default=str) + "\n")
         self._handle.flush()
         self.steps += 1
+        # After the flush, always. A sink that raises must not cost the journal
+        # the row it already has on disk, and a sink that is slow must not make
+        # the on-disk record late.
+        if self.sink is not None:
+            self.sink.log(int(step), row)
 
     def finish(self, status: str = "completed", **summary: Any) -> None:
         """Close the stream and stamp the run, once

@@ -1,0 +1,4 @@
+# Names an entry in configs/tracking/, the way specs/model/*.yaml names one in
+# configs/. The endpoint is a fact about the cluster, not about an experiment,
+# so it lives there and this file only chooses it.
+name: mlflow

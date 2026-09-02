@@ -135,9 +135,26 @@ class TestValidation(TestCase):
 
 class TestHydraComposition(TestCase):
     def test_the_groups_beside_the_config_are_discovered(self):
+        """The exact set, so a new group directory is a deliberate change
+
+        `tracking` was added by hand and this test is what made that visible;
+        a subset assertion would have let a stray directory become a silent
+        composition group.
+        """
         found = groups()
-        self.assertEqual({"data", "method", "model", "preset"}, set(found))
+        self.assertEqual({"data", "method", "model", "preset", "tracking"}, set(found))
         self.assertIn("gpt2-small", found["model"])
+        self.assertEqual({"mlflow", "none"}, set(found["tracking"]))
+
+    def test_tracking_stays_out_of_the_spec_hash(self):
+        """Mirroring a run's metrics does not change them, so a tracked run and
+        an untracked one are the same experiment (invariant 4)"""
+        self.assertEqual(compose_spec().spec_hash,
+                         compose_spec(overrides=["tracking=mlflow"]).spec_hash)
+
+    def test_tracking_defaults_to_off(self):
+        self.assertEqual("none", compose_spec().tracking.name)
+        self.assertEqual("mlflow", compose_spec(overrides=["tracking=mlflow"]).tracking.name)
 
     def test_composing_with_no_overrides_gives_the_defaults(self):
         spec = compose_spec()

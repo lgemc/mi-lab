@@ -169,6 +169,18 @@ class OutputSpec:
     save_probe: bool = True
 
 @dataclass
+class TrackingSpec:
+    """Which tracking config mirrors this run, by name
+
+    A one-liner naming an entry in configs/tracking/, the way ModelSpec names
+    one in configs/ -- the endpoint is a fact about the cluster and does not
+    belong in an experiment. Excluded from spec_hash with `output`, and for the
+    same reason: mirroring a run's metrics somewhere does not change them, so
+    a tracked run and an untracked one are the same experiment.
+    """
+    name: str = "none"
+
+@dataclass
 class ExperimentSpec:
     """One experiment, fully described
 
@@ -185,6 +197,7 @@ class ExperimentSpec:
     ioi: IOISpec = field(default_factory=IOISpec)
     compare: CompareSpec = field(default_factory=CompareSpec)
     output: OutputSpec = field(default_factory=OutputSpec)
+    tracking: TrackingSpec = field(default_factory=TrackingSpec)
 
     def validate(self) -> "ExperimentSpec":
         """Check everything that can be checked without loading a model"""
@@ -250,6 +263,7 @@ class ExperimentSpec:
         """
         payload = self.as_dict()
         payload.pop("output", None)
+        payload.pop("tracking", None)
         canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
         return hashlib.sha256(canonical.encode()).hexdigest()[:12]
 

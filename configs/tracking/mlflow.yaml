@@ -1,0 +1,22 @@
+# The self-hosted MLflow in the cluster's ai-mlflow namespace, reached through
+# the cloudflare tunnel so the same URL works from this host, from a laptop and
+# from a pod. The in-cluster name (mlflow.ai-mlflow.svc.cluster.local:5000) is
+# not used here because it does not resolve outside the cluster, and the
+# ClusterIP is not used because it is reassigned whenever the Service is
+# recreated -- this config would then point somewhere real and wrong.
+#
+# No credentials here, ever. The server has basic-auth env vars set but does
+# not currently enforce them; if that changes, the client reads
+# MLFLOW_TRACKING_USERNAME and MLFLOW_TRACKING_PASSWORD from the environment.
+enabled: true
+uri: https://mlflow.atelier.run
+experiment: mi-lab-sheaves
+timeout: 10.0
+
+# Steps between flushes. gpt2-small runs at about half a second a step, so
+# per-step POSTs would be two thousand round trips for a run that finishes in
+# seventeen minutes; the server takes them a hundred at a time quite happily.
+flush_every: 25
+tags:
+  project: mi-lab
+  method: discogp

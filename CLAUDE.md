@@ -22,7 +22,7 @@ Everything under `src/` is a namespace package except `src/cli/commands/viz/`, w
 modules explicitly:
 
 ```bash
-# everything: 435 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
+# everything: 451 tests, ~90s on a CPU and ~26s on a GPU (the online half needs GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.ie tests.probing \
     tests.runner tests.adapter tests.circuits tests.discovery tests.comparison \
@@ -265,6 +265,23 @@ over every gate. `history` stays at its six entries — it is the summary inside
 
 `uv run python -m scripts.watch` reads the newest journal under `MI_LAB_JOURNALS` (`--list`,
 `--follow`, `--rows`). It only reads, so pointing it at a run in flight cannot disturb it.
+
+`src/telemetry/tracking.py` mirrors the same rows to the cluster's MLflow (`--tracking mlflow`,
+default `none`). It answers the question the journal does not — how does this run compare to the
+four before it — and it is a *mirror*: the row is on disk before it is sent, and any network
+failure disables the sink instead of raising into a two-hour training loop.
+
+- **REST over urllib, not the `mlflow` client.** `telemetry` is stdlib-only so a result stays
+  readable on a machine that cannot load the model that wrote it, and this needs four stable 2.0
+  calls. Import `mlflow` the day artifacts, autologging or the registry are wanted.
+- **`configs/tracking/*.yaml` holds the endpoint** (a fact about the cluster); `specs/tracking/*`
+  names one the way `specs/model/*` names a `configs/` entry. `TrackingSpec` is **excluded from
+  `spec_hash`** with `output` — invariant 4, since mirroring metrics does not change them.
+- **No credentials in the config, ever.** The server has basic-auth env vars set but does not
+  enforce them; the client reads `MLFLOW_TRACKING_USERNAME`/`PASSWORD` if that changes.
+- Cloudflare 403s a `Python-urllib/3.x` User-Agent as bot traffic, so the client sends its own.
+  That failure looks exactly like an auth error and is not one — curl works, the client does not,
+  same URL, and the in-cluster address is unaffected.
 
 For a run that is already going and was started without a journal, `py-spy dump --pid <n> --locals`
 reads `step` straight out of the live frame. That is a debugger, not instrumentation — it needs
