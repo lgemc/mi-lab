@@ -33,9 +33,14 @@ A common pipe could be: load_pairs | translation_prompt | generate | score
 # out of the prompt: the answer token carries it, the way IOI's names do.
 WORD_FRAME = "The Spanish word{source} means{answer}"
 
-# Pairs whose two sides are likely one token each with a leading space on a
-# multilingual BPE. A starting point, not a promise: build_translation filters
-# both sides against the tokenizer of the model in hand.
+# The offline fallback, and only that. Forty pairs written down by hand, of
+# which Qwen3-1.7B keeps twenty-five whole, which a 75/25 split turns into
+# eighteen training prompts -- and a whole-model sheaf put 28M open gates
+# against those eighteen and memorized them (train 0.917, held-out 0.125).
+# `scripts.build_translation_pool` derives a real pool from MUSE and writes it
+# beside the bitexts; `load_word_pairs` prefers it whenever it exists. This
+# list stays so that the task is buildable with no download, which is what the
+# tests rely on.
 WORD_PAIRS = (
     ("gato", "cat"), ("perro", "dog"), ("casa", "house"), ("libro", "book"),
     ("agua", "water"), ("sol", "sun"), ("luna", "moon"), ("rojo", "red"),
@@ -157,6 +162,45 @@ def translation_prompt(source: str, form: str = "instruction", shots: Sequence[T
         f"unknown prompt form '{form}'; known forms are ['counterfactual', 'few_shot', 'instruction']"
     )
 
+def pool_path(config: str) -> Path:
+    """Where the derived word pool for one model lands
+
+    Per model, because the filter that produces it is the model's own
+    tokenizer and the model's own answers -- a pool built for Qwen is not a
+    pool for GPT-2, and one file named for both would silently be read as
+    either.
+    """
+    return (Path(__file__).resolve().parents[2] / "data" / "external" / "translation"
+            / f"es-en-words-{config}.tsv")
+
+def load_word_pairs(config: str) -> Tuple[Tuple[str, str], ...]:
+    """The derived pool if it has been built, otherwise the built-in fallback
+
+    Silent about which it used, because `build_translation` reports the count
+    it kept and the caller can see eighteen against four hundred. What is not
+    silent is the failure: a pool file that exists and cannot be parsed raises
+    rather than falling back, since falling back to twenty-five pairs while
+    the caller believes it has four hundred is the failure this whole change
+    exists to remove.
+    """
+    path = pool_path(config)
+    if not path.exists():
+        return WORD_PAIRS
+    pairs = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip() or line.startswith("#"):
+            continue
+        parts = line.split("\t")
+        if len(parts) != 2:
+            raise DatasetError(
+                f"{path}:{number} is not `spanish<TAB>english`: {line!r}. Rebuild it with "
+                f"`uv run python -m scripts.build_translation_pool {config}`."
+            )
+        pairs.append((parts[0].strip(), parts[1].strip()))
+    if not pairs:
+        raise DatasetError(f"{path} holds no pairs; rebuild or delete it to use the built-in list")
+    return tuple(pairs)
+
 def default_pairs_path(name: str) -> Path:
     """Where a converted bitext lands: downloaded data stays under data/external"""
     return Path(__file__).resolve().parents[2] / "data" / "external" / "translation" / f"{name}.prompts"
@@ -172,16 +216,18 @@ def build_translation(adapter, size: int = 16, seed: int = 0, **options):
     """
     from .tasks import TaskError, TaskExample, TemplateTask, require_alignment, single_tokens
 
+    available = load_word_pairs(adapter.cfg.id)
     kept = [
         (spanish, english)
-        for spanish, english in WORD_PAIRS
+        for spanish, english in available
         if single_tokens(adapter, (f" {spanish}",)) and single_tokens(adapter, (f" {english}",))
     ]
     if len(kept) < 4:
         raise TaskError(
             f"'translation' needs at least 4 word pairs kept whole and only {len(kept)} of "
-            f"{len(WORD_PAIRS)} survived '{adapter.cfg.id}''s tokenizer; widen WORD_PAIRS or "
-            "pick a model whose vocabulary keeps common Spanish words whole"
+            f"{len(available)} survived '{adapter.cfg.id}''s tokenizer. Build the derived pool "
+            f"with `uv run python -m scripts.build_translation_pool {adapter.cfg.id}`, or pick a "
+            "model whose vocabulary keeps common Spanish words whole"
         )
     rng = random.Random(seed)
     examples = []

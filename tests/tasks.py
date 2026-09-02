@@ -1,7 +1,10 @@
 import re
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
-from unittest import TestCase
+from unittest import TestCase, mock
 
+from src.data.dataset import DatasetError
 from src.data.ioi import build_ioi
 from src.data.tasks import (
     TASKS,
@@ -13,6 +16,7 @@ from src.data.tasks import (
     single_tokens,
     task_names,
 )
+from src.data.translation import WORD_PAIRS, load_word_pairs, pool_path
 
 """
 The task registry is tested against a stub tokenizer, for the same reason IOI
@@ -185,3 +189,51 @@ class TestAlignment(TestCase):
         with self.assertRaises(TaskError) as raised:
             build_task("greater_than", adapter, size=4)
         self.assertIn("single-token", str(raised.exception))
+
+class TestWordPool(TestCase):
+    """The pool the translation task draws on, which was forty typed pairs
+
+    Twenty-five of them survived Qwen3-1.7B's tokenizer, so a 75/25 split gave
+    eighteen training prompts, and a whole-model sheaf put 28M open gates
+    against those eighteen and memorized them. `load_word_pairs` prefers a
+    derived pool when one has been built; these are the ways that goes wrong.
+    """
+
+    def setUp(self):
+        self.temporary = TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+
+    def _write(self, config, body):
+        path = self.root / f"es-en-words-{config}.tsv"
+        path.write_text(body, encoding="utf-8")
+        patch = mock.patch("src.data.translation.pool_path", lambda name: self.root /
+                           f"es-en-words-{name}.tsv")
+        patch.start()
+        self.addCleanup(patch.stop)
+        return path
+
+    def test_no_pool_file_falls_back_to_the_built_in_list(self):
+        self._write("other-model", "a\tb\n")
+        self.assertEqual(WORD_PAIRS, load_word_pairs("qwen3-1.7b"))
+
+    def test_a_built_pool_is_preferred(self):
+        self._write("qwen3-1.7b", "# a comment\n\ngato\tcat\nperro\tdog\n")
+        self.assertEqual((("gato", "cat"), ("perro", "dog")), load_word_pairs("qwen3-1.7b"))
+
+    def test_a_malformed_pool_raises_rather_than_falling_back(self):
+        """Falling back to 25 pairs while the caller believes it has 500 is the
+        failure this whole file exists to remove"""
+        self._write("qwen3-1.7b", "gato\tcat\nthis line has no tab\n")
+        with self.assertRaises(DatasetError) as raised:
+            load_word_pairs("qwen3-1.7b")
+        self.assertIn("build_translation_pool", str(raised.exception))
+
+    def test_an_empty_pool_raises(self):
+        self._write("qwen3-1.7b", "# only comments\n\n")
+        with self.assertRaises(DatasetError):
+            load_word_pairs("qwen3-1.7b")
+
+    def test_the_pool_path_is_per_model(self):
+        self.assertNotEqual(pool_path("gpt2-small"), pool_path("qwen3-1.7b"))
+        self.assertIn("qwen3-1.7b", pool_path("qwen3-1.7b").name)
