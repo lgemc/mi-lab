@@ -107,7 +107,8 @@ def _targets(adapter) -> Dict[str, torch.nn.Parameter]:
             if id(parameter) in inside}
 
 def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict[str, torch.Tensor]],
-           originals: Dict[str, torch.Tensor], temperature: float, reverse: bool = False) -> torch.Tensor:
+           originals: Dict[str, torch.Tensor], temperature: float, reverse: bool = False,
+           deterministic: bool = False) -> torch.Tensor:
     """The good/bad logit pair at each named prompt's last real token, under the current gates
 
     Indexed by row rather than handed a list of prompts, because the answers
@@ -128,7 +129,14 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
     parameters = dict(adapter.model.named_parameters())
     if gates is not None:
         for name, logits in gates.items():
-            sampled = gumbel_sigmoid(logits, temperature)
+            # Training samples; evaluation thresholds. Scoring a sampled mask
+            # measures a different random subnetwork on every forward pass, and
+            # it is not the mask that was learned: a first version sampled
+            # everywhere and reported train accuracy flat at 0.70 from 55% of
+            # the weights down to 0.02%, because the number never depended on
+            # the gates at all.
+            sampled = ((logits > 0).to(logits.dtype) if deterministic
+                       else gumbel_sigmoid(logits, temperature))
             parameters[name] = (1.0 - sampled if reverse else sampled) * originals[name]
     logits = torch.func.functional_call(
         adapter.model, {**parameters, **dict(adapter.model.named_buffers())},
@@ -208,7 +216,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         )
     train_rows, test_rows = list(range(split)), list(range(split, count))
     with torch.no_grad():
-        baseline = _accuracy(_pairs(adapter, task, test_rows, None, originals, temperature))
+        baseline = _accuracy(_pairs(adapter, task, test_rows, None, originals, temperature,
+                                    deterministic=True))
 
     warmup = steps if warmup is None else warmup
     history = []
@@ -243,9 +252,11 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     with torch.no_grad():
         kept = {name: (logits > 0).float() for name, logits in gates.items()}
         open_count = int(sum(k.sum() for k in kept.values()))
-        final = _pairs(adapter, task, test_rows, gates, originals, temperature)
-        complement = _pairs(adapter, task, test_rows, gates, originals, temperature, reverse=True)
-        trained = _accuracy(_pairs(adapter, task, train_rows, gates, originals, temperature))
+        final = _pairs(adapter, task, test_rows, gates, originals, temperature, deterministic=True)
+        complement = _pairs(adapter, task, test_rows, gates, originals, temperature,
+                            reverse=True, deterministic=True)
+        trained = _accuracy(_pairs(adapter, task, train_rows, gates, originals, temperature,
+                                   deterministic=True))
     for name, parameter in targets.items():
         parameter.data.copy_(originals[name])
     return Sheaf(
