@@ -5,11 +5,11 @@
   "layers": null,
   "n_layers": 28,
   "gates": 1409286144,
-  "open": 1409286144,
-  "density": 1.0,
-  "accuracy": 1.0,
-  "train_accuracy": 1.0,
-  "complement_accuracy": 0.3438,
+  "open": 28286924,
+  "density": 0.020072,
+  "accuracy": 0.125,
+  "train_accuracy": 0.9167,
+  "complement_accuracy": 0.3125,
   "baseline_accuracy": 1.0,
   "band_control": {
     "open": 1.0,
@@ -18,7 +18,7 @@
   "settings": {
     "size": 128,
     "seed": 0,
-    "steps": 4,
+    "steps": 2000,
     "batch": 8,
     "rate": 0.1,
     "sparsity": 1.0,
@@ -38,37 +38,69 @@
   "history": [
     {
       "step": 0,
-      "loss": 1.7471,
-      "faith": 0.4512,
+      "loss": 2.4139,
+      "faith": 0.8672,
       "open": 0.7311,
-      "complete": 1.8828,
+      "complete": 2.7188,
       "price": 1.0
     },
     {
-      "step": 1,
-      "loss": 185.0128,
-      "faith": 1.25,
-      "open": 0.7304,
-      "complete": 2.0312,
-      "price": 250.75
+      "step": 333,
+      "loss": 105.0622,
+      "faith": 0.5859,
+      "open": 0.6229,
+      "complete": 0.8242,
+      "price": 167.33
     },
     {
-      "step": 2,
-      "loss": 368.5091,
-      "faith": 2.4219,
-      "open": 0.7296,
-      "complete": 3.0312,
-      "price": 500.5
+      "step": 666,
+      "loss": 160.3534,
+      "faith": 0.4375,
+      "open": 0.4786,
+      "complete": 0.7109,
+      "price": 333.67
     },
     {
-      "step": 3,
-      "loss": 550.2995,
-      "faith": 3.0156,
-      "open": 0.7287,
-      "complete": 1.8984,
-      "price": 750.25
+      "step": 999,
+      "loss": 173.0881,
+      "faith": 0.3691,
+      "open": 0.345,
+      "complete": 0.6953,
+      "price": 500.0
+    },
+    {
+      "step": 1332,
+      "loss": 167.8349,
+      "faith": 0.4453,
+      "open": 0.2509,
+      "complete": 0.7031,
+      "price": 666.33
+    },
+    {
+      "step": 1665,
+      "loss": 157.3954,
+      "faith": 0.0127,
+      "open": 0.1888,
+      "complete": 0.7031,
+      "price": 832.67
+    },
+    {
+      "step": 1998,
+      "loss": 142.6921,
+      "faith": 0.0136,
+      "open": 0.1426,
+      "complete": 0.6992,
+      "price": 999.0
+    },
+    {
+      "step": 1999,
+      "loss": 142.6426,
+      "faith": 0.0051,
+      "open": 0.1425,
+      "complete": 0.707,
+      "price": 999.5
     }
   ],
   "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by e4c92bb (gates were sampled at evaluation, so accuracy never depended on them); with that fixed the density/accuracy relation is incoherent rather than poor. Read this artifact as a run of the method, not as a result from it, until a sweep is monotone in density.",
-  "command": "uv run python -m scripts.sheaf_prune qwen3-1.7b --task translation --layers all --steps 4 --size 128"
+  "command": "uv run python -m scripts.sheaf_prune qwen3-1.7b --task translation --layers all --steps 2000 --size 128"
 }
