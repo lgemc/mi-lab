@@ -50,23 +50,24 @@ from src.telemetry.journal import Journal, env_root, run_id
 # the fifth term and the only one that is not four bytes.
 STATE_BYTES_PER_GATE = 4 * 4
 
-# What one live graph costs, per gate. `_pairs` keeps several float32 tensors
-# per *weight* alive for the backward pass -- gumbel's two uniforms, the noise,
-# the relaxed sigmoid, the straight-through result -- so the graph scales with
-# the band and barely with `batch`. Narrowing the layers is the real lever; a
-# smaller batch is nearly none.
+# What the autograd graph costs on top of the state, as a fixed part plus a
+# per-gate part. It is not proportional to the gate count, which is what the
+# first two versions of this assumed and why both were wrong: a multiplier
+# fitted on a 151M-gate band said 39.6 B/gate and projected 79 GiB for the
+# whole model, which then ran at 37.1. The caching allocator reuses blocks
+# across parameter tensors, so most of the small-band peak is a constant --
+# activations, the model's own forward buffers, allocator slack -- and only the
+# tensors gumbel retains for the backward pass actually scale.
 #
-# 40 is measured: a 151M-gate band peaked at 11.3 GiB against 3.2 GiB of model
-# and 2.53 GiB of state, leaving 5.6 GiB of graph. It is a per-gate figure
-# rather than a multiple of the state because the state includes the model,
-# which does not grow with the band -- a multiplier fitted at one band size was
-# wrong at every other, and the first one here (3.3x) projected 19.5 GiB for a
-# 352M-gate band that then took NV_ERR_NO_MEMORY from the driver two seconds in.
+# Fitted on the two runs that have been measured here, and it reproduces both
+# exactly: 151M gates peaked at 11.3 GiB and 1409M at 37.1. Rounded up from
+# 5.00 and 4.02 for margin, so the projection sits a little above each.
 #
-# Read it as a floor. Torch's peak counter misses the driver's own allocations,
-# which is half of why that run died; the other half was MemAvailable counting
-# reclaimable page cache that a CUDA allocation cannot have.
-GRAPH_BYTES_PER_GATE = 40
+# Both numbers come from torch's peak counter, which misses the driver's own
+# allocations -- half of why a run once cleared a check and took
+# NV_ERR_NO_MEMORY anyway. The other half was MemAvailable, fixed separately.
+GRAPH_BASE_GIB = 6.0
+GRAPH_BYTES_PER_GATE = 5
 
 def budget(n_gates: int, weight_bytes: int, model_bytes: int) -> dict:
     """What the run costs before it starts: the model, the state, one graph
@@ -80,7 +81,7 @@ def budget(n_gates: int, weight_bytes: int, model_bytes: int) -> dict:
     originals = n_gates * weight_bytes
     state = (optimizer + originals) / 2 ** 30
     model = model_bytes / 2 ** 30
-    graph = n_gates * GRAPH_BYTES_PER_GATE / 2 ** 30
+    graph = GRAPH_BASE_GIB + n_gates * GRAPH_BYTES_PER_GATE / 2 ** 30
     return {
         "gates": n_gates,
         "optimizer_gib": round(optimizer / 2 ** 30, 2),
