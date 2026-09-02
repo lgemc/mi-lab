@@ -294,10 +294,11 @@ def schedule(step: int, lambda_0: float, max_times: float, warmup: int) -> float
 
 def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           sparsity: float = 1.0, completeness: float = 0.3, temperature: float = 1.0,
-          init: float = 1.0, batch: int = 8, max_times: float = 1000.0,
+          init: float = 1.0, batch: int = 64, max_times: float = 1000.0,
           warmup: Optional[int] = None, holdout: float = 0.25,
           layers: Optional[Sequence[int]] = None,
-          journal: Optional[Journal] = None, probe_every: int = 10) -> Sheaf:
+          journal: Optional[Journal] = None, probe_every: int = 10,
+          seed: Optional[int] = None) -> Sheaf:
     """Learn a weight mask that does the task and whose complement cannot
 
     `init` starts every gate open -- a logit of 3 is a sigmoid of 0.95 -- so the
@@ -317,6 +318,13 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     this held the price constant at 20 and pruned 11% of the weights where the
     paper reports 93-99%.
 
+    `seed` seeds torch's global generator, which is the only thing that makes
+    a run repeatable: the gates are sampled by `gumbel_sigmoid` on every forward
+    pass, from the global RNG, so two runs of identical arguments otherwise
+    produce different masks. The task's own `seed` never reached this -- it
+    selects which prompts are drawn and nothing about the sampling -- so a
+    "seed sweep" varying it would have measured the wrong source of variance.
+
     `journal` streams every step to disk as it happens. Without one this
     function is silent for its whole duration and returns everything at the
     end, which on the whole 1.7B model is two hours of blank terminal and
@@ -328,6 +336,12 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     adapter = require_circuits(adapter)
     if steps < 1:
         raise CircuitError(f"pruning needs at least one step, got {steps}")
+    if seed is not None:
+        # Global rather than a threaded Generator: gumbel_sigmoid is called once
+        # per gated parameter per pass and a generator argument would have to
+        # reach every one of them. A process runs one prune, so the global state
+        # is not shared with anything that would notice.
+        torch.manual_seed(seed)
     targets = gateable(adapter, layers)
     if not targets:
         raise CircuitError("no maskable weights found; every block was norms and embeddings")

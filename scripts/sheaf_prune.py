@@ -226,7 +226,7 @@ def run(args: argparse.Namespace) -> None:
                 adapter, task, steps=args.steps, rate=args.rate, sparsity=args.sparsity,
                 completeness=args.completeness, batch=args.batch, max_times=args.max_times,
                 holdout=args.holdout, layers=layers, journal=journal,
-                probe_every=args.probe_every,
+                probe_every=args.probe_every, seed=args.seed,
             )
             facts["density"] = f"{sheaf.density:.4%}"
             facts["held-out"] = f"{sheaf.accuracy:.3f}"
@@ -295,7 +295,16 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--steps", type=int, default=2000,
                         help="the reference's unit is an epoch; the retracted run was 500 batches")
-    parser.add_argument("--batch", type=int, default=8)
+    # 64, not 8. Measured on gpt2-small: batch 8 runs 0.428 s/step and 18.7
+    # prompts/s; batch 128 runs 0.746 s/step and 171.5 -- 9.2x the throughput
+    # for 1.74x the step. Batch 16 is free outright. The gate machinery alone
+    # costs 0.087 s/step, so the rest is two masked forward passes that at
+    # batch 8 are launch-latency bound rather than compute bound. The graph is
+    # per-weight, which is why shrinking the batch never bought memory and
+    # growing it barely costs time -- the same fact read in both directions.
+    # Every result before 2026-09-02 was taken at 8 and is not comparable
+    # step-for-step with one taken here.
+    parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--rate", type=float, default=0.1)
     parser.add_argument("--sparsity", type=float, default=1.0, help="the starting price")
     parser.add_argument("--max-times", type=float, default=1000.0, dest="max_times",
@@ -312,7 +321,14 @@ def main() -> None:
                         help="steps between hard-density probes; 0 logs the loss terms only")
     parser.add_argument("--force", action="store_true",
                         help="run past the memory and band-control checks")
-    parser.add_argument("--save-gates", action="store_true", dest="save_gates")
+    # On by default, because the mask IS the result. It was opt-in once, and a
+    # five-point sweep ran without it: seventeen minutes a point, five masks
+    # discarded, and the summary JSON kept. The best of them scored 0.961 held
+    # out at 0.33% density and cannot be recovered -- torch's RNG was unseeded
+    # then too, so rerunning produces a different mask rather than that one.
+    parser.add_argument("--no-save-gates", action="store_false", dest="save_gates",
+                        help="skip writing the learned mask; it is the run's actual product")
+    parser.set_defaults(save_gates=True)
     args = parser.parse_args()
     guard(args.config)
     run(args)
