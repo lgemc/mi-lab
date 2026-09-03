@@ -70,6 +70,15 @@ class Journal:
     def __init__(self, directory, params: Optional[Dict[str, Any]] = None,
                  name: str = "") -> None:
         self.directory = Path(directory)
+        # One run per directory, refused rather than merged: `run_id` is
+        # second-resolution, and three sweeps launched from one shell line
+        # landed in the same journal, their curves interleaved row by row in
+        # one metrics file that each artifact then named as its own.
+        if self.directory.exists() and any(self.directory.iterdir()):
+            raise TelemetryError(
+                f"{self.directory} already holds a run; a journal is one run's record. "
+                f"Wait a second between launches, or point this one at another directory."
+            )
         try:
             self.directory.mkdir(parents=True, exist_ok=True)
         except OSError as error:

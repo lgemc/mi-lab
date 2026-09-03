@@ -1,0 +1,73 @@
+{
+  "protocol": "the circuit multiplied into the weights and run as an ordinary model, on a fresh draw of the task at a seed the run never used. Ranking is the objective the mask was trained on; generation is the question it was never asked, and the gap between them is the point.",
+  "config": "qwen3-1.7b",
+  "task": "translation",
+  "seed": 99,
+  "size": 128,
+  "n_gates": 1409286144,
+  "n_open": 321667618,
+  "density": 0.22824862,
+  "full_model": {
+    "ranking": 1.0,
+    "first_token": 0.0781,
+    "contains_answer": 0.7891,
+    "contains_distractor": 0.0
+  },
+  "circuit": {
+    "ranking": 0.4609,
+    "first_token": 0.0,
+    "contains_answer": 0.0,
+    "contains_distractor": 0.0
+  },
+  "samples": [
+    {
+      "prompt": "The Spanish word costo means",
+      "answer": " cost",
+      "full": " \"cost\" and the word",
+      "circuit": " \" \" \" \" \" \""
+    },
+    {
+      "prompt": "The Spanish word contiene means",
+      "answer": " contains",
+      "full": " \"contains\" and is used",
+      "circuit": " \" \" \" \" \" \""
+    },
+    {
+      "prompt": "The Spanish word estudiantes means",
+      "answer": " students",
+      "full": " \"students\". The Spanish word",
+      "circuit": " \" \" \" \" \" \""
+    },
+    {
+      "prompt": "The Spanish word altura means",
+      "answer": " height",
+      "full": " \"height\", but in the",
+      "circuit": " \" \" \" \" \" \""
+    },
+    {
+      "prompt": "The Spanish word coraz\u00f3n means",
+      "answer": " heart",
+      "full": " \"heart\" and is also",
+      "circuit": " \" \" \" \" \" \""
+    },
+    {
+      "prompt": "The Spanish word construcci\u00f3n means",
+      "answer": " building",
+      "full": " \"building\" and the word",
+      "circuit": " \" \" \" \" \" \""
+    },
+    {
+      "prompt": "The Spanish word contiene means",
+      "answer": " contains",
+      "full": " \"contains\" and is used",
+      "circuit": " \" \" \" \" \" \""
+    },
+    {
+      "prompt": "The Spanish word velocidad means",
+      "answer": " velocity",
+      "full": " \"speed\". The Spanish word",
+      "circuit": " \" \" \" \" \" \""
+    }
+  ],
+  "command": "uv run python -m scripts.sheaf_infer qwen3-1.7b results/qwen3-1.7b-sweep/nll-s01 --task translation --seed 99"
+}

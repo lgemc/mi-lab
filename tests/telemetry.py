@@ -55,6 +55,13 @@ class TestJournal(TestCase):
         self.assertEqual("running", run["status"])
         self.assertEqual("qwen3-1.7b", run["params"]["config"])
 
+    def test_a_second_run_in_the_same_directory_is_refused(self):
+        """Second-resolution ids: three launches in one second wrote one interleaved file"""
+        first = Journal(self.root / "same", params={"steps": 1})
+        self.addCleanup(first.finish)
+        with self.assertRaises(TelemetryError):
+            Journal(self.root / "same", params={"steps": 1})
+
     def test_a_failure_is_recorded_rather_than_cleaned_up(self):
         with self.assertRaises(RuntimeError), \
                 Journal(self.root / "c", params={"steps": 3}) as journal:

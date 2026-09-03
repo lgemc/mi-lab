@@ -125,6 +125,7 @@ def run(args: argparse.Namespace) -> None:
         "batch": args.batch, "rate": args.rate, "sparsity": args.sparsity,
         "completeness": args.completeness, "max_times": args.max_times,
         "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
+        "init": args.init, "temperature": args.temperature, "anneal": args.anneal,
         "holdout": args.holdout, "band_control": control, "budget": cost,
     })
     log(f"journal: {directory} (tail -f {journal.metrics_path})")
@@ -148,6 +149,7 @@ def run(args: argparse.Namespace) -> None:
                 holdout=args.holdout, layers=layers, journal=journal,
                 probe_every=args.probe_every, seed=args.seed,
                 edge_sparsity=args.edge_sparsity, faith_kind=args.faith_kind,
+                init=args.init, temperature=args.temperature, anneal=args.anneal,
             )
             facts["density"] = f"{sheaf.density:.4%}"
             facts["held-out"] = f"{sheaf.accuracy:.3f}"
@@ -231,6 +233,15 @@ def main() -> None:
     # step-for-step with one taken here.
     parser.add_argument("--batch", type=int, default=64)
     parser.add_argument("--rate", type=float, default=0.1)
+    parser.add_argument("--init", type=float, default=1.0,
+                        help="the starting gate logit; 1.0 is the reference's, and samples 27%% of the "
+                             "weights shut at step 0, which a 1.7B does not survive. 5.0 is 0.7%%.")
+    parser.add_argument("--temperature", type=float, default=1.0,
+                        help="backward sharpness of the gate, never which gates open; the reference "
+                             "trains weight masks at 0.01")
+    parser.add_argument("--anneal", action="store_true",
+                        help="shrink the gate noise to zero across the run, so the mask trained "
+                             "last is the thresholded one that is saved")
     parser.add_argument("--sparsity", type=float, default=1.0, help="the starting price")
     parser.add_argument("--max-times", type=float, default=1000.0, dest="max_times",
                         help="the factor the price ramps to; the reference's default")

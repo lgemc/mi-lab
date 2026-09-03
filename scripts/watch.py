@@ -32,7 +32,7 @@ from src.telemetry.journal import (
 )
 from src.telemetry.observe import duration
 
-COLUMNS = ("step", "elapsed", "loss", "faith", "open", "complete", "density", "price")
+COLUMNS = ("step", "elapsed", "loss", "faith", "open", "complete", "density", "hard_accuracy", "price", "noise")
 
 def cell(value) -> str:
     if value is None:

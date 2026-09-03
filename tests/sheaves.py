@@ -6,6 +6,8 @@ of weights open at accuracy 1.000, which was twenty thousand weights having
 learned eight sentences. These tests are what stops that being reported again.
 """
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 import torch
@@ -23,6 +25,7 @@ from src.methods.sheaves import (
     schedule,
     span,
 )
+from src.telemetry.journal import Journal, read_metrics
 
 from .stubs.model import shared_adapter
 
@@ -39,6 +42,32 @@ class TestGates(TestCase):
     def test_a_high_logit_opens_and_a_low_one_closes(self):
         self.assertGreater(float(gumbel_sigmoid(torch.full((4096,), 8.0)).mean()), 0.95)
         self.assertLess(float(gumbel_sigmoid(torch.full((4096,), -8.0)).mean()), 0.05)
+
+    def test_temperature_changes_the_gradient_and_not_the_gate(self):
+        """The paper's eq. 3 adds the noise before dividing by tau: which gates open is tau-free"""
+        logits = torch.linspace(-3, 3, 4096, requires_grad=True)
+        torch.manual_seed(0)
+        cold = gumbel_sigmoid(logits, temperature=0.01)
+        torch.manual_seed(0)
+        warm = gumbel_sigmoid(logits, temperature=1.0)
+        self.assertTrue(torch.equal(cold, warm))
+        cold.sum().backward()
+        sharp = logits.grad.clone()
+        logits.grad = None
+        warm.sum().backward()
+        self.assertGreater(float(sharp.max()), 10 * float(logits.grad.max()))
+
+    def test_no_noise_is_the_thresholded_mask(self):
+        """At noise 0 the sample is `logits > 0`: what `anneal` converges the training on"""
+        logits = torch.linspace(-3, 3, 4096, requires_grad=True)
+        gate = gumbel_sigmoid(logits, noise=0.0)
+        self.assertTrue(torch.equal((logits > 0).float(), gate))
+        gate.sum().backward()
+        self.assertTrue(bool((logits.grad > 0).all()), "the noiseless gate still has to be differentiable")
+        torch.manual_seed(0)
+        half = gumbel_sigmoid(logits.detach(), noise=0.5)
+        self.assertLess(float((half != (logits > 0).float()).float().mean()),
+                        float((gumbel_sigmoid(logits.detach()) != (logits > 0).float()).float().mean()))
 
 class TestSchedule(TestCase):
     def test_the_price_ramps_and_then_holds(self):
@@ -88,6 +117,26 @@ class TestPruning(TestCase):
         self.assertIsNotNone(sheaf.accuracy)
         self.assertGreaterEqual(sheaf.density, 0.0)
         self.assertLessEqual(sheaf.density, 1.0)
+
+    def test_the_probe_scores_the_thresholded_mask_while_training(self):
+        """The loss is a sampled mask's; the result is the thresholded one's. The
+        curve has to carry the second, or a collapse at the threshold is
+        invisible until the run is over -- which is how the 1.7B spent 1h49m
+        on a mask that was at chance from its first probe."""
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        with TemporaryDirectory() as directory:
+            journal = Journal(Path(directory) / "run", params={})
+            prune(self.adapter, task, steps=3, batch=4, holdout=0.25, journal=journal, probe_every=2,
+                  anneal=True, init=5.0, temperature=0.01)
+            journal.finish()
+            rows = read_metrics(Path(directory) / "run")
+        probed = [row for row in rows if "density" in row]
+        self.assertEqual([0, 2], [row["step"] for row in probed])
+        for row in probed:
+            self.assertIn("hard_accuracy", row)
+            self.assertGreaterEqual(row["hard_accuracy"], 0.0)
+            self.assertLessEqual(row["hard_accuracy"], 1.0)
+        self.assertNotIn("hard_accuracy", rows[1])
 
 class TestBand(TestCase):
     """The layer band, which is what makes a model past GPT-2 affordable at all"""

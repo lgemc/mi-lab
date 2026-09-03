@@ -1,0 +1,41 @@
+# DiscoGP on the Spanish-to-English task of the 1.7B, with the paper's
+# faithfulness term. The run in results/qwen3-1.7b/sheaf-translation.json was
+# taken under `pair` -- two logits where the paper scores the whole vocabulary
+# (0571845) -- and reached 2.23% density at held-out 0.326, which is the
+# number that term is now known to produce for a mask that cannot speak.
+#
+# Two flags change and nothing else, so the two artifacts are an A/B on the
+# objective: `--faith nll`, and `--sparsity 0.1` because that is the price at
+# which the same term landed GPT-2 inside the paper's 1-7% band this afternoon
+# (results/gpt2-sweep/nll-s01: 2.66% density, 0.945 held out, against 20.84%
+# at price 0.01). Batch stays at 8 rather than the script's new default of 64:
+# every 1.7B and GPT-2 number to compare against was taken at 8, and a step at
+# 64 sees eight times the rows.
+#
+# Its own root, because `sheaf-translation.json` is one filename per task and
+# the pair run is the thing this is compared to; overwriting it would leave the
+# comparison with one side. Then the two checks the training loop cannot make:
+# the mask loaded as ordinary weights and asked to generate on a fresh draw,
+# and the mask reduced to layers, projections and heads.
+name: discogp translation on qwen3-1.7b, the paper's faithfulness
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/nll-s01
+
+steps:
+  # ~2.5h at 2000 steps of 8 on the GB10; peaks near 37 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --sparsity, "0.1", --faith, nll, --seed, "0"]
+
+  # Seed 99 is a draw the mask never saw. Ranking and generation both.
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/nll-s01, --task, translation, --seed, "99", --show, "8"]
+
+  # Which layers, projections and heads the open gates pile into.
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/nll-s01, --task, translation]

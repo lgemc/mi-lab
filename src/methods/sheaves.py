@@ -59,7 +59,8 @@ from ..telemetry.journal import Journal
 from .circuits import CircuitError
 
 
-def gumbel_sigmoid(logits: torch.Tensor, temperature: float = 1.0, eps: float = 1e-10) -> torch.Tensor:
+def gumbel_sigmoid(logits: torch.Tensor, temperature: float = 1.0, eps: float = 1e-10,
+                   noise: float = 1.0) -> torch.Tensor:
     """A Bernoulli gate that is hard in the forward pass and differentiable in the backward one
 
     Straight-through: the returned value is exactly 0 or 1, so the model really
@@ -68,10 +69,22 @@ def gumbel_sigmoid(logits: torch.Tensor, temperature: float = 1.0, eps: float = 
     gives a zero gradient everywhere; relaxing without the rounding trains a
     model that is never actually pruned and scores well because a half-open gate
     still passes half the signal.
+
+    The paper's eq. 3: `sigma((l - log(log U1 / log U2)) / tau)`, logistic noise
+    added *before* the division. So `temperature` never changes which gates
+    open -- `sigma(x / tau) > 0.5` is `x > 0` at any tau -- it only sharpens the
+    backward pass: at the reference's 0.01 for weight masks a gate on the
+    boundary gets a hundred times the gradient and a gate away from it none.
+    Annealing tau, the Gumbel-softmax recipe, therefore cannot bring the sample
+    to the thresholded mask that is evaluated; `noise` is the scale that can.
+    At 1.0 the gate is the paper's; at 0.0 it is exactly `logits > 0`.
     """
-    uniform = logits.new_empty([2, *logits.shape]).uniform_(0, 1)
-    noise = -((uniform[1] + eps).log() / (uniform[0] + eps).log() + eps).log()
-    relaxed = torch.sigmoid((logits + noise) / temperature)
+    relaxed_input = logits
+    if noise > 0.0:
+        uniform = logits.new_empty([2, *logits.shape]).uniform_(0, 1)
+        drawn = -((uniform[1] + eps).log() / (uniform[0] + eps).log() + eps).log()
+        relaxed_input = logits + noise * drawn
+    relaxed = torch.sigmoid(relaxed_input / temperature)
     return ((relaxed > 0.5).type_as(relaxed) - relaxed).detach() + relaxed
 
 @dataclass
@@ -156,7 +169,7 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
            deterministic: bool = False,
            edge_logits: Optional[torch.Tensor] = None,
            edge_ids: Optional[Sequence[tuple]] = None,
-           whole: bool = False) -> torch.Tensor:
+           whole: bool = False, noise: float = 1.0) -> torch.Tensor:
     """The good/bad logit pair at each named prompt's last real token, under the current gates
 
     `whole` returns the entire last-token distribution instead of two of it,
@@ -193,7 +206,7 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
             # the weights down to 0.02%, because the number never depended on
             # the gates at all.
             sampled = ((logits > 0).to(logits.dtype) if deterministic
-                       else gumbel_sigmoid(logits, temperature))
+                       else gumbel_sigmoid(logits, temperature, noise=noise))
             # The gate logits are float32 whatever the model's dtype is (see
             # `prune`), so the mask is cast down to the weight rather than the
             # weight promoted up to the mask: promoting leaves this one
@@ -212,7 +225,7 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
     edges = None
     if edge_logits is not None and edge_ids:
         drawn = ((edge_logits > 0).to(edge_logits.dtype) if deterministic
-                 else gumbel_sigmoid(edge_logits, temperature))
+                 else gumbel_sigmoid(edge_logits, temperature, noise=noise))
         if reverse:
             drawn = 1.0 - drawn
         edges = {edge: drawn[index] for index, edge in enumerate(edge_ids)}
@@ -341,13 +354,28 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           layers: Optional[Sequence[int]] = None,
           journal: Optional[Journal] = None, probe_every: int = 10,
           seed: Optional[int] = None, edge_sparsity: float = 0.0,
-          faith_kind: str = "pair") -> Sheaf:
+          faith_kind: str = "pair", anneal: bool = False) -> Sheaf:
     """Learn a weight mask that does the task and whose complement cannot
 
     `init` starts every gate open -- a logit of 3 is a sigmoid of 0.95 -- so the
     search prunes a working model down rather than growing one from nothing.
     Starting closed makes the faithfulness term flat: a model with no weights
-    has no gradient pointing at which weight to restore first.
+    has no gradient pointing at which weight to restore first. How open matters
+    by model: the reference's 1.0 is a sigmoid of 0.73, and the *sampled*
+    network at step 0 has 27% of its weights dropped at random. GPT-2 small
+    tolerates that; the 1.7B does not (faith 11 nats at step 0 on translation,
+    journals/20260902-214006), and every gradient after is taken on a model
+    that is already broken.
+
+    `temperature` is the backward sharpness and nothing else (see
+    `gumbel_sigmoid`); the reference trains weight masks at 0.01.
+
+    `anneal` shrinks the gate noise linearly from 1 to 0 across the run, so the
+    mask being trained converges on the mask `logits > 0` that is evaluated and
+    saved. Off, the two are the same network only where the logits have left
+    the boundary, and the 1.7B's did not: 60% of them finished within 0.5 of
+    zero (results/qwen3-1.7b-sweep/nll-s01), where a sample and the threshold
+    disagree on nearly half the gates.
 
     `sparsity` and `completeness` are the two prices, and neither has a neutral
     setting. Their ratio decides whether the answer is a small circuit that
@@ -409,8 +437,11 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     end, which on the whole 1.7B model is two hours of blank terminal and
     nothing at all if the process is killed -- and it has been, by the driver,
     at the two-second mark and by a stale split at the ninety-minute mark.
-    `probe_every` throttles the one metric that is not free: `density` reduces
-    over every gate, where the loss terms were already synced off the device.
+    `probe_every` throttles the two metrics that are not free: `density`
+    reduces over every gate, and `hard_accuracy` is a forward pass of the
+    *thresholded* mask on held-out rows -- the mask the run is quoted on,
+    which the loss terms never touch because they are measured on sampled
+    ones. That gap is where a run collapses without the curve saying so.
     """
     adapter = require_circuits(adapter)
     if steps < 1:
@@ -447,6 +478,9 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     with torch.no_grad():
         baseline = _accuracy(_pairs(adapter, task, test_rows, None, originals, temperature,
                                     deterministic=True))
+    # A fixed handful of held-out rows for the probe below, the same rows every
+    # time so the curve is one quantity over the run rather than one per draw.
+    probe_rows = test_rows[:max(1, min(len(test_rows), batch))]
 
     # One scalar per (source, destination) the residual stream admits. Cheap
     # next to the weights -- 2028 against 85M on GPT-2 small -- and the half
@@ -482,6 +516,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     history = []
     for step in range(steps):
         price = schedule(step, sparsity, max_times, warmup)
+        noise = 1.0 - step / max(1, steps - 1) if anneal else 1.0
         chunk = _chunk(train_rows, step, batch)
         optimizer.zero_grad()
         # The two masked passes are backed through one at a time, and the
@@ -497,7 +532,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # layer band helps a great deal.
         pairs = _pairs(adapter, task, chunk, gates, originals, temperature,
                        edge_logits=edge_logits, edge_ids=edge_ids,
-                       whole=(faith_kind in ("kl", "nll")))
+                       whole=(faith_kind in ("kl", "nll")), noise=noise)
         if faith_kind == "nll":
             # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
             # masked model gives the token the *full* model predicted, over the
@@ -534,7 +569,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # and the complement should be at chance: cross-entropy against a uniform
         # target, which is minimized when the reversed mask knows nothing
         reversed_pairs = _pairs(adapter, task, chunk, gates, originals, temperature, reverse=True,
-                                edge_logits=edge_logits, edge_ids=edge_ids)
+                                edge_logits=edge_logits, edge_ids=edge_ids, noise=noise)
         complete = functional.cross_entropy(
             reversed_pairs, torch.full_like(reversed_pairs, 0.5))
         (completeness * complete).backward()
@@ -561,7 +596,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             row = {
                 "loss": faith_value + price * open_value + completeness * complete_value,
                 "faith": faith_value, "open": open_value, "complete": complete_value,
-                "price": price,
+                "price": price, "noise": noise,
             }
             if edge_ids:
                 row["edge_open"] = edge_value
@@ -575,6 +610,19 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             if probe_every and (step % probe_every == 0 or step == steps - 1):
                 with torch.no_grad():
                     row["density"] = float(sum((g > 0).sum() for g in gates.values()) / total)
+                    # The mask the result is quoted on, scored the way the result
+                    # scores it: thresholded, no noise, held-out rows. `faith`
+                    # above is a sampled mask's, and the two are different
+                    # networks wherever the logits sit near zero. On the 1.7B a
+                    # run held `faith` near 0 through its whole second half while
+                    # this number sat at chance -- 60% of the gates had ended
+                    # within 0.5 of the threshold, open on half the sampled
+                    # passes and shut on every deterministic one -- and nothing
+                    # else in the loop could see that, so it was found after
+                    # 1h49m rather than at step 300.
+                    row["hard_accuracy"] = _accuracy(_pairs(
+                        adapter, task, probe_rows, gates, originals, temperature,
+                        deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids))
             journal.log(step, **row)
 
     with torch.no_grad():

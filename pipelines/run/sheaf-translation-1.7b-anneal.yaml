@@ -1,0 +1,45 @@
+# The nll-s01 run again with the two knobs its collapse pointed at, and
+# nothing else changed, so results/qwen3-1.7b-sweep/nll-s01 is the control.
+#
+# nll-s01 finished at 22.8% density scoring chance, emitting ` "` on every
+# prompt, and its 300-step rerun with the hard-accuracy probe
+# (results/qwen3-1.7b-sweep/nll-s01-probe) showed the thresholded mask already
+# at chance by step 40, at 97% density. Not a sparsity failure: the network
+# being trained was never the one being scored. At the paper's init of 1.0 the
+# sampled mask drops 27% of the weights at random at step 0 -- 11 nats of
+# faith on a model that had 0 -- and every gradient after is taken on that
+# wreck; and with the gate noise held at 1.0 to the end, 60% of the logits
+# finished within 0.5 of zero, where a sample and the threshold disagree on
+# half the gates.
+#
+# `--init 5` starts the sample at 0.7% dropped instead of 27%. `--anneal`
+# shrinks the noise to zero across the run so the last steps train exactly the
+# mask that is saved. The reference's third setting, weight temperature 0.01,
+# is deliberately not taken: on GPT-2 IOI at this price it held density at
+# 35.6% (results/gpt2-sweep/nll-s01-temp001) because it hands the boundary
+# gates a hundred times the faith gradient against an unchanged price, and the
+# reference pays for that with lr 1.0 over 500 full epochs. The GPT-2 A/B for
+# the two knobs taken, same seed and price: init 5 alone 6.73% / 0.843, anneal
+# alone 2.59% / 0.921, against 2.66% / 0.945 -- neither helps GPT-2, which was
+# never the model with the problem.
+name: discogp translation on qwen3-1.7b, sample the model that is scored
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/nll-s01-i5a
+
+steps:
+  # ~1h50m at 2000 steps of 8 on the GB10; peaks near 37 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --sparsity, "0.1", --faith, nll, --seed, "0",
+           --init, "5", --anneal]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/nll-s01-i5a, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/nll-s01-i5a, --task, translation]
