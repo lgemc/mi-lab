@@ -35,11 +35,17 @@ import argparse
 import json
 from pathlib import Path
 
-import torch
-
 from src.data.tasks import build_task
 from src.methods.circuits import require_circuits
-from src.methods.gates import circuit_loaded, generation, open_count, ranking
+from src.methods.gates import (
+    GateError,
+    circuit_loaded,
+    circuit_path,
+    generation,
+    load_circuit,
+    open_count,
+    ranking,
+)
 from src.model.adapter import load_adapter
 from src.telemetry.observe import banner, log
 
@@ -47,7 +53,7 @@ from src.telemetry.observe import banner, log
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("config")
-    parser.add_argument("directory", help="results dir holding sheaf-<task>-gates.pt")
+    parser.add_argument("directory", help="results dir holding sheaf-<task>-mask.pt or -gates.pt")
     parser.add_argument("--task", default="ioi")
     parser.add_argument("--size", type=int, default=128, help="fresh prompts to draw")
     parser.add_argument("--seed", type=int, default=99,
@@ -57,10 +63,11 @@ def main() -> None:
     args = parser.parse_args()
 
     directory = Path(args.directory)
-    gates_path = directory / f"sheaf-{args.task}-gates.pt"
-    if not gates_path.exists():
-        raise SystemExit(f"{gates_path} does not exist; rerun that point with gates saved")
-    gates = torch.load(gates_path, weights_only=True)
+    try:
+        gates_path = circuit_path(directory, args.task)
+    except GateError as error:
+        raise SystemExit(str(error)) from None
+    gates = load_circuit(gates_path)
     adapter = require_circuits(load_adapter(args.config))
     task = build_task(args.task, adapter, size=args.size, seed=args.seed)
     opened, total = open_count(gates)

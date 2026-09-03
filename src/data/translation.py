@@ -50,7 +50,18 @@ A common pipe could be: load_pairs | eval_split | generate | clean_completion | 
 
 # One frame, ending where the English word has to go. The trailing space stays
 # out of the prompt: the answer token carries it, the way IOI's names do.
-WORD_FRAME = "The Spanish word{source} means{answer}"
+#
+# The glossary shape, not the sentence. "The Spanish word costo means" was the
+# frame through every run under results/qwen3-1.7b-sweep/ up to kl-t005, and
+# at that position the full model's next token is ` "` on 274 of 300 pool
+# words -- it continues `means "cost" and ...` -- so the answer sat one token
+# past the position every loss trained and every ranking scored. A mask that
+# opened a quote was faithful, and every collapsed circuit emitted ` " " "`.
+# Ending in `English:` the answer *is* the next token on 74% of the pool with
+# the same leading-space token as before; `means "` scores the same but
+# changes the answer token and drops 44 pairs, and two worked shots add
+# nothing. (scratchpad frames.py, seven frames, 300 pairs, 2026-09-03.)
+WORD_FRAME = "Spanish:{source}\nEnglish:{answer}"
 
 # The offline fallback, and only that. Forty pairs written down by hand, of
 # which Qwen3-1.7B keeps twenty-five whole, which a 75/25 split turns into

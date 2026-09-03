@@ -1,0 +1,119 @@
+{
+  "protocol": "DiscoGP (2407.03779) joint weight pruning: a gate per weight, the weights frozen, the gates trained on faith + sparsity + completeness. `density` is the fraction of *gated* weights left open, so it is only comparable across runs that gated the same band.",
+  "config": "qwen3-1.7b",
+  "task": "translation",
+  "layers": null,
+  "n_layers": 28,
+  "gates": 1409286144,
+  "open": 114044216,
+  "density": 0.080923,
+  "n_edges": 0,
+  "n_edges_open": 0,
+  "n_pinned": 0,
+  "edge_density": null,
+  "accuracy": 0.6237,
+  "train_accuracy": 0.9678,
+  "complement_accuracy": 0.5269,
+  "baseline_accuracy": 1.0,
+  "band_control": {
+    "open": 1.0,
+    "shut": 0.4766
+  },
+  "settings": {
+    "size": 1024,
+    "seed": 0,
+    "steps": 2000,
+    "batch": 8,
+    "rate": 0.1,
+    "sparsity": 1.0,
+    "completeness": 0.3,
+    "max_times": 1000.0,
+    "holdout": 0.25,
+    "edge_sparsity": 0.0,
+    "faith": "kl",
+    "init": 5.0,
+    "temperature": 1.0,
+    "anneal": true,
+    "target": 0.05,
+    "protect": 0.0,
+    "warmup": 1500
+  },
+  "budget": {
+    "gates": 1409286144,
+    "optimizer_gib": 21.0,
+    "originals_gib": 2.62,
+    "model_gib": 3.2,
+    "graph_gib": 12.56,
+    "total_gib": 23.62,
+    "peak_gib": 39.39
+  },
+  "history": [
+    {
+      "step": 0,
+      "loss": 0.6485,
+      "faith": 0.0767,
+      "open": 0.9933,
+      "complete": 1.9062,
+      "price": 0.0
+    },
+    {
+      "step": 333,
+      "loss": 71.2502,
+      "faith": 0.2715,
+      "open": 0.9474,
+      "complete": 0.8555,
+      "price": 74.65
+    },
+    {
+      "step": 666,
+      "loss": 111.9526,
+      "faith": 0.3945,
+      "open": 0.7563,
+      "complete": 0.7422,
+      "price": 147.2
+    },
+    {
+      "step": 999,
+      "loss": 87.3578,
+      "faith": 2.9219,
+      "open": 0.4894,
+      "complete": 0.793,
+      "price": 172.05
+    },
+    {
+      "step": 1332,
+      "loss": 60.5038,
+      "faith": 1.7266,
+      "open": 0.3012,
+      "complete": 0.6953,
+      "price": 194.45
+    },
+    {
+      "step": 1665,
+      "loss": 39.5265,
+      "faith": 0.4316,
+      "open": 0.1827,
+      "complete": 0.6953,
+      "price": 212.89
+    },
+    {
+      "step": 1998,
+      "loss": 28.0048,
+      "faith": 0.9336,
+      "open": 0.1311,
+      "complete": 0.6953,
+      "price": 204.85
+    },
+    {
+      "step": 1999,
+      "loss": 30.0169,
+      "faith": 2.9688,
+      "open": 0.131,
+      "complete": 0.6953,
+      "price": 204.83
+    }
+  ],
+  "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by e4c92bb (gates were sampled at evaluation, so accuracy never depended on them); with that fixed the density/accuracy relation is incoherent rather than poor. Read this artifact as a run of the method, not as a result from it, until a sweep is monotone in density.",
+  "journal": "journals/20260903-052058-qwen3-1.7b-translation",
+  "command": "uv run python -m scripts.sheaf_prune qwen3-1.7b --task translation --layers all --steps 2000 --size 1024 --batch 8 --faith kl --seed 0 --init 5 --anneal --target 0.05 --warmup 1500"
+}

@@ -1,0 +1,44 @@
+# Does a faithful translation circuit exist at any density? The whole model
+# at a 20% target, before asking for 5% of it.
+#
+# results/qwen3-1.7b-sweep/kl-t005-frame is the control, one variable away:
+# the frame fixed, the whole model gated to 8.1%, ranking 0.84 on a fresh
+# draw and the first token right on 17% of prompts against the full model's
+# 71%. Its own curve says what density buys under this optimizer -- 0.97
+# down to 0.91 density, 0.82 over the stretch from 0.90 to 0.53, 0.59 below
+# -- and the fragility probes said why: a *random* 20% cut costs this model
+# 41% of its ranking, so every gate the price closes is dearer than its
+# first-order gradient reports. 20% is the density that curve held ~0.8 at;
+# the question is whether the learned mask holds more there than a random
+# cut of the same size (0.59), which no earlier run has answered.
+#
+# Not a band. The first attempt gated layers 21-27 (the study's
+# CANDIDATE_BAND) and the band control refused it: every weight in those
+# seven layers zeroed leaves the two-way ranking at 0.996. Shutting seven
+# layers at a time on 256 prompts: 21-27 1.000, 7-13 0.984, 14-20 0.773,
+# 0-6 0.480; fourteen at a time: 14-27 0.637, 7-20 0.660, 0-13 0.551. The
+# choice is redundant across the middle and late layers and only the token
+# representation in the first seven is individually load-bearing, so a band
+# prune either finds nothing or prunes the embedding. (scratchpad bands.py,
+# 2026-09-03.)
+name: discogp translation on qwen3-1.7b, a fifth of the model
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/kl-t02
+
+steps:
+  # ~2h at 2000 steps of 8 on the GB10; peaks near 39 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --faith, kl, --seed, "0",
+           --init, "5", --anneal, --target, "0.2", --warmup, "1500"]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/kl-t02, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/kl-t02, --task, translation]

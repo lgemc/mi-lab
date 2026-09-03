@@ -1,0 +1,34 @@
+# The 1.7B translation circuit with a learned price instead of a ramped one.
+# Killed at step 410 of 2000, and kept as the record of why.
+#
+# Both hand-priced runs had gone to chance at 95-98% density, and the price
+# (0.1 x 1000, tuned on GPT-2 IOI) was the suspect: `--target 0.05` replaces it
+# with a density and learns the price by gradient ascent on the constraint
+# (Wang et al. 2020 / CoFi's Lagrangian), which on GPT-2 IOI gave 2.22% /
+# 0.969 (results/gpt2-sweep/nll-t003). This run went to chance at step 370,
+# density 96%, price 100 -- the third price to fail at the same density. The
+# price was never the variable. The `nll` faith term targets the full model's
+# argmax token, which on this frame is ` "` (113 of 128 prompts): every run was
+# training a mask to open a quote, and learned it. sheaf-translation-1.7b-kl
+# is the same run with `--faith kl`.
+name: discogp translation on qwen3-1.7b, learn the price
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/nll-t005
+
+steps:
+  # ~2h10m at 2000 steps of 8 on the GB10; peaks near 37 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --faith, nll, --seed, "0",
+           --init, "5", --anneal, --target, "0.05"]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/nll-t005, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/nll-t005, --task, translation]

@@ -24,6 +24,7 @@ from src.methods.sheaves import (
     prune,
     schedule,
     span,
+    target_schedule,
 )
 from src.telemetry.journal import Journal, read_metrics
 
@@ -68,6 +69,14 @@ class TestGates(TestCase):
         half = gumbel_sigmoid(logits.detach(), noise=0.5)
         self.assertLess(float((half != (logits > 0).float()).float().mean()),
                         float((gumbel_sigmoid(logits.detach()) != (logits > 0).float()).float().mean()))
+
+class TestTargetSchedule(TestCase):
+    def test_the_target_tightens_from_everything_and_then_holds(self):
+        self.assertAlmostEqual(1.0, target_schedule(0, 0.05, 100))
+        self.assertAlmostEqual(0.525, target_schedule(50, 0.05, 100))
+        self.assertAlmostEqual(0.05, target_schedule(100, 0.05, 100))
+        self.assertAlmostEqual(0.05, target_schedule(900, 0.05, 100))
+        self.assertAlmostEqual(0.05, target_schedule(0, 0.05, 0))
 
 class TestSchedule(TestCase):
     def test_the_price_ramps_and_then_holds(self):
@@ -117,6 +126,42 @@ class TestPruning(TestCase):
         self.assertIsNotNone(sheaf.accuracy)
         self.assertGreaterEqual(sheaf.density, 0.0)
         self.assertLessEqual(sheaf.density, 1.0)
+
+    def test_protected_weights_stay_open_whatever_the_price(self):
+        """The largest weights by magnitude are pinned, and counted as open"""
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        sheaf = prune(self.adapter, task, steps=3, batch=4, holdout=0.25, sparsity=1e6,
+                      init=-1.0, protect=0.01, probe_every=0)
+        self.assertGreater(sheaf.n_pinned, 0)
+        self.assertLessEqual(sheaf.n_pinned, int(0.0101 * sheaf.n_parameters) + len(sheaf.gates))
+        # started shut and priced at a million: the only open gates are the pinned ones
+        self.assertEqual(sheaf.n_pinned, sheaf.n_open)
+        largest = max(((float(w.abs().max()), name) for name, w in
+                       ((n, p) for n, p in self.adapter.model.named_parameters() if n in sheaf.gates)))
+        name = largest[1]
+        w = dict(self.adapter.model.named_parameters())[name].detach().abs().flatten()
+        self.assertGreater(float(sheaf.gates[name].flatten()[int(w.argmax())]), 0.0)
+
+    def test_a_target_learns_its_price_and_a_bad_one_is_refused(self):
+        """The multipliers climb while the mask is denser than the target"""
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        with self.assertRaises(CircuitError):
+            prune(self.adapter, task, steps=1, batch=4, target=1.5)
+        with TemporaryDirectory() as directory:
+            journal = Journal(Path(directory) / "run", params={})
+            prune(self.adapter, task, steps=4, batch=4, holdout=0.25, journal=journal,
+                  probe_every=0, target=0.01, warmup=1, faith_kind="nll")
+            journal.finish()
+            rows = read_metrics(Path(directory) / "run")
+        self.assertEqual([1.0, 0.01, 0.01, 0.01], [row["target"] for row in rows])
+        # The gap is measured on the hard density, which starts at exactly
+        # 1.0 against a target of 1.0: nothing to pay at step 0, and the price
+        # climbs from there while the mask is denser than the target.
+        self.assertEqual(0.0, rows[0]["lambda1"])
+        self.assertEqual(1.0, rows[0]["density"])
+        self.assertGreater(rows[-1]["lambda1"], 0.0, "denser than the target, the price should rise")
+        self.assertGreater(rows[-1]["price"], 0.0)
+        self.assertTrue(all("density" in row for row in rows), "the constraint is journaled every step")
 
     def test_the_probe_scores_the_thresholded_mask_while_training(self):
         """The loss is a sampled mask's; the result is the thresholded one's. The

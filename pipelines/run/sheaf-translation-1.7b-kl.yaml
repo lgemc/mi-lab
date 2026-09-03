@@ -1,0 +1,41 @@
+# The 1.7B translation circuit with the faithfulness term that matches the frame.
+#
+# Every earlier 1.7B run trained `--faith nll`: the likelihood the masked model
+# gives the token the *full* model predicts. On GPT-2 IOI that token is the
+# answer name. On this frame it is ` "` -- the full model continues `The
+# Spanish word costo means` with ` "cost" and`, and its argmax is the quote on
+# 113 of 128 training prompts (first_token 0.078 in every inference JSON). So
+# nll trained the mask to say ` "`, the mask learned it (faith at 0.001 for
+# most of nll-s01, nll-s01-i5a and nll-t005), and the ranking test went to
+# chance between 95% and 98% density at three different prices, two inits and
+# with and without annealing -- that is how many weights it takes to find
+# "always open a quote". The collapsed circuits generate ` " " " "`, which is
+# the objective's optimum, not a broken network.
+#
+# `--faith kl` reproduces the whole last-token distribution, where the answer's
+# rank against the distractor lives even when neither is the argmax; it is the
+# term DiscoGP evaluates with and Edge Pruning (2406.16778) trains with. The
+# rest is nll-t005's: a learned price against a 5% target ramped over the first
+# half (results/gpt2-sweep/nll-t003 for the GPT-2 A/B), init 5 and annealed
+# noise so the sampled network is the one that is scored.
+name: discogp translation on qwen3-1.7b, reproduce the distribution
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/kl-t005
+
+steps:
+  # ~2h10m at 2000 steps of 8 on the GB10; peaks near 37 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --faith, kl, --seed, "0",
+           --init, "5", --anneal, --target, "0.05"]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/kl-t005, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/kl-t005, --task, translation]

@@ -1,0 +1,19 @@
+{
+  "done": {
+    "scripts.sheaf_prune:prune": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 7233.6
+    },
+    "scripts.sheaf_infer:infer": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 24.8
+    },
+    "scripts.sheaf_extract:extract": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 22.1
+    }
+  }
+}

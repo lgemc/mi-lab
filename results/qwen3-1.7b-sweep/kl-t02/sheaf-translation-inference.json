@@ -1,0 +1,73 @@
+{
+  "protocol": "the circuit multiplied into the weights and run as an ordinary model, on a fresh draw of the task at a seed the run never used. Ranking is the objective the mask was trained on; generation is the question it was never asked, and the gap between them is the point.",
+  "config": "qwen3-1.7b",
+  "task": "translation",
+  "seed": 99,
+  "size": 128,
+  "n_gates": 1409286144,
+  "n_open": 176972531,
+  "density": 0.12557601,
+  "full_model": {
+    "ranking": 1.0,
+    "first_token": 0.7109,
+    "contains_answer": 0.7266,
+    "contains_distractor": 0.0
+  },
+  "circuit": {
+    "ranking": 0.8906,
+    "first_token": 0.3594,
+    "contains_answer": 0.3672,
+    "contains_distractor": 0.0
+  },
+  "samples": [
+    {
+      "prompt": "Spanish: primo\nEnglish:",
+      "answer": " cousin",
+      "full": " cousin\nPortuguese:",
+      "circuit": " cousin father father father father father"
+    },
+    {
+      "prompt": "Spanish: energ\u00eda\nEnglish:",
+      "answer": " energy",
+      "full": " energy\nSpanish: energ\u00eda\n",
+      "circuit": " communication communication communication communication communication communication"
+    },
+    {
+      "prompt": "Spanish: falta\nEnglish:",
+      "answer": " lack",
+      "full": " missing\nPortuguese:",
+      "circuit": " missing missing missing missing missing missing"
+    },
+    {
+      "prompt": "Spanish: sede\nEnglish:",
+      "answer": " headquarters",
+      "full": " office\nPortuguese:",
+      "circuit": " father father father father father father"
+    },
+    {
+      "prompt": "Spanish: haciendo\nEnglish:",
+      "answer": " doing",
+      "full": " doing\nSpanish: haciendo\n",
+      "circuit": " doing test doing test doing test"
+    },
+    {
+      "prompt": "Spanish: celestial\nEnglish:",
+      "answer": " heavenly",
+      "full": " celestial\nSpanish: celestial\n",
+      "circuit": " sexual father father father father father"
+    },
+    {
+      "prompt": "Spanish: siempre\nEnglish:",
+      "answer": " always",
+      "full": " always\nSpanish: siempre\n",
+      "circuit": " always always always always always always"
+    },
+    {
+      "prompt": "Spanish: energ\u00eda\nEnglish:",
+      "answer": " energy",
+      "full": " energy\nSpanish: energ\u00eda\n",
+      "circuit": " communication communication communication communication communication communication"
+    }
+  ],
+  "command": "uv run python -m scripts.sheaf_infer qwen3-1.7b results/qwen3-1.7b-sweep/kl-t02 --task translation --seed 99"
+}

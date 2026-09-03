@@ -1,0 +1,37 @@
+# The KL run again on a frame whose next token is the answer.
+#
+# results/qwen3-1.7b-sweep/kl-t005 is the control: the same objective on
+# `The Spanish word X means`, where the full model's next token is ` "` on
+# nine pool words in ten and the translation comes one token later. It
+# reached 5.15% density holding ranking at 0.78 on a fresh draw (0.67 held
+# out) and generated ` " " " " " "` -- faithful to the position it was trained
+# on, which was never the position the word is chosen at. WORD_FRAME is now
+# `Spanish: X\nEnglish:`, where the answer is the full model's first token on
+# 66% of the rebuilt pool (573 pairs, was 513) with the same answer tokens.
+#
+# Also `--warmup 1500`: in kl-t005 the hard density trailed the 1000-step
+# target ramp by about a thousand steps and the price climbed the whole run
+# (0 to 164, never once down), so the mask was dragged along the ramp with no
+# stretch at any density to consolidate. Three quarters of the run on the ramp
+# and the last quarter at the target.
+name: discogp translation on qwen3-1.7b, the answer at the trained position
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/kl-t005-frame
+
+steps:
+  # ~2h at 2000 steps of 8 on the GB10; peaks near 39 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --faith, kl, --seed, "0",
+           --init, "5", --anneal, --target, "0.05", --warmup, "1500"]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/kl-t005-frame, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/kl-t005-frame, --task, translation]

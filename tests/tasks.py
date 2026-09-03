@@ -16,7 +16,7 @@ from src.data.tasks import (
     single_tokens,
     task_names,
 )
-from src.data.translation import WORD_PAIRS, load_word_pairs, pool_path
+from src.data.translation import WORD_FRAME, WORD_PAIRS, load_word_pairs, pool_path
 
 """
 The task registry is tested against a stub tokenizer, for the same reason IOI
@@ -183,6 +183,20 @@ class TestAlignment(TestCase):
         adapter = StubAdapter(multi_token={"lantern"})
         kept = single_tokens(adapter, (" apple", " lantern"))
         self.assertEqual(kept, [" apple"])
+
+    def test_the_frame_ends_where_the_answer_token_goes(self):
+        """The answer carries its own space and follows the frame's last token directly
+
+        The frame used to read `The Spanish word X means`, and at that position
+        the model's next token is an opening quote: the answer came one token
+        later, past everything the loss and the ranking look at. The frame
+        has to end on the token before the answer, with no trailing space or
+        quote for the answer token to collide with.
+        """
+        prompt = WORD_FRAME.format(source=" gato", answer="")
+        self.assertFalse(prompt.endswith((" ", '"')), prompt)
+        self.assertEqual("Spanish: gato\nEnglish: cat", prompt + " cat")
+        self.assertNotIn("means", WORD_FRAME)
 
     def test_a_pool_too_small_to_fill_the_frame_is_an_error(self):
         adapter = StubAdapter(multi_token={f"{value:02d}" for value in range(1, 99)})

@@ -19,14 +19,24 @@ that tensor after the fact, and none of them belong in the training loop:
   before the model is loaded, because the failure it replaces is an OOM after
   the expensive part, and on a unified-memory host that is a driver error
   with no traceback.
+- Keep it. Everything above thresholds the logits at zero and uses nothing
+  else, so the circuit is the sign of each gate and nothing else: `pack`
+  writes that as one bit per weight -- 168 MB for the whole 1.7B against the
+  5.6 GB of float logits -- and `unpack` reads it back as a bool mask every
+  function here accepts in place of the logits. The logits are the
+  optimizer's state, and the mask is the result; `load_circuit` reads either
+  file, so a run that kept only the mask is still a circuit you can run.
 
 A common pipe could be: parse_layers | budget | prune | circuit_loaded | ranking | per_component
 A common pipe could be: gates | summary | manifest | masked_weights
+A common pipe could be: gates | pack | save | load_circuit | circuit_loaded
 """
 
+import math
 import re
 from collections import defaultdict
 from contextlib import contextmanager
+from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import torch
@@ -65,13 +75,77 @@ GRAPH_BYTES_PER_GATE = 5
 class GateError(CircuitError):
     """A mask that does not describe this model, or a band that cannot be parsed"""
 
+# Either the float logits `prune` learned or the bool mask `unpack` returns:
+# a gate is open where the logit is positive, or where the bool is set.
 Gates = Dict[str, torch.Tensor]
+
+# The packed form: per tensor, its shape and its mask as bytes, least
+# significant bit first (numpy's `packbits(bitorder="little")`).
+Packed = Dict[str, Dict[str, Any]]
+
+GATES_FILE = "sheaf-{task}-gates.pt"
+MASK_FILE = "sheaf-{task}-mask.pt"
+
+def is_open(tensor: torch.Tensor) -> torch.Tensor:
+    """The mask under either representation, as bools"""
+    return tensor if tensor.dtype == torch.bool else tensor > 0
 
 def open_count(gates: Gates) -> Tuple[int, int]:
     """(open, total) over every gated tensor; a gate is open where its logit is positive"""
     total = sum(int(logits.numel()) for logits in gates.values())
-    opened = sum(int((logits > 0).sum()) for logits in gates.values())
+    opened = sum(int(is_open(logits).sum()) for logits in gates.values())
     return opened, total
+
+def pack(gates: Gates) -> Packed:
+    """The circuit as one bit per gate, on the CPU
+
+    Lossless for everything this module does with a mask, since all of it
+    thresholds at zero; what it drops is how far each logit sat from the
+    threshold, which is the optimizer's business and not the circuit's.
+    """
+    weights = (1 << torch.arange(8, dtype=torch.int32))
+    packed: Packed = {}
+    for name, logits in gates.items():
+        flat = is_open(logits).flatten().to(torch.int32)
+        padding = -flat.numel() % 8
+        if padding:
+            flat = torch.cat([flat, flat.new_zeros(padding)])
+        bits = (flat.view(-1, 8) * weights.to(flat.device)).sum(-1).to(torch.uint8)
+        packed[name] = {"shape": list(logits.shape), "bits": bits.cpu()}
+    return packed
+
+def unpack(packed: Packed) -> Gates:
+    """A packed mask back to a bool tensor per gated parameter"""
+    shifts = torch.arange(8, dtype=torch.uint8)
+    gates: Gates = {}
+    for name, entry in packed.items():
+        shape = tuple(int(n) for n in entry["shape"])
+        count = math.prod(shape)
+        bits = entry["bits"]
+        if bits.dtype != torch.uint8 or bits.numel() != -(-count // 8):
+            raise GateError(f"{name}: {bits.numel()} bytes of {bits.dtype} cannot hold a mask of shape {shape}")
+        flat = ((bits.unsqueeze(-1) >> shifts) & 1).bool().flatten()
+        gates[name] = flat[:count].view(shape)
+    return gates
+
+def circuit_path(directory: Path, task: str) -> Path:
+    """The file a results directory keeps the circuit in: the logits if it has them, else the mask"""
+    for template in (GATES_FILE, MASK_FILE):
+        path = Path(directory) / template.format(task=task)
+        if path.exists():
+            return path
+    raise GateError(
+        f"{directory} holds neither {GATES_FILE.format(task=task)} nor {MASK_FILE.format(task=task)}. "
+        "The sweep ran with --no-save-gates and predates the packed mask; rerun that point "
+        "(with --seed, or it will not be the same mask)."
+    )
+
+def load_circuit(path: Path) -> Gates:
+    """Either file as a `Gates`: float logits as saved, a packed mask as bools"""
+    loaded = torch.load(path, weights_only=True)
+    if Path(path).name.endswith("-mask.pt"):
+        return unpack(loaded)
+    return loaded
 
 @contextmanager
 def circuit_loaded(adapter, gates: Gates) -> Iterator[None]:
@@ -87,7 +161,7 @@ def circuit_loaded(adapter, gates: Gates) -> Iterator[None]:
                 if name not in gates:
                     continue
                 saved[name] = parameter.detach().clone()
-                parameter.mul_((gates[name].to(parameter.device) > 0).to(parameter.dtype))
+                parameter.mul_(is_open(gates[name].to(parameter.device)).to(parameter.dtype))
         yield
     finally:
         with torch.no_grad():
@@ -154,7 +228,7 @@ def per_component(gates: Gates) -> Dict[Tuple[int, str], Dict[str, int]]:
     table: Dict[Tuple[int, str], Dict[str, int]] = defaultdict(lambda: {"open": 0, "total": 0})
     for name, logits in gates.items():
         key = (layer_of(name), kind_of(name))
-        table[key]["open"] += int((logits > 0).sum())
+        table[key]["open"] += int(is_open(logits).sum())
         table[key]["total"] += int(logits.numel())
     return dict(table)
 
@@ -181,7 +255,7 @@ def per_head(adapter, gates: Gates) -> Dict[Tuple[int, int], Dict[str, int]]:
         for head in range(heads):
             piece = (logits[head * width : (head + 1) * width] if axis == 0
                      else logits[:, head * width : (head + 1) * width])
-            table[(layer, head)] = {"open": int((piece > 0).sum()), "total": int(piece.numel())}
+            table[(layer, head)] = {"open": int(is_open(piece).sum()), "total": int(piece.numel())}
     return table
 
 def by_layer(components: Dict[Tuple[int, str], Dict[str, int]]) -> Dict[int, int]:
@@ -228,7 +302,7 @@ def summary(adapter, gates: Gates) -> Dict[str, Any]:
 def masked_weights(adapter, gates: Gates) -> Dict[str, torch.Tensor]:
     """mask * weight for every gated tensor, on the CPU -- as large as the band it covers"""
     targets = gateable(adapter)
-    return {name: (targets[name].detach() * (logits.to(targets[name].device) > 0)).cpu()
+    return {name: (targets[name].detach() * is_open(logits.to(targets[name].device))).cpu()
             for name, logits in gates.items() if name in targets}
 
 def budget(n_gates: int, weight_bytes: int, model_bytes: int) -> Dict[str, Any]:

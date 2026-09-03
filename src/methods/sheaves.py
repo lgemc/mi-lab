@@ -111,6 +111,8 @@ class Sheaf:
     n_edges: int = 0
     n_edges_open: int = 0
     edge_density: Optional[float] = None
+    # Gates held open outside the search (`protect`); inside `n_open`.
+    n_pinned: int = 0
 
     def __str__(self) -> str:
         # The band is in the string because `density` is a fraction of what was
@@ -347,6 +349,51 @@ def schedule(step: int, lambda_0: float, max_times: float, warmup: int) -> float
         return lambda_0 * max_times
     return lambda_0 + lambda_0 * (max_times - 1.0) * step / warmup
 
+def target_schedule(step: int, target: float, warmup: int) -> float:
+    """Lower the density target from 1.0 to `target` over `warmup` steps, then hold it
+
+    CoFi's schedule (2204.00408): the constraint starts satisfied and tightens,
+    so the learned price never has to spike to catch up with a target the mask
+    is nowhere near. Held afterwards, because a target reached on the last
+    step is a mask that was never trained at its own density.
+    """
+    if warmup <= 0 or step >= warmup:
+        return target
+    return 1.0 - (1.0 - target) * step / warmup
+
+# A pinned gate's logit: sigmoid(10) samples open 99.995% of the time, and the
+# threshold reads it as open, so nothing downstream has to know it is pinned.
+PINNED = 10.0
+
+def protected(originals: Dict[str, torch.Tensor], fraction: float) -> Dict[str, torch.Tensor]:
+    """The flat indices, per tensor, of the top `fraction` of weights by magnitude
+
+    The top 0.01% by |w| of Qwen3-1.7B, 150k weights of 1.5B, are the ones
+    without which it says ` the the the`: removing them costs 8 nats where a
+    random 4% of the weights costs nothing (scratchpad fragility test, 2026-
+    09-03). Not the only such set: the top 0.1% by Wanda's |w| * ||x|| (Sun et
+    al. 2023) overlaps it 7% and costs as much, on a layer-2 down_proj input
+    feature at 77,000x the median norm. Magnitude is the half that needs no
+    forward pass. Ranked over every gated tensor at once rather than within each,
+    because that is where the weights are: a per-tensor cut would pin the
+    biggest weights of a tensor that has none.
+    """
+    if fraction <= 0:
+        return {}
+    magnitudes = torch.cat([w.detach().abs().float().flatten() for w in originals.values()])
+    count = max(1, int(fraction * magnitudes.numel()))
+    threshold = torch.topk(magnitudes, count).values[-1]
+    del magnitudes
+    return {name: (w.detach().abs().float().flatten() >= threshold).nonzero().flatten()
+            for name, w in originals.items()}
+
+def pin(gates: Dict[str, torch.Tensor], pinned: Dict[str, torch.Tensor]) -> None:
+    """Hold every protected gate at `PINNED`, after the optimizer has moved the rest"""
+    with torch.no_grad():
+        for name, indices in pinned.items():
+            if indices.numel():
+                gates[name].view(-1)[indices] = PINNED
+
 def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           sparsity: float = 1.0, completeness: float = 0.3, temperature: float = 1.0,
           init: float = 1.0, batch: int = 64, max_times: float = 1000.0,
@@ -354,7 +401,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           layers: Optional[Sequence[int]] = None,
           journal: Optional[Journal] = None, probe_every: int = 10,
           seed: Optional[int] = None, edge_sparsity: float = 0.0,
-          faith_kind: str = "pair", anneal: bool = False) -> Sheaf:
+          faith_kind: str = "pair", anneal: bool = False,
+          target: Optional[float] = None, protect: float = 0.0) -> Sheaf:
     """Learn a weight mask that does the task and whose complement cannot
 
     `init` starts every gate open -- a logit of 3 is a sigmoid of 0.95 -- so the
@@ -388,6 +436,57 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     across the run -- and they matter more than they look: a first version of
     this held the price constant at 20 and pruned 11% of the weights where the
     paper reports 93-99%.
+
+    `target` replaces that price with a density and learns the price. The
+    sparsity term becomes the Lagrangian of Wang, Wohlwend & Lei (1910.04732)
+    and CoFi (2204.00408), `l1 * (open - t) + l2 * (open - t)^2`, with `l1`
+    and `l2` climbing by gradient ascent on the same step the gates descend:
+    while the mask is denser than `t` the price rises until the gates give
+    way, and once it is sparser the price falls and faith wins weights back.
+    The price stops being a number tuned on one model and carried to another
+    (0.1 x 1000 is GPT-2 IOI's, and it is what the 1.7B runs inherited), and
+    Gallego-Posada et al. (NeurIPS 2022) show the penalty form is the less
+    stable of the two. On GPT-2 IOI a 3% target reached 2.22% at held-out
+    0.969 against the ramp's 2.66% / 0.945 (results/gpt2-sweep/nll-t003). It
+    was written to rescue the 1.7B, and did not: that collapse was `nll`'s
+    target token, below. `t` follows `target_schedule`, and in this mode
+    `warmup` defaults to half the run so the mask trains at its target for
+    the other half. `sparsity` and `max_times` are ignored. The weights only:
+    an edge price, if any, is still `edge_sparsity` on the ramp.
+
+    `protect` pins the top fraction of weights by magnitude open, outside the
+    search. The faithfulness gradient on a gate is the first-order cost of
+    closing it, and on Qwen3-1.7B that estimate is 25x short for the largest
+    weights: closing the top 0.01% by |w| is priced at 0.36 nats and costs 8.2,
+    and their gates draw ten times the median gradient with a fifth of them
+    still below it (scratchpad gategrad, 2026-09-03). Pinned gates count as
+    open in the density, because they are: the circuit runs on them. Written
+    against the 1.7B collapse and not its cause -- with 0.1% pinned the mask
+    still went to chance at 94% (results/qwen3-1.7b-sweep/diag-protect), and
+    the collapse was the `nll` target token, below. Whether a run needs it is
+    open; the fragility it answers is real.
+
+    `faith_kind` "nll" is the likelihood of the token the *full model*
+    predicts, and that token has to be the answer for the term to mean what
+    the paper means. On GPT-2 IOI it is the name. On the translation frame the
+    1.7B's argmax is ` "` for 113 of 128 prompts -- it says ` "cost" and` --
+    so nll trained the mask to open a quote, the mask learned it (faith at
+    0.001 while the ranking probe sat at chance), and three runs at three
+    prices, two inits, with and without annealing all collapsed between 95%
+    and 98% density, the cost of finding "always say quote". The circuits
+    generate ` " " " "`: the objective's optimum. Where the answer is not the
+    argmax, train "kl", which keeps the answer's rank inside the distribution.
+
+    The constraint is measured on the *hard* density, `logits > 0`, the
+    number every artifact reports; the gates descend through the relaxed
+    `open`, the only one with a gradient. CoFi constrains the expected L0,
+    and doing that here landed a 3% target at 2.0% hard with `open` still
+    at 6.5% and the price still climbing (results/gpt2-sweep/nll-t003 v1):
+    closed gates just under zero count as open in the relaxed cost and never
+    in the mask. It also cost the first quarter of that run: `open` starts
+    at sigmoid(init), below a target ramp that starts at 1.0, so the price
+    went to -18 and spent 450 steps forcing gates open against faith. The
+    hard density starts at exactly 1.0.
 
     `faith_kind` chooses what faithfulness means, and only one of the three is
     the paper's.
@@ -468,6 +567,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                               device=parameter.device).requires_grad_(True)
              for name, parameter in targets.items()}
     total = sum(g.numel() for g in gates.values())
+    pinned = protected(originals, protect)
+    pin(gates, pinned)
     optimizer = torch.optim.AdamW(list(gates.values()), lr=rate)
 
     # a mask trained and scored on the same prompts memorizes them. The first run
@@ -512,10 +613,22 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                 reference[row] = (full.log_softmax(dim=-1) if faith_kind == "kl"
                                   else full.argmax(dim=-1))
 
-    warmup = steps if warmup is None else warmup
+    if target is not None and not 0.0 < target <= 1.0:
+        raise CircuitError(f"a density target is a fraction in (0, 1], got {target}")
+    if warmup is None:
+        warmup = steps // 2 if target is not None else steps
+    # The learned price. Two scalars, ascended rather than descended: their
+    # gradient is negated before the step below, so one AdamW on both sides
+    # of the saddle. Started at zero, so step 0 is faith alone.
+    multipliers = None
+    if target is not None:
+        device = next(iter(gates.values())).device
+        multipliers = torch.zeros(2, dtype=torch.float32, device=device).requires_grad_(True)
+        optimizer.add_param_group({"params": [multipliers], "weight_decay": 0.0})
     history = []
     for step in range(steps):
         price = schedule(step, sparsity, max_times, warmup)
+        goal = target_schedule(step, target, warmup) if target is not None else None
         noise = 1.0 - step / max(1, steps - 1) if anneal else 1.0
         chunk = _chunk(train_rows, step, batch)
         optimizer.zero_grad()
@@ -537,13 +650,13 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
             # masked model gives the token the *full* model predicted, over the
             # whole vocabulary. Not a choice between two candidates.
-            target = torch.cat([reference[row] for row in chunk], dim=0)
-            faith = functional.cross_entropy(pairs, target)
+            labels = torch.cat([reference[row] for row in chunk], dim=0)
+            faith = functional.cross_entropy(pairs, labels)
         elif faith_kind == "kl":
             # The soft-target relative: the whole distribution rather than its
             # argmax. The paper uses KL to *evaluate* rather than to train.
-            target = torch.cat([reference[row] for row in chunk], dim=0)
-            faith = functional.kl_div(pairs.log_softmax(dim=-1), target,
+            labels = torch.cat([reference[row] for row in chunk], dim=0)
+            faith = functional.kl_div(pairs.log_softmax(dim=-1), labels,
                                       log_target=True, reduction="batchmean")
         else:
             # the masked model should prefer the right answer
@@ -561,10 +674,29 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # edges within 333 steps, and `faith` never came below the tie point --
         # train accuracy finished at 0.509, chance, having never fit at all.
         edge_price = schedule(step, edge_sparsity, max_times, warmup) if edge_ids else 0.0
-        (faith + price * open_cost + edge_price * edge_cost).backward()
+        hard_density = None
+        if multipliers is not None:
+            # A reduce over every gate on every step, which the probe below
+            # throttles; here it is the constraint, and it is one comparison
+            # and one sum per tensor against a forward pass of the model.
+            with torch.no_grad():
+                hard_density = float(sum((g > 0).sum() for g in gates.values()) / total)
+            gap = hard_density - goal
+            # The marginal price of an open gate under the Lagrangian,
+            # `l1 + 2 l2 (density - t)`, applied to the relaxed cost so the
+            # gates have a gradient. Detached: the multipliers are ascended
+            # on the gap itself, below, not through this product.
+            price = float((multipliers[0] + 2.0 * multipliers[1] * gap).detach())
+        sparse_term = price * open_cost
+        (faith + sparse_term + edge_price * edge_cost).backward()
+        if multipliers is not None:
+            # Gradient *ascent* on `l1 gap + l2 gap^2`: the negated gradient,
+            # handed to the same AdamW as the gates.
+            multipliers.grad = -torch.tensor([gap, gap * gap], dtype=torch.float32,
+                                             device=multipliers.device)
         faith_value, open_value = float(faith.detach()), float(open_cost.detach())
         edge_value = float(edge_cost.detach())
-        del pairs, faith, open_cost, edge_cost
+        del pairs, faith, open_cost, edge_cost, sparse_term
 
         # and the complement should be at chance: cross-entropy against a uniform
         # target, which is minimized when the reversed mask knows nothing
@@ -577,6 +709,9 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         del reversed_pairs, complete
 
         optimizer.step()
+        # Every step rather than once: AdamW's decay would walk a pinned logit
+        # from 10 toward the threshold over a long run with no gradient to stop it.
+        pin(gates, pinned)
         if step % max(1, steps // 6) == 0 or step == steps - 1:
             history.append({
                 "step": step,
@@ -598,6 +733,10 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                 "faith": faith_value, "open": open_value, "complete": complete_value,
                 "price": price, "noise": noise,
             }
+            if multipliers is not None:
+                row["target"] = goal
+                row["density"] = hard_density
+                row["lambda1"], row["lambda2"] = (float(v) for v in multipliers.detach())
             if edge_ids:
                 row["edge_open"] = edge_value
                 row["edge_price"] = edge_price
@@ -609,7 +748,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             # over every gate -- 1.4e9 of them on a whole 1.7B model.
             if probe_every and (step % probe_every == 0 or step == steps - 1):
                 with torch.no_grad():
-                    row["density"] = float(sum((g > 0).sum() for g in gates.values()) / total)
+                    if "density" not in row:
+                        row["density"] = float(sum((g > 0).sum() for g in gates.values()) / total)
                     # The mask the result is quoted on, scored the way the result
                     # scores it: thresholded, no noise, held-out rows. `faith`
                     # above is a sampled mask's, and the two are different
@@ -626,8 +766,10 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             journal.log(step, **row)
 
     with torch.no_grad():
-        kept = {name: (logits > 0).float() for name, logits in gates.items()}
-        open_count = int(sum(k.sum() for k in kept.values()))
+        # Counted in integers: summed as float32 the count rounds past 2^24,
+        # and every 1.7B artifact before this recorded an `open` a few gates
+        # off the mask it sat beside.
+        open_count = int(sum(int((logits > 0).sum()) for logits in gates.values()))
         final = _pairs(adapter, task, test_rows, gates, originals, temperature,
                        deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids)
         complement = _pairs(adapter, task, test_rows, gates, originals, temperature,
@@ -647,4 +789,5 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         n_edges=len(edge_ids),
         n_edges_open=int((edge_logits > 0).sum()) if edge_ids else 0,
         edge_density=(float((edge_logits > 0).float().mean()) if edge_ids else None),
+        n_pinned=sum(int(indices.numel()) for indices in pinned.values()),
     )

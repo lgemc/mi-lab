@@ -8,6 +8,8 @@ a mask into GPT-2 small and checks that the weights come back exactly, which
 is the promise every sheaf evaluation rests on.
 """
 
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 import torch
@@ -17,13 +19,17 @@ from src.methods.gates import (
     budget,
     by_layer,
     circuit_loaded,
+    circuit_path,
     kind_of,
     layer_of,
+    load_circuit,
     open_count,
+    pack,
     parse_layers,
     per_component,
     ranked,
     summary,
+    unpack,
 )
 from src.methods.sheaves import gateable
 
@@ -84,6 +90,41 @@ class TestReduction(TestCase):
         self.assertEqual(192 + 64 + 256 + 256, total)
         self.assertEqual(48 + 32 + 0 + 256, opened)
 
+    def test_packing_keeps_every_bit_and_nothing_else(self):
+        """One bit per gate, back to the same mask, on shapes that do not fill a byte"""
+        gates = {**self.gates, "transformer.h.2.mlp.c_fc.weight": mask(5, 3, open_share=0.4)}
+        packed = pack(gates)
+        self.assertEqual(2, packed["transformer.h.2.mlp.c_fc.weight"]["bits"].numel(), "15 gates in 2 bytes")
+        self.assertEqual(torch.uint8, packed["transformer.h.0.attn.c_attn.weight"]["bits"].dtype)
+        back = unpack(packed)
+        for name, logits in gates.items():
+            self.assertEqual(torch.bool, back[name].dtype)
+            self.assertEqual(logits.shape, back[name].shape)
+            self.assertTrue(torch.equal(logits > 0, back[name]), name)
+        self.assertEqual(open_count(gates), open_count(back))
+        self.assertEqual(per_component(gates), per_component(back))
+        odd = "transformer.h.2.mlp.c_fc.weight"
+        self.assertTrue(torch.equal(back[odd], unpack(pack(back))[odd]), "a bool mask packs the same as its logits")
+
+    def test_a_packed_file_that_cannot_hold_its_shape_is_refused(self):
+        packed = pack(self.gates)
+        packed["transformer.h.0.attn.c_proj.weight"]["shape"] = [8, 9]
+        with self.assertRaises(GateError):
+            unpack(packed)
+
+    def test_a_directory_prefers_the_logits_and_reads_the_mask_without_them(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            with self.assertRaises(GateError):
+                circuit_path(root, "ioi")
+            torch.save(pack(self.gates), root / "sheaf-ioi-mask.pt")
+            self.assertEqual(root / "sheaf-ioi-mask.pt", circuit_path(root, "ioi"))
+            self.assertEqual(open_count(self.gates), open_count(load_circuit(circuit_path(root, "ioi"))))
+            torch.save(self.gates, root / "sheaf-ioi-gates.pt")
+            self.assertEqual(root / "sheaf-ioi-gates.pt", circuit_path(root, "ioi"))
+            self.assertTrue(torch.equal(self.gates["transformer.h.0.attn.c_proj.weight"],
+                                        load_circuit(circuit_path(root, "ioi"))["transformer.h.0.attn.c_proj.weight"]))
+
     def test_components_and_layers_add_up(self):
         table = per_component(self.gates)
         self.assertEqual({"open": 48, "total": 192}, table[(0, "attn.qkv")])
@@ -116,6 +157,18 @@ class TestOnline(TestCase):
         gates = {name: -torch.ones_like(before)}
         with circuit_loaded(self.adapter, gates):
             self.assertEqual(0.0, float(targets[name].detach().abs().sum()))
+        self.assertTrue(torch.equal(before, targets[name].detach()))
+
+    def test_a_bool_mask_loads_the_same_as_its_logits(self):
+        targets = gateable(self.adapter, layers=[0])
+        name = next(iter(targets))
+        before = targets[name].detach().clone()
+        logits = torch.randn_like(before)
+        with circuit_loaded(self.adapter, {name: logits}):
+            from_logits = targets[name].detach().clone()
+        with circuit_loaded(self.adapter, unpack(pack({name: logits}))):
+            from_mask = targets[name].detach().clone()
+        self.assertTrue(torch.equal(from_logits, from_mask))
         self.assertTrue(torch.equal(before, targets[name].detach()))
 
     def test_a_tensor_the_model_does_not_have_is_refused(self):

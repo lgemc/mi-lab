@@ -171,11 +171,13 @@ def verified(adapter, pairs: list) -> list:
     """Keep the pairs whose answer beats every other English word in the pool
 
     One forward pass per prompt, batched, comparing only the pool's own answer
-    tokens. Beating the whole vocabulary would be a different and much harsher
-    test -- the argmax at this frame is often a quote character, because the
-    natural continuation is `means "table"` -- and it is not the test the task
-    applies. The task is a two-way choice against another pool word, so this
-    checks exactly that, against all of them at once.
+    tokens. The task is a two-way choice against another pool word, so this
+    checks exactly that, against all of them at once. The whole-vocabulary
+    argmax is counted and reported beside it rather than filtered on, because
+    it is a fact about the *frame*: on `The Spanish word X means` it was a
+    quote character on nine pool words in ten, and the pool passed this
+    two-way check while the sheaf trained a mask to open quotes. A frame on
+    which that rate is low is a frame whose answer is not where the loss is.
 
     Depends on `GENERIC` having already been dropped upstream; see the module
     docstring for what one contentless gloss did to this check.
@@ -184,17 +186,23 @@ def verified(adapter, pairs: list) -> list:
     ids = torch.tensor(answers)
     prompts = [WORD_FRAME.format(source=f" {spanish}", answer="") for spanish, _ in pairs]
     kept, progress = [], Progress(len(prompts), "verify", every=max(1, len(prompts) // 10))
+    first = 0
     for start in range(0, len(prompts), BATCH):
         chunk = prompts[start : start + BATCH]
         logits = adapter.logits(chunk)
         over_pool = logits[:, ids]
         winners = over_pool.argmax(dim=-1)
-        for offset, winner in enumerate(winners.tolist()):
+        overall = logits.argmax(dim=-1)
+        for offset, (winner, top) in enumerate(zip(winners.tolist(), overall.tolist(), strict=True)):
             row = start + offset
             if winner == row:
                 kept.append(pairs[row])
+                first += top == answers[row]
             progress.tick()
     progress.finish()
+    log(f"the answer is the full model's first token on {first} of the {len(kept)} kept "
+        f"({first / max(1, len(kept)):.0%}); under 50% means the frame's next token is "
+        f"something else, and a mask trained at that position learns that instead")
     return kept
 
 def main() -> None:
@@ -217,6 +225,7 @@ def main() -> None:
     lines = [f"# es->en word pool for {config}, from MUSE ({MUSE})",
              f"# {len(kept)} pairs: single-token both sides, unique English side, "
              f"model-verified against the pool",
+             f"# frame: {WORD_FRAME!r}",
              "# rebuild: uv run python -m scripts.build_translation_pool " + config]
     lines.extend(f"{spanish}\t{english}" for spanish, english in kept)
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

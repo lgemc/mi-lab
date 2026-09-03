@@ -257,7 +257,25 @@ The split, by the question each module answers:
 - `methods/gates.py` — a trained weight mask after training: `circuit_loaded` multiplies it into
   the weights and restores them **exactly**, `per_component` reduces it to the component
   vocabulary (GPT-2's `c_proj` is filed by branch), `budget` prices a band in memory before the
-  model loads.
+  model loads. The circuit is the *sign* of the gate logits and nothing else — everything here
+  thresholds at zero — so `pack`/`unpack` keep it as one bit per gate (`sheaf-<task>-mask.pt`,
+  168 MB on the whole 1.7B against 5.6 GB of logits). `sheaf_prune` always writes the mask and
+  the logits only with `--save-gates`; `circuit_path`/`load_circuit` read either, and every
+  function accepts a bool mask in place of logits. Both files are gitignored; the mask is the one
+  to copy off the box.
+- `methods/sheaves.py` — DiscoGP gate training, and three things learned on the 1.7B that the
+  flags encode. `--faith nll` trains against the full model's **argmax** token, which on a frame
+  like `The Spanish word X means` is ` "` (274 of 300 pool words) — every run on it collapsed to
+  emitting quotes at 95–98% density while faith read ~0. Use `--faith kl` (the paper evaluates
+  with it) and a frame whose next token is the answer: `WORD_FRAME` is `Spanish: X\nEnglish:`,
+  and `build_translation_pool` reports the whole-vocabulary argmax rate for exactly this reason.
+  `--target` replaces the hand-ramped price with a density and learns the price (Wang et al.
+  2020 / CoFi Lagrangian; `--warmup` is the target ramp); `--init 5 --anneal` start the sample
+  near the thresholded mask and shrink the gate noise to zero so the last steps train the mask
+  that is saved. `--protect` pins the top fraction by |w| open; it was written against the
+  collapse and is not its cause. The band control refuses a band the task survives without —
+  on this frame layers 21–27 zeroed leave the ranking at 0.996, so the translation circuit is
+  gated over the whole model.
 - `data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
   head so a pair is never both, and `counterfactual_prompts` keep the form and drop the task.
 - `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`

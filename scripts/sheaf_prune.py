@@ -34,11 +34,12 @@ Run: uv run python -m scripts.sheaf_prune qwen3-1.7b
 
 import argparse
 import json
+import sys
 
 import torch
 
 from src.data.tasks import build_task, task_names
-from src.methods.gates import parse_layers, run_budget
+from src.methods.gates import GATES_FILE, MASK_FILE, pack, parse_layers, run_budget
 from src.methods.sheaves import load_bearing, prune, span
 from src.model.adapter import load_adapter
 from src.telemetry.journal import Journal, env_root, run_id
@@ -126,6 +127,7 @@ def run(args: argparse.Namespace) -> None:
         "completeness": args.completeness, "max_times": args.max_times,
         "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
         "init": args.init, "temperature": args.temperature, "anneal": args.anneal,
+        "target": args.target, "protect": args.protect, "warmup": args.warmup,
         "holdout": args.holdout, "band_control": control, "budget": cost,
     })
     log(f"journal: {directory} (tail -f {journal.metrics_path})")
@@ -150,6 +152,7 @@ def run(args: argparse.Namespace) -> None:
                 probe_every=args.probe_every, seed=args.seed,
                 edge_sparsity=args.edge_sparsity, faith_kind=args.faith_kind,
                 init=args.init, temperature=args.temperature, anneal=args.anneal,
+                target=args.target, protect=args.protect, warmup=args.warmup,
             )
             facts["density"] = f"{sheaf.density:.4%}"
             facts["held-out"] = f"{sheaf.accuracy:.3f}"
@@ -182,6 +185,7 @@ def run(args: argparse.Namespace) -> None:
         "density": round(sheaf.density, 6),
         "n_edges": sheaf.n_edges,
         "n_edges_open": sheaf.n_edges_open,
+        "n_pinned": sheaf.n_pinned,
         "edge_density": (None if sheaf.edge_density is None else round(sheaf.edge_density, 6)),
         "accuracy": round(sheaf.accuracy, 4),
         "train_accuracy": round(sheaf.train_accuracy, 4),
@@ -193,6 +197,8 @@ def run(args: argparse.Namespace) -> None:
             "rate": args.rate, "sparsity": args.sparsity, "completeness": args.completeness,
             "max_times": args.max_times, "holdout": args.holdout,
             "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
+            "init": args.init, "temperature": args.temperature, "anneal": args.anneal,
+            "target": args.target, "protect": args.protect, "warmup": args.warmup,
         },
         "budget": cost,
         "history": sheaf.history,
@@ -202,13 +208,17 @@ def run(args: argparse.Namespace) -> None:
                     "than poor. Read this artifact as a run of the method, not as a result from "
                     "it, until a sweep is monotone in density.",
         "journal": str(directory),
-        "command": f"uv run python -m scripts.sheaf_prune {args.config} --task {args.task}"
-                   f" --layers {args.layers} --steps {args.steps} --size {args.size}",
+        "command": " ".join(["uv run python -m scripts.sheaf_prune", *sys.argv[1:]]),
     }, indent=2) + "\n")
+    # The mask is the run's product and is always written: one bit per gate,
+    # small enough to copy off the box. The logits are 32x that and are the
+    # optimizer's state, not the circuit; kept only when asked for.
+    torch.save(pack(sheaf.gates), result(MASK_FILE.format(task=args.task)))
+    log(f"-> {result(MASK_FILE.format(task=args.task))}")
     if args.save_gates:
         torch.save({name: logits.cpu() for name, logits in sheaf.gates.items()},
-                   result(f"sheaf-{args.task}-gates.pt"))
-        log(f"-> {result(f'sheaf-{args.task}-gates.pt')}")
+                   result(GATES_FILE.format(task=args.task)))
+        log(f"-> {result(GATES_FILE.format(task=args.task))}")
     log(f"-> {artifact}")
 
 def main() -> None:
@@ -239,6 +249,19 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=1.0,
                         help="backward sharpness of the gate, never which gates open; the reference "
                              "trains weight masks at 0.01")
+    parser.add_argument("--target", type=float, default=None,
+                        help="a density to hold instead of a price to guess: the price is learned "
+                             "(Wang et al. 2020 / CoFi Lagrangian); --sparsity and --max-times are "
+                             "ignored, and --warmup defaults to half the run")
+    parser.add_argument("--warmup", type=int, default=None,
+                        help="steps the price ramps over (default: the whole run) or, with "
+                             "--target, the density ramps over (default: half of it). Longer "
+                             "than the run is allowed: a 500-step run with --warmup 1000 walks "
+                             "the first half of a 2000-step run's target schedule")
+    parser.add_argument("--protect", type=float, default=0.0,
+                        help="pin the top fraction of weights by |w| open, outside the search: "
+                             "the first-order faith gradient underprices closing them 25x on "
+                             "Qwen3-1.7B, and every run at any price went to chance where they shut")
     parser.add_argument("--anneal", action="store_true",
                         help="shrink the gate noise to zero across the run, so the mask trained "
                              "last is the thresholded one that is saved")
@@ -270,14 +293,15 @@ def main() -> None:
                         help="steps between hard-density probes; 0 logs the loss terms only")
     parser.add_argument("--force", action="store_true",
                         help="run past the memory and band-control checks")
-    # On by default, because the mask IS the result. It was opt-in once, and a
-    # five-point sweep ran without it: seventeen minutes a point, five masks
-    # discarded, and the summary JSON kept. The best of them scored 0.961 held
-    # out at 0.33% density and cannot be recovered -- torch's RNG was unseeded
-    # then too, so rerunning produces a different mask rather than that one.
-    parser.add_argument("--no-save-gates", action="store_false", dest="save_gates",
-                        help="skip writing the learned mask; it is the run's actual product")
-    parser.set_defaults(save_gates=True)
+    # The mask IS the result and is always written (see the end of `run`). It
+    # was opt-in once, and a five-point sweep ran without it: seventeen
+    # minutes a point, five masks discarded, and the summary JSON kept. The
+    # best of them scored 0.961 held out at 0.33% density and cannot be
+    # recovered -- torch's RNG was unseeded then too, so rerunning produces a
+    # different mask rather than that one. The float logits are the extra:
+    # 5.6 GB on the whole 1.7B, and nothing downstream reads past their sign.
+    parser.add_argument("--save-gates", action="store_true", dest="save_gates",
+                        help="also write the float gate logits beside the packed mask")
     args = parser.parse_args()
     guard(args.config)
     run(args)

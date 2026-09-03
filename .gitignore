@@ -29,6 +29,10 @@ results/**/phase1b-circuit-weights.pt
 # magnitude. The artifact JSON beside it records the density and the command,
 # which is what a reader needs; rerun `sheaf_prune --save-gates` for the tensor.
 results/**/sheaf-*-gates.pt
+# The packed mask beside it -- one bit per gate, 168MB on the whole 1.7B and
+# ~10MB on a GPT-2 band -- is the circuit itself and the file to back up; it
+# stays out of git only because the large ones are past the file limit too.
+results/**/sheaf-*-mask.pt
 
 # Run logs. `observe.set_log_file` appends a header per invocation, so these are
 # append-only transcripts of a machine rather than results (see 0ceedd9).

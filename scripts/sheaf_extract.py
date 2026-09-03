@@ -28,7 +28,7 @@ from pathlib import Path
 
 import torch
 
-from src.methods.gates import masked_weights, summary
+from src.methods.gates import GateError, circuit_path, load_circuit, masked_weights, summary
 from src.model.adapter import load_adapter
 from src.telemetry.observe import banner, log
 
@@ -37,7 +37,7 @@ TOP_HEADS = 10
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("config")
-    parser.add_argument("directory", help="a results dir holding sheaf-<task>-gates.pt")
+    parser.add_argument("directory", help="a results dir holding sheaf-<task>-mask.pt or -gates.pt")
     parser.add_argument("--task", default="ioi")
     parser.add_argument("--top", type=int, default=15, help="how many components to print")
     parser.add_argument("--save-weights", action="store_true", dest="save_weights",
@@ -45,14 +45,11 @@ def main() -> None:
     args = parser.parse_args()
 
     directory = Path(args.directory)
-    gates_path = directory / f"sheaf-{args.task}-gates.pt"
-    if not gates_path.exists():
-        raise SystemExit(
-            f"{gates_path} does not exist. The sweep ran without --save-gates, so its masks were "
-            f"never written; rerun that point with --save-gates (and --seed, or it will not be the "
-            f"same mask)."
-        )
-    gates = torch.load(gates_path, weights_only=True)
+    try:
+        gates_path = circuit_path(directory, args.task)
+    except GateError as error:
+        raise SystemExit(str(error)) from None
+    gates = load_circuit(gates_path)
     adapter = load_adapter(args.config)
     circuit = summary(adapter, gates)
     opened, total = circuit["n_open"], circuit["n_gates"]
