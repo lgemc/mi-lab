@@ -113,6 +113,8 @@ class Sheaf:
     edge_density: Optional[float] = None
     # Gates held open outside the search (`protect`); inside `n_open`.
     n_pinned: int = 0
+    # Steps on which the learned price was reset because the constraint held.
+    n_restarts: int = 0
 
     def __str__(self) -> str:
         # The band is in the string because `density` is a fraction of what was
@@ -402,7 +404,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           journal: Optional[Journal] = None, probe_every: int = 10,
           seed: Optional[int] = None, edge_sparsity: float = 0.0,
           faith_kind: str = "pair", anneal: bool = False,
-          target: Optional[float] = None, protect: float = 0.0) -> Sheaf:
+          target: Optional[float] = None, protect: float = 0.0,
+          dual_rate: Optional[float] = None, dual_restart: bool = False) -> Sheaf:
     """Learn a weight mask that does the task and whose complement cannot
 
     `init` starts every gate open -- a logit of 3 is a sigmoid of 0.95 -- so the
@@ -453,6 +456,21 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     `warmup` defaults to half the run so the mask trains at its target for
     the other half. `sparsity` and `max_times` are ignored. The weights only:
     an edge price, if any, is still `edge_sparsity` on the ramp.
+
+    How the multipliers climb is `dual_rate` and `dual_restart`, both from
+    Gallego-Posada et al. (NeurIPS 2022, 2208.04425). By default they sit in
+    the same AdamW as the gates, and Adam normalizes: the multiplier moves
+    about `rate` per step whatever the gap's size or sign, so a price built
+    over 1500 steps of standing gap takes as long to unwind. On the 1.7B at a
+    20% target the density crossed the target at step 1650 and kept falling
+    to 12.6% while `l1` came down from 148 to 134 (results/qwen3-1.7b-sweep/
+    kl-t02): the mask finished 40% sparser than asked and paid for it. With
+    `dual_rate` the multipliers take plain gradient ascent at that rate --
+    `l1 += dual_rate * gap`, proportional to the gap, projected to stay
+    non-negative since the constraint is `density <= t` -- and `dual_restart`
+    resets both to zero on any step the constraint holds: the price is
+    rebuilt from nothing if the mask grows back past the target, and a mask
+    that has reached its target trains on faith alone until it does.
 
     `protect` pins the top fraction of weights by magnitude open, outside the
     search. The faithfulness gradient on a gate is the first-order cost of
@@ -507,6 +525,19 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     rather than its argmax. The paper uses KL to evaluate rather than to train.
     Switching from "pair" to "kl" took first-token generation from 0.055 to
     0.625, which is the size of the error "pair" was hiding.
+
+    "gold" is "nll" with the task's own answer as the label instead of the
+    full model's argmax: `-sum_i log p_m(y_i | x_i)` over the whole
+    vocabulary. Not the paper's term, and not faithfulness to the model in
+    the paper's sense -- a circuit trained on it may be right where the full
+    model is wrong. It exists because "kl" trains the mask to reproduce
+    everything the full model does at that position, and on the 1.7B's
+    translation frame that is the wrong word on 29% of prompts and a
+    ` \nSpanish:` continuation on all of them; the ranking and the
+    first-token probes score the *answer*. Two masks trained on "kl" at 12.6%
+    and 19.1% (results/qwen3-1.7b-sweep/kl-t02, kl-t02-dual) ranked 0.89 and
+    0.85 and got the first token on a third of prompts, and the denser one
+    was the worse, which is the signal and not the density.
 
     `edge_sparsity` turns on the other half of the method. DiscoGP prunes
     "not only subsets of edges in an LM's computation graph but also the
@@ -594,14 +625,20 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                                  device=device).requires_grad_(True)
         optimizer.add_param_group({"params": [edge_logits]})
 
-    if faith_kind not in ("pair", "kl", "nll"):
+    if faith_kind not in ("pair", "kl", "nll", "gold"):
         raise CircuitError(
-            f"unknown faith_kind '{faith_kind}'; known kinds are 'nll' (the paper's), 'kl' and "
-            "'pair' (this repo's original, and too weak -- see the docstring)")
+            f"unknown faith_kind '{faith_kind}'; known kinds are 'nll' (the paper's), 'kl', "
+            "'gold' (nll on the task's answer) and 'pair' (this repo's original, and too "
+            "weak -- see the docstring)")
     # The reference distribution, taken once from the unmasked model. The
     # weights are frozen, so what the full model says never changes and
     # recomputing it every step would only pay for the same numbers again.
     reference = None
+    if faith_kind == "gold":
+        # The label is the task's, and the full model is never consulted.
+        io, _ = task.answers(adapter)
+        device = next(iter(gates.values())).device
+        reference = {row: torch.tensor([io[row]], device=device) for row in train_rows}
     if faith_kind in ("kl", "nll"):
         with torch.no_grad():
             reference = {}
@@ -623,8 +660,13 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     multipliers = None
     if target is not None:
         device = next(iter(gates.values())).device
-        multipliers = torch.zeros(2, dtype=torch.float32, device=device).requires_grad_(True)
-        optimizer.add_param_group({"params": [multipliers], "weight_decay": 0.0})
+        multipliers = torch.zeros(2, dtype=torch.float32, device=device)
+        if dual_rate is None:
+            multipliers.requires_grad_(True)
+            optimizer.add_param_group({"params": [multipliers], "weight_decay": 0.0})
+    elif dual_rate is not None or dual_restart:
+        raise CircuitError("dual_rate and dual_restart shape the learned price: give a target")
+    restarts = 0
     history = []
     for step in range(steps):
         price = schedule(step, sparsity, max_times, warmup)
@@ -645,11 +687,12 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # layer band helps a great deal.
         pairs = _pairs(adapter, task, chunk, gates, originals, temperature,
                        edge_logits=edge_logits, edge_ids=edge_ids,
-                       whole=(faith_kind in ("kl", "nll")), noise=noise)
-        if faith_kind == "nll":
+                       whole=(faith_kind in ("kl", "nll", "gold")), noise=noise)
+        if faith_kind in ("nll", "gold"):
             # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
             # masked model gives the token the *full* model predicted, over the
-            # whole vocabulary. Not a choice between two candidates.
+            # whole vocabulary. Not a choice between two candidates. "gold"
+            # is the same sum with the task's y_i in place of y-hat_i.
             labels = torch.cat([reference[row] for row in chunk], dim=0)
             faith = functional.cross_entropy(pairs, labels)
         elif faith_kind == "kl":
@@ -689,11 +732,27 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             price = float((multipliers[0] + 2.0 * multipliers[1] * gap).detach())
         sparse_term = price * open_cost
         (faith + sparse_term + edge_price * edge_cost).backward()
+        restarted = False
         if multipliers is not None:
-            # Gradient *ascent* on `l1 gap + l2 gap^2`: the negated gradient,
-            # handed to the same AdamW as the gates.
-            multipliers.grad = -torch.tensor([gap, gap * gap], dtype=torch.float32,
-                                             device=multipliers.device)
+            ascent = torch.tensor([gap, gap * gap], dtype=torch.float32, device=multipliers.device)
+            with torch.no_grad():
+                if dual_restart and gap <= 0.0:
+                    # The constraint holds: the price is a debt from steps
+                    # when it did not, and there is nothing left to pay for.
+                    multipliers.zero_()
+                    restarted = True
+                    restarts += 1
+                elif dual_rate is not None:
+                    # Gradient ascent on `l1 gap + l2 gap^2` at its own rate,
+                    # so a small gap moves the price a little and a large one
+                    # a lot; clamped because a negative price would be paying
+                    # the mask to grow past an upper bound.
+                    multipliers.add_(dual_rate * ascent).clamp_(min=0.0)
+            if dual_rate is None:
+                # The same ascent through the gates' AdamW, as the negated
+                # gradient. On a restart no gradient at all, so AdamW skips
+                # the tensor rather than stepping the zero it was just set to.
+                multipliers.grad = None if restarted else -ascent
         faith_value, open_value = float(faith.detach()), float(open_cost.detach())
         edge_value = float(edge_cost.detach())
         del pairs, faith, open_cost, edge_cost, sparse_term
@@ -737,6 +796,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                 row["target"] = goal
                 row["density"] = hard_density
                 row["lambda1"], row["lambda2"] = (float(v) for v in multipliers.detach())
+                row["restart"] = int(restarted)
             if edge_ids:
                 row["edge_open"] = edge_value
                 row["edge_price"] = edge_price
@@ -790,4 +850,5 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         n_edges_open=int((edge_logits > 0).sum()) if edge_ids else 0,
         edge_density=(float((edge_logits > 0).float().mean()) if edge_ids else None),
         n_pinned=sum(int(indices.numel()) for indices in pinned.values()),
+        n_restarts=restarts,
     )

@@ -1,0 +1,47 @@
+# The same 20% target as kl-t02 with the price learned on the constraint's
+# own scale instead of Adam's.
+#
+# kl-t02 (results/qwen3-1.7b-sweep/kl-t02) was asked for 20% and finished at
+# 12.6% / ranking 0.89 / first token 0.36. Its density crossed the target at
+# step ~1650 and kept falling for the last 350 steps while the price barely
+# moved (lambda1 148 -> 134): Adam normalises the dual gradient, so the
+# multipliers move ~lr per step whatever the gap, and a price that took 1500
+# steps to climb cannot come down in the 350 that remain. Gallego-Posada et
+# al. (NeurIPS 2022, 2208.04425): ascend the multipliers by plain gradient
+# at their own rate, so the step is proportional to the gap, and *restart*
+# them to zero whenever the constraint holds, so a satisfied constraint
+# stops charging the moment it is satisfied. The rate is the whole question,
+# settled on GPT-2 IOI at a 3% target against nll-t003's 2.22% / 0.969 (the
+# Adam dual, which overshot): rate 1 lagged the ramp (17.8% at a target of
+# 3%), reached 3% at step 1880, restarted once and reopened to 4.24% / 0.898
+# with nothing left to hold the gates; rate 10 sawtoothed to 3.61% / 0.850;
+# rate 100 tracked the target from step ~1100 and held it within 0.1% for
+# the last 900 steps, 3.08% / 0.937, faith at zero (results/gpt2-sweep/
+# nll-t003-dual{,10,100}). The gap is a fraction of the model on either
+# model, so the rate carries.
+#
+# Same seed, pool, frame, faith and schedule as kl-t02, which is the
+# control. The question is only whether the mask that stops *at* 20% keeps
+# more of the ranking than the one that overshot to 12.6%.
+name: discogp translation on qwen3-1.7b, a fifth of the model with dual restarts
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/kl-t02-dual
+
+steps:
+  # ~2h at 2000 steps of 8 on the GB10; peaks near 39 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --faith, kl, --seed, "0",
+           --init, "5", --anneal, --target, "0.2", --warmup, "1500",
+           --dual-rate, "100", --dual-restart]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/kl-t02-dual, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/kl-t02-dual, --task, translation]

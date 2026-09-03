@@ -1,0 +1,73 @@
+{
+  "protocol": "the circuit multiplied into the weights and run as an ordinary model, on a fresh draw of the task at a seed the run never used. Ranking is the objective the mask was trained on; generation is the question it was never asked, and the gap between them is the point.",
+  "config": "qwen3-1.7b",
+  "task": "translation",
+  "seed": 99,
+  "size": 128,
+  "n_gates": 1409286144,
+  "n_open": 268812708,
+  "density": 0.19074388,
+  "full_model": {
+    "ranking": 1.0,
+    "first_token": 0.7109,
+    "contains_answer": 0.7266,
+    "contains_distractor": 0.0
+  },
+  "circuit": {
+    "ranking": 0.8516,
+    "first_token": 0.2969,
+    "contains_answer": 0.2969,
+    "contains_distractor": 0.0
+  },
+  "samples": [
+    {
+      "prompt": "Spanish: primo\nEnglish:",
+      "answer": " cousin",
+      "full": " cousin\nPortuguese:",
+      "circuit": " cousin population population population population population"
+    },
+    {
+      "prompt": "Spanish: energ\u00eda\nEnglish:",
+      "answer": " energy",
+      "full": " energy\nSpanish: energ\u00eda\n",
+      "circuit": " vehicle vehicle vehicle vehicle vehicle vehicle"
+    },
+    {
+      "prompt": "Spanish: falta\nEnglish:",
+      "answer": " lack",
+      "full": " missing\nPortuguese:",
+      "circuit": " missing doing doing doing doing doing"
+    },
+    {
+      "prompt": "Spanish: sede\nEnglish:",
+      "answer": " headquarters",
+      "full": " office\nPortuguese:",
+      "circuit": " department department department department department department"
+    },
+    {
+      "prompt": "Spanish: haciendo\nEnglish:",
+      "answer": " doing",
+      "full": " doing\nSpanish: haciendo\n",
+      "circuit": " doing doing doing doing doing doing"
+    },
+    {
+      "prompt": "Spanish: celestial\nEnglish:",
+      "answer": " heavenly",
+      "full": " celestial\nSpanish: celestial\n",
+      "circuit": " sexual population population population population population"
+    },
+    {
+      "prompt": "Spanish: siempre\nEnglish:",
+      "answer": " always",
+      "full": " always\nSpanish: siempre\n",
+      "circuit": " always always always always always always"
+    },
+    {
+      "prompt": "Spanish: energ\u00eda\nEnglish:",
+      "answer": " energy",
+      "full": " energy\nSpanish: energ\u00eda\n",
+      "circuit": " vehicle vehicle vehicle vehicle vehicle vehicle"
+    }
+  ],
+  "command": "uv run python -m scripts.sheaf_infer qwen3-1.7b results/qwen3-1.7b-sweep/kl-t02-dual --task translation --seed 99"
+}

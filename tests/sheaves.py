@@ -142,6 +142,64 @@ class TestPruning(TestCase):
         w = dict(self.adapter.model.named_parameters())[name].detach().abs().flatten()
         self.assertGreater(float(sheaf.gates[name].flatten()[int(w.argmax())]), 0.0)
 
+    def test_gold_faith_is_the_likelihood_of_the_answer_the_task_names(self):
+        """Trained on the answer, a mask can be right where the full model is not"""
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        io, _ = task.answers(self.adapter)
+        with TemporaryDirectory() as directory:
+            journal = Journal(Path(directory) / "run", params={})
+            sheaf = prune(self.adapter, task, steps=3, batch=4, holdout=0.25, journal=journal,
+                          probe_every=0, faith_kind="gold", sparsity=0.0, max_times=1.0)
+            journal.finish()
+            rows = read_metrics(Path(directory) / "run")
+        # the loss is a cross-entropy over the vocabulary against the answer:
+        # positive, finite, and no larger than the pair term would allow
+        self.assertTrue(all(0.0 < row["faith"] < 30.0 for row in rows))
+        self.assertEqual(len(io), len(task.clean))
+        self.assertTrue(sheaf.gates)
+
+    def test_dual_ascent_at_its_own_rate_is_proportional_to_the_gap(self):
+        """l1 is exactly the rate times the summed gap, and never below zero"""
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        with self.assertRaises(CircuitError):
+            prune(self.adapter, task, steps=1, batch=4, dual_rate=1.0)
+        with TemporaryDirectory() as directory:
+            journal = Journal(Path(directory) / "run", params={})
+            prune(self.adapter, task, steps=4, batch=4, holdout=0.25, journal=journal,
+                  probe_every=0, target=0.01, warmup=1, faith_kind="nll", dual_rate=2.0)
+            journal.finish()
+            rows = read_metrics(Path(directory) / "run")
+        gaps = [row["density"] - row["target"] for row in rows]
+        for index, row in enumerate(rows):
+            self.assertAlmostEqual(2.0 * sum(gaps[: index + 1]), row["lambda1"], places=4)
+            self.assertAlmostEqual(2.0 * sum(g * g for g in gaps[: index + 1]), row["lambda2"], places=4)
+            self.assertEqual(0, row["restart"])
+        self.assertGreater(rows[-1]["lambda1"], 0.0)
+
+    def test_a_restart_zeroes_the_price_whenever_the_constraint_holds(self):
+        """Closed at init against a target of a half: the gap is negative on every step"""
+        task = build_task("ioi", self.adapter, size=8, seed=0)
+        outcomes = {}
+        for restart in (False, True):
+            with TemporaryDirectory() as directory:
+                journal = Journal(Path(directory) / "run", params={})
+                sheaf = prune(self.adapter, task, steps=3, batch=4, holdout=0.25, journal=journal,
+                              probe_every=0, target=0.5, warmup=0, init=-1.0, faith_kind="nll",
+                              dual_rate=1.0, dual_restart=restart)
+                journal.finish()
+                outcomes[restart] = (sheaf, read_metrics(Path(directory) / "run"))
+        sheaf, rows = outcomes[True]
+        self.assertEqual(3, sheaf.n_restarts)
+        self.assertTrue(all(row["restart"] == 1 and row["lambda1"] == 0.0 and row["lambda2"] == 0.0
+                            for row in rows))
+        sheaf, rows = outcomes[False]
+        self.assertEqual(0, sheaf.n_restarts)
+        # Without the restart l1 is clamped at zero, but the quadratic
+        # multiplier keeps climbing on a gap of either sign: the debt the
+        # restart exists to cancel.
+        self.assertTrue(all(row["lambda1"] == 0.0 for row in rows))
+        self.assertGreater(rows[-1]["lambda2"], 0.0)
+
     def test_a_target_learns_its_price_and_a_bad_one_is_refused(self):
         """The multipliers climb while the mask is denser than the target"""
         task = build_task("ioi", self.adapter, size=8, seed=0)

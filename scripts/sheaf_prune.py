@@ -128,6 +128,7 @@ def run(args: argparse.Namespace) -> None:
         "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
         "init": args.init, "temperature": args.temperature, "anneal": args.anneal,
         "target": args.target, "protect": args.protect, "warmup": args.warmup,
+        "dual_rate": args.dual_rate, "dual_restart": args.dual_restart,
         "holdout": args.holdout, "band_control": control, "budget": cost,
     })
     log(f"journal: {directory} (tail -f {journal.metrics_path})")
@@ -153,6 +154,7 @@ def run(args: argparse.Namespace) -> None:
                 edge_sparsity=args.edge_sparsity, faith_kind=args.faith_kind,
                 init=args.init, temperature=args.temperature, anneal=args.anneal,
                 target=args.target, protect=args.protect, warmup=args.warmup,
+                dual_rate=args.dual_rate, dual_restart=args.dual_restart,
             )
             facts["density"] = f"{sheaf.density:.4%}"
             facts["held-out"] = f"{sheaf.accuracy:.3f}"
@@ -186,6 +188,7 @@ def run(args: argparse.Namespace) -> None:
         "n_edges": sheaf.n_edges,
         "n_edges_open": sheaf.n_edges_open,
         "n_pinned": sheaf.n_pinned,
+        "n_restarts": sheaf.n_restarts,
         "edge_density": (None if sheaf.edge_density is None else round(sheaf.edge_density, 6)),
         "accuracy": round(sheaf.accuracy, 4),
         "train_accuracy": round(sheaf.train_accuracy, 4),
@@ -199,6 +202,7 @@ def run(args: argparse.Namespace) -> None:
             "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
             "init": args.init, "temperature": args.temperature, "anneal": args.anneal,
             "target": args.target, "protect": args.protect, "warmup": args.warmup,
+            "dual_rate": args.dual_rate, "dual_restart": args.dual_restart,
         },
         "budget": cost,
         "history": sheaf.history,
@@ -253,6 +257,15 @@ def main() -> None:
                         help="a density to hold instead of a price to guess: the price is learned "
                              "(Wang et al. 2020 / CoFi Lagrangian); --sparsity and --max-times are "
                              "ignored, and --warmup defaults to half the run")
+    parser.add_argument("--dual-rate", type=float, default=None, dest="dual_rate",
+                        help="with --target: ascend the price by plain gradient ascent at this rate, "
+                             "proportional to the density gap, instead of through the gates' AdamW "
+                             "(which moves it ~lr per step whatever the gap and overshot a 20%% "
+                             "target to 12.6%% on the 1.7B)")
+    parser.add_argument("--dual-restart", action="store_true", dest="dual_restart",
+                        help="with --target: reset the price to zero on any step the mask is at or "
+                             "under the target (Gallego-Posada et al. 2022), so a reached target "
+                             "trains on faith alone")
     parser.add_argument("--warmup", type=int, default=None,
                         help="steps the price ramps over (default: the whole run) or, with "
                              "--target, the density ramps over (default: half of it). Longer "
@@ -279,8 +292,10 @@ def main() -> None:
     # certified a circuit that ranks at 0.938 on unseen prompts and generates
     # ' Mary Emma Rose the Rose'. "kl" scores the whole last-token distribution
     # against the unmasked model's, which a ranking shortcut cannot satisfy.
-    parser.add_argument("--faith", default="pair", choices=("pair", "kl", "nll"), dest="faith_kind",
-                        help="faithfulness on the good/bad pair, or KL over the distribution")
+    parser.add_argument("--faith", default="pair", choices=("pair", "kl", "nll", "gold"),
+                        dest="faith_kind",
+                        help="faithfulness on the good/bad pair, KL over the distribution, nll on "
+                             "the full model's argmax (the paper's), or nll on the task's answer")
     parser.add_argument("--completeness", type=float, default=0.3)
     parser.add_argument("--holdout", type=float, default=0.25)
     parser.add_argument("--reserve", type=float, default=4.0,

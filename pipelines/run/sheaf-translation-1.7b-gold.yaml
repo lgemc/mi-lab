@@ -1,0 +1,41 @@
+# The same 20% target as kl-t02 with the faith term on the answer instead
+# of on the full model.
+#
+# Two masks at 20% now: kl-t02 (Adam dual, overshot to 12.6%) ranked 0.89 and
+# got the first token on 36% of a fresh draw; kl-t02-dual (dual rate 100 with
+# restarts, landed at 19.1%) ranked 0.85 and got 30%. The denser mask was
+# the worse one, so density was not the variable, and the optimizer that
+# overshoots is the one that produced the better circuit on both this model
+# and GPT-2 IOI. What both trained on was `--faith kl`: the whole next-token
+# distribution of the full model at the answer position. On this frame the
+# full model's first token is the answer on 71% of prompts, so a third of
+# every batch taught the mask the full model's wrong word, and every prompt
+# taught it the ` \nSpanish:` continuation, which is what the circuits
+# generate. `--faith gold` is nll over the whole vocabulary against the
+# answer the pool names. Not the paper's faithfulness -- the circuit may be
+# right where the model is wrong -- but it is the quantity the ranking and
+# first-token probes score.
+#
+# Everything else is kl-t02: same seed, pool, frame, schedule and the Adam
+# dual, which is the control one variable away.
+name: discogp translation on qwen3-1.7b, faith on the answer
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/gold-t02
+
+steps:
+  # ~2h at 2000 steps of 8 on the GB10; peaks near 39 GiB.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --faith, gold, --seed, "0",
+           --init, "5", --anneal, --target, "0.2", --warmup, "1500"]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/gold-t02, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/gold-t02, --task, translation]

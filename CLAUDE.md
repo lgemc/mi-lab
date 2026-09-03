@@ -275,7 +275,12 @@ The split, by the question each module answers:
   that is saved. `--protect` pins the top fraction by |w| open; it was written against the
   collapse and is not its cause. The band control refuses a band the task survives without —
   on this frame layers 21–27 zeroed leave the ranking at 0.996, so the translation circuit is
-  gated over the whole model.
+  gated over the whole model. `--dual-rate R --dual-restart` ascends the learned price by plain
+  gradient at rate R and zeroes it whenever the constraint holds (Gallego-Posada et al. 2022);
+  it lands *on* the target where the Adam dual overshoots (kl-t02 asked 20%, got 12.6%), but
+  on both GPT-2 IOI and the 1.7B the overshooting run produced the better circuit — density
+  was not the variable. `--faith gold` is nll against the task's answer rather than the full
+  model's argmax: not the paper's faithfulness, but the quantity the probes score.
 - `data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
   head so a pair is never both, and `counterfactual_prompts` keep the form and drop the task.
 - `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`
