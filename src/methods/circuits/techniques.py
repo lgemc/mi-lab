@@ -3,18 +3,15 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import torch
 
-from ..core.metrics import measure
-from ..data.tasks import CircuitTask
-from ..model.adapter import require_circuits
-from .circuits import (
-    Baselines,
-    Circuit,
-    HeadId,
-    baselines,
-    behaviour,
-    direct_logit_attribution,
-    patch_heads,
-)
+from ...core.metrics import measure
+from ...data.tasks import CircuitTask
+from ...model.adapter import require_circuits
+from ..common.components import HeadId
+from ..common.errors import DiscoveryError
+from ..common.span import Baselines, baselines, behaviour
+from .attribution import direct_logit_attribution
+from .patching import patch_heads
+from .search import Circuit
 
 """
 The field's question moved. It was "what is the circuit for this task"; it is
@@ -49,9 +46,6 @@ component the whole IOI story turns on.
 
 A common pipe could be: build_task | rank | Ranking.select | verify
 """
-
-class DiscoveryError(ValueError):
-    """Raised when a technique is asked for something it cannot answer: no such method, no heads to select"""
 
 @dataclass(frozen=True)
 class Ranking:

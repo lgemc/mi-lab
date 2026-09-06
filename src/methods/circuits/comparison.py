@@ -2,22 +2,15 @@ import random
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from ..core.metrics import jaccard, spearman
-from ..data.tasks import CircuitTask
-from ..model.adapter import require_circuits
-from .circuits import (
-    Ablation,
-    CircuitError,
-    CircuitReport,
-    Completeness,
-    HeadId,
-    ablate,
-    behaviour,
-    completeness,
-    donor_bank,
-    verify,
-)
-from .discovery import TECHNIQUES, DiscoveryError, Ranking, rank, technique_names
+from ...core.metrics import jaccard, spearman
+from ...data.tasks import CircuitTask
+from ...model.adapter import require_circuits
+from ..common.components import HeadId
+from ..common.errors import CircuitError, DiscoveryError
+from ..common.span import behaviour
+from .ablation import Ablation, ablate, donor_bank
+from .techniques import TECHNIQUES, Ranking, rank, technique_names
+from .verify import CircuitReport, Completeness, completeness, verify
 
 """
 Three questions about a circuit that finding one does not answer.

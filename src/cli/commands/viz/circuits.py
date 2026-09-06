@@ -4,7 +4,11 @@ from typing import Optional
 import typer
 
 from ....data.ioi import CORRUPTIONS, FRAMES, build_ioi
-from ....methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
+from ....methods.circuits.attribution import direct_logit_attribution
+from ....methods.circuits.patching import patch_heads, patch_residual
+from ....methods.circuits.roles import classify_heads
+from ....methods.circuits.search import discover
+from ....methods.circuits.verify import verify
 from ....model.adapter import load_adapter, require_circuits
 from ....viz import circuits as circuit_viz
 from ....viz.dashboard import Panel, Section, render

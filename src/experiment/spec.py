@@ -9,7 +9,7 @@ from ..data.dataset import LabeledPrompts, load_jsonl, synthetic
 from ..data.ioi import CORRUPTIONS, FRAMES
 from ..data.prompts import load_prompts
 from ..data.tasks import task_names
-from ..methods.discovery import technique_names
+from ..methods.circuits.techniques import technique_names
 
 """
 An ExperimentSpec is the whole experiment as data: which model, which data,

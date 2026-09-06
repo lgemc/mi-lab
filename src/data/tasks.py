@@ -221,7 +221,7 @@ def register_task(name: str, description: str) -> Callable:
 
     Adding a task is a registration and a pool, never an edit to the code that
     measures one. That is the same reason backends and experiment kinds are
-    registries: the comparison in methods/comparison.py sweeps whatever is in
+    registries: the comparison in methods/circuits/comparison.py sweeps what is in
     here, so a new task joins every cross-task number by existing.
     """
     def decorate(build: Callable[..., CircuitTask]) -> Callable[..., CircuitTask]:

@@ -4,9 +4,9 @@ from typing import Optional
 import typer
 
 from ...data.tasks import TASKS, build_task, task_names
-from ...methods.circuits import behaviour
-from ...methods.comparison import compare_techniques, consistency, discover_across, specificity
-from ...methods.discovery import TECHNIQUES, technique_names
+from ...methods.circuits.comparison import compare_techniques, consistency, discover_across, specificity
+from ...methods.circuits.techniques import TECHNIQUES, technique_names
+from ...methods.common.span import behaviour
 from ...model.adapter import load_adapter, require_circuits
 from ...share import storage
 from ...share.converters.comparison import from_comparison

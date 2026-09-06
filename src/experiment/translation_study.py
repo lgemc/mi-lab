@@ -35,10 +35,10 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from ..core.metrics import degeneracy
 from ..data.translation import EvalSplit, counterfactual_prompts, default_pairs_path, eval_split, load_pairs
-from ..methods import components as comp
-from ..methods.cost import CostModel
-from ..methods.knockout import Means, ablate, cached_means, preview, translate
-from ..methods.quality import bleu
+from ..methods.common import components as comp
+from ..methods.knockout.ablate import Means, ablate, cached_means, preview, translate
+from ..methods.knockout.cost import CostModel
+from ..methods.knockout.quality import bleu
 from ..telemetry.observe import gpu, log, step
 from ..telemetry.results import load_state, result, root
 

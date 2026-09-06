@@ -42,9 +42,9 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import torch
 
-from ..data.tasks import CircuitTask
-from .circuits import CircuitError
-from .sheaves import gateable
+from ...data.tasks import CircuitTask
+from ..common.errors import GateError
+from .gateable import gateable
 
 # Which projection a parameter is, by the leaf name it is stored under across
 # the families this repo has met. MLP names are matched only inside an MLP
@@ -72,9 +72,6 @@ KINDS = (
 STATE_BYTES_PER_GATE = 4 * 4
 GRAPH_BASE_GIB = 6.0
 GRAPH_BYTES_PER_GATE = 5
-
-class GateError(CircuitError):
-    """A mask that does not describe this model, or a band that cannot be parsed"""
 
 # Either the float logits `prune` learned or the bool mask `unpack` returns:
 # a gate is open where the logit is positive, or where the bool is set.

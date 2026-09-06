@@ -26,8 +26,8 @@ from typing import Any, Dict, List, Sequence, Tuple
 
 import torch
 
-from ..model.passes import DEFAULT_MAX_LENGTH, forward_batches, hooked, token_strings
-from .circuits import CircuitError
+from ...model.passes import DEFAULT_MAX_LENGTH, forward_batches, hooked, token_strings
+from ..common.errors import NeuronError
 
 SIGMAS = 2.0
 TOP_FIRING = 12
@@ -36,9 +36,6 @@ CONTEXT_TOKENS = 5
 # The attribute a decoder MLP stores its down projection under, across the
 # families this repo has met. Ordered by how often each is the one.
 DOWN_PROJECTIONS = ("down_proj", "c_proj", "dense_4h_to_h", "fc_out", "w2")
-
-class NeuronError(CircuitError):
-    """An MLP whose neurons cannot be found, or a contrast that does not line up"""
 
 def control_texts(count: int, seed: int = 0) -> List[str]:
     """Math and code lines with no natural language in them, built locally

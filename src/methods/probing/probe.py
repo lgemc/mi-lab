@@ -4,8 +4,9 @@ from typing import Dict, List, Optional, Sequence
 
 import torch
 
-from ..core.metrics import Cost, accuracy, measure, roc_auc
-from ..data.dataset import LabeledPrompts
+from ...core.metrics import Cost, accuracy, measure, roc_auc
+from ...data.dataset import LabeledPrompts
+from ..common.errors import ProbeError
 
 """
 A probe is the cheapest thing that can read a property off a residual stream:
@@ -26,9 +27,6 @@ probe that does not clear it is not earning its optimizer.
 
 A common pipe could be: capture | train_probe | evaluate | save
 """
-
-class ProbeError(ValueError):
-    """Raised when a probe is asked for something it cannot do: wrong width, one-class data, no examples"""
 
 @dataclass
 class LinearProbe:

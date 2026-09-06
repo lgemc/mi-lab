@@ -35,11 +35,9 @@ from collections import defaultdict
 from math import comb
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ..common.errors import WiringError
+
 Edge = Tuple[str, str]
-
-
-class WiringError(ValueError):
-    """Raised when an edge set cannot be read as a circuit for the model in hand"""
 
 
 def parse_source(source: str) -> Tuple[str, Optional[int], Optional[int]]:

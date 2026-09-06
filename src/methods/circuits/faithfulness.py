@@ -40,14 +40,17 @@ that says nothing are different claims.
 """
 
 from dataclasses import asdict, dataclass
-from typing import Dict, List, Optional, Sequence, Tuple
+from typing import List, Optional, Sequence, Tuple
 
 import torch
 
-from ..core.metrics import logit_difference
-from ..data.tasks import CircuitTask
-from ..model.adapter import require_circuits
-from .circuits import Baselines, CircuitError, HeadId, baselines
+from ...core.metrics import logit_difference
+from ...data.tasks import CircuitTask
+from ...model.adapter import require_circuits
+from ..common.components import HeadId
+from ..common.errors import CircuitError
+from ..common.intervention import head_patch
+from ..common.span import Baselines, baselines
 
 ABLATION_VALUES = ("zero", "mean", "resample")
 DIRECTIONS = ("restore", "destroy")
@@ -174,12 +177,13 @@ def measure(adapter, task: CircuitTask, circuit_heads: Sequence[HeadId],
     if not target:
         raise CircuitError(f"the {methodology.ablated} is empty, so there is nothing to write in")
 
-    patch: Dict[int, Dict[int, torch.Tensor]] = {}
-    for layer, head in target:
-        if methodology.direction == "restore":
-            patch.setdefault(layer, {})[head] = clean[:, layer, head]
-        else:
-            patch.setdefault(layer, {})[head] = _off_value(methodology.value, clean, corrupted, layer, head)
+    # The per-head callable rather than the bank, because which value goes in
+    # *is* the measurement here: restore writes the clean activation, destroy
+    # writes whichever of zero/mean/resample the methodology names.
+    patch = head_patch(target, lambda layer, head: (
+        clean[:, layer, head] if methodology.direction == "restore"
+        else _off_value(methodology.value, clean, corrupted, layer, head)
+    ))
     source = task.corrupted if methodology.direction == "restore" else task.clean
 
     with adapter.patch(heads=patch):

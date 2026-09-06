@@ -34,12 +34,12 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tupl
 
 import torch
 
-from ..core.metrics import degeneracy
-from ..data.translation import clean_completion
-from ..model.passes import attention_of, forward_batches, hooked
-from ..telemetry.observe import Progress, log
-from . import components as comp
-from .circuits import CircuitError
+from ...core.metrics import degeneracy
+from ...data.translation import clean_completion
+from ...model.passes import attention_of, forward_batches, hooked
+from ...telemetry.observe import Progress, log
+from ..common import components as comp
+from ..common.errors import KnockoutError
 
 MEANS_BATCH = 32          # a capture holds every hooked layer's activations at once
 MEANS_MAX_LENGTH = 256    # the counterfactual prompts are few-shot and short
@@ -48,9 +48,6 @@ MAX_NEW_TOKENS = 64       # a WMT sentence, with room to spare
 
 PREVIEW_SAMPLES = 3
 PREVIEW_WIDTH = 96
-
-class KnockoutError(CircuitError):
-    """A mean that does not belong to this model, or a component it cannot ablate"""
 
 def geometry(adapter) -> Dict[str, Any]:
     """What a mean is a mean *of*, so a cache cannot be read onto the wrong model"""

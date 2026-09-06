@@ -27,15 +27,13 @@ A common pipe could be: translate | bleu | paired_significance | agreement
 
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from ..core.metrics import MetricError, benjamini_hochberg
+from ...core.metrics import benjamini_hochberg
+from ..common.errors import QualityError
 
 SIGNIFICANCE_ALPHA = 0.05
 BOOTSTRAP_RESAMPLES = 1000
 COMET_MODEL = "Unbabel/wmt22-comet-da"
 COMET_BATCH = 16
-
-class QualityError(MetricError):
-    """A comparison that cannot be made of the hypotheses it was given"""
 
 def bleu(hypotheses: Sequence[str], references: Sequence[str]) -> float:
     """Corpus BLEU, rounded to the two decimals a table shows"""

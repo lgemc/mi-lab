@@ -26,17 +26,20 @@ A common pipe could be: band | plan | parse | complement | redundant
 
 from typing import Iterable, List, Optional, Sequence, Tuple
 
-from .circuits import CircuitError
+from .errors import ComponentError
 
 KINDS = ("mlp", "heads", "head")
+
+# A head, as the pair every circuit measurement indexes one by. `head:L:H` is
+# the same thing written for a JSON key or a command line; this is the form
+# that indexes a [batch, layer, head, ...] bank, and the two are converted
+# between by `parse` and `name` rather than by a caller guessing.
+HeadId = Tuple[int, int]
 
 # The candidate band of the translation study as a depth fraction: the top
 # quarter of the stack, where the neuron scan found the language-specific
 # activity concentrated.
 CANDIDATE_BAND = (0.75, 1.0)
-
-class ComponentError(CircuitError):
-    """A component name or set that does not describe this model"""
 
 def parse(cid: str) -> Tuple[str, int, Optional[int]]:
     """'mlp:31' | 'heads:31' | 'head:31:7' -> (kind, layer, head)"""

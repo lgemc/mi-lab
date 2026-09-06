@@ -3,7 +3,7 @@ from typing import Optional
 
 import typer
 
-from ...methods.probing import LinearProbe, ProbeError
+from ...methods.probing.probe import LinearProbe, ProbeError
 from ...share import storage
 from ...share.converters.probe import from_probe
 from ...share.schema.artifact import Artifact

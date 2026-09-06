@@ -4,7 +4,10 @@ import torch
 
 from ...core.config import ModelConfig
 from ...data.ioi import IOIDataset
-from ...methods.circuits import Attribution, CircuitReport, HeadEffects, HeadRoles, PatchGrid
+from ...methods.circuits.attribution import Attribution
+from ...methods.circuits.patching import HeadEffects, PatchGrid
+from ...methods.circuits.roles import HeadRoles
+from ...methods.circuits.verify import CircuitReport
 from ..definitions import describe
 from ..schema.artifact import Artifact
 from ..schema.controls import Controls

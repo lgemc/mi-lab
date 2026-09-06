@@ -5,9 +5,13 @@ from ..core.metrics import measure
 from ..data.ioi import build_ioi
 from ..data.ioi import evaluate as evaluate_ioi
 from ..data.tasks import build_task
-from ..methods.circuits import classify_heads, direct_logit_attribution, discover, patch_heads, patch_residual, verify
-from ..methods.comparison import compare_techniques, consistency, discover_across, specificity
-from ..methods.probing import difference_of_means, evaluate, sweep, train_probe
+from ..methods.circuits.attribution import direct_logit_attribution
+from ..methods.circuits.comparison import compare_techniques, consistency, discover_across, specificity
+from ..methods.circuits.patching import patch_heads, patch_residual
+from ..methods.circuits.roles import classify_heads
+from ..methods.circuits.search import discover
+from ..methods.circuits.verify import verify
+from ..methods.probing.probe import difference_of_means, evaluate, sweep, train_probe
 from ..model.adapter import load_adapter, require_circuits
 from ..share import storage
 from ..share.converters.circuit import from_circuit

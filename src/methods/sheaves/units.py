@@ -20,7 +20,7 @@ the artifacts compare, and a weight is open only when every gate above it is.
 The bindings are architecture knowledge and live in `bindings`: which axis
 of which tensor a head or a neuron slices, and how GPT-2's fused `c_attn`
 lays three heads' worth of columns end to end where Qwen has three
-projections. The mistake this guards is the one `per_head` in gates.py
+projections. The mistake this guards is the one `per_head` in mask.py
 already names: Conv1D is [in, out] and Linear is [out, in], and a head's
 slice of an output projection is on the input side either way.
 
@@ -40,7 +40,7 @@ from typing import Callable, Dict, List, Optional, Sequence
 
 import torch
 
-from src.methods.gates import kind_of, layer_of
+from .mask import kind_of, layer_of
 
 Scores = Dict[str, torch.Tensor]
 

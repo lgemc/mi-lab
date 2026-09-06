@@ -4,13 +4,7 @@ import typer
 
 from ...data.dataset import synthetic
 from ...data.prompts import load_labeled
-from ...methods.probing import (
-    difference_of_means,
-    evaluate,
-    measure_scoring_cost,
-    sweep,
-    train_probe,
-)
+from ...methods.probing.probe import difference_of_means, evaluate, measure_scoring_cost, sweep, train_probe
 from ...model.adapter import load_adapter
 from ...share.loaders import open_probe
 from ..common import HelpfulCommand, HelpfulGroup

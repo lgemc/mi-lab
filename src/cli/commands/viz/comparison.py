@@ -4,7 +4,7 @@ from typing import Optional
 import typer
 
 from ....data.tasks import build_task, task_names
-from ....methods.comparison import compare_techniques, consistency, discover_across, specificity
+from ....methods.circuits.comparison import compare_techniques, consistency, discover_across, specificity
 from ....model.adapter import load_adapter, require_circuits
 from ....viz import comparison as comparison_viz
 from ....viz.style import save_figure

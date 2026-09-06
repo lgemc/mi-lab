@@ -39,7 +39,7 @@ from typing import ClassVar, Dict, Iterator, List, Optional, Tuple, Type
 
 import torch
 
-from ..methods.gates import Packed, pack, unpack_one
+from ..methods.sheaves.mask import Packed, pack, unpack_one
 
 
 class BackboneError(Exception):

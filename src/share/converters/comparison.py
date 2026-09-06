@@ -4,8 +4,8 @@ import torch
 
 from ...core.config import ModelConfig
 from ...data.tasks import CircuitTask
-from ...methods.circuits import HeadId
-from ...methods.comparison import Consistency, Specificity, TechniqueComparison
+from ...methods.circuits.comparison import Consistency, Specificity, TechniqueComparison
+from ...methods.common.components import HeadId
 from ..definitions import describe
 from ..schema.artifact import Artifact
 from ..schema.control import Control

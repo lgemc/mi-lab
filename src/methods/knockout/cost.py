@@ -22,17 +22,14 @@ import random
 from dataclasses import asdict, dataclass
 from typing import Any, Dict, List, Sequence, Tuple
 
-from . import components
-from .circuits import CircuitError
+from ..common import components
+from ..common.errors import CostError
 
 # A set matched to within this fraction of the target's MACs counts as
 # matched. Components are lumpy -- one MLP costs many heads -- so an exact
 # match is generally not on the lattice, and the honest move is to state the
 # tolerance rather than to pretend the draw landed on the number.
 MATCH_TOLERANCE = 0.05
-
-class CostError(CircuitError):
-    """A cost that cannot be computed for the model or the set it was asked about"""
 
 @dataclass(frozen=True)
 class Dimensions:

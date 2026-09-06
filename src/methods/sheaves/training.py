@@ -43,52 +43,33 @@ A common pipe could be: task | gates | faith + sparsity + complete | sheaf
 
 Not implemented here: edge gates. `edge_patch` in the backend is the substrate
 for them and the two compose, but this module prunes weights only, which is the
-half that the node-level `mask` technique in discovery.py cannot express.
+half that the node-level `mask` technique in circuits/techniques.py cannot
+express.
 """
 
-from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 import torch
 import torch.nn.functional as functional
 
-from ..data.tasks import CircuitTask
-from ..model.adapter import require_circuits
-from ..telemetry.journal import Journal
-from .circuits import CircuitError
+from ...data.tasks import CircuitTask
+from ...model.adapter import require_circuits
+from ...telemetry.journal import Journal
+from ..common.errors import SheafError
+from .forward import (
+    attribution,
+    chunk_rows,
+    faith_term,
+    first_token_accuracy,
+    logit_pairs,
+    ranking_accuracy,
+    split_rows,
+)
+from .gate import pin, protected, schedule, target_schedule
+from .gateable import gateable, span
+from .units import Units, init_from
 
-if TYPE_CHECKING:
-    from .units import Units
-
-
-def gumbel_sigmoid(logits: torch.Tensor, temperature: float = 1.0, eps: float = 1e-10,
-                   noise: float = 1.0) -> torch.Tensor:
-    """A Bernoulli gate that is hard in the forward pass and differentiable in the backward one
-
-    Straight-through: the returned value is exactly 0 or 1, so the model really
-    runs with the gate shut, while the gradient sees the relaxed sigmoid and can
-    move the logit that produced it. Rounding without the straight-through trick
-    gives a zero gradient everywhere; relaxing without the rounding trains a
-    model that is never actually pruned and scores well because a half-open gate
-    still passes half the signal.
-
-    The paper's eq. 3: `sigma((l - log(log U1 / log U2)) / tau)`, logistic noise
-    added *before* the division. So `temperature` never changes which gates
-    open -- `sigma(x / tau) > 0.5` is `x > 0` at any tau -- it only sharpens the
-    backward pass: at the reference's 0.01 for weight masks a gate on the
-    boundary gets a hundred times the gradient and a gate away from it none.
-    Annealing tau, the Gumbel-softmax recipe, therefore cannot bring the sample
-    to the thresholded mask that is evaluated; `noise` is the scale that can.
-    At 1.0 the gate is the paper's; at 0.0 it is exactly `logits > 0`.
-    """
-    relaxed_input = logits
-    if noise > 0.0:
-        uniform = logits.new_empty([2, *logits.shape]).uniform_(0, 1)
-        drawn = -((uniform[1] + eps).log() / (uniform[0] + eps).log() + eps).log()
-        relaxed_input = logits + noise * drawn
-    relaxed = torch.sigmoid(relaxed_input / temperature)
-    return ((relaxed > 0.5).type_as(relaxed) - relaxed).detach() + relaxed
 
 @dataclass
 class Sheaf:
@@ -195,268 +176,6 @@ class Sheaf:
                 f"(train {self.train_accuracy:.3f}) against {self.baseline_accuracy:.3f} full · "
                 f"complement {self.complement_accuracy:.3f}{first}{peak}")
 
-def span(layers: Sequence[int]) -> str:
-    """`21-27` for a contiguous band, the list itself for anything else"""
-    ordered = sorted(layers)
-    if len(ordered) > 1 and ordered == list(range(ordered[0], ordered[-1] + 1)):
-        return f"{ordered[0]}-{ordered[-1]}"
-    return ",".join(str(layer) for layer in ordered)
-
-def gateable(adapter, layers: Optional[Sequence[int]] = None) -> Dict[str, torch.nn.Parameter]:
-    """Every weight a gate is attached to: the blocks, minus norms and embeddings
-
-    Norms and embeddings are excluded the way DiscoGP excludes them. A gated
-    embedding deletes tokens rather than computation, and a gated norm changes
-    what every surviving component reads, so neither is a statement about where
-    the behaviour lives.
-
-    `layers` narrows that to a band, and the reason is arithmetic rather than
-    method. Every gate carries a float32 logit, its gradient and two AdamW
-    moments, so gating all of a 1.7B model's 1.41B block weights costs ~23 GiB
-    of optimizer state before a single activation is stored -- where GPT-2
-    small's 85M gates cost 1.4 GiB, which is why this never came up. A band
-    spends less and says so: the claim it supports is "within these layers",
-    which is a smaller claim and is written into the artifact as one. Reaching
-    for a leaner optimizer instead would buy the same memory by making the
-    scope of the result harder to see rather than easier.
-    """
-    count = len(adapter.blocks)
-    chosen = list(range(count)) if layers is None else list(layers)
-    outside = [layer for layer in chosen if not 0 <= layer < count]
-    if outside:
-        raise CircuitError(
-            f"layers {outside} are not in this model, which has {count} blocks (0-{count - 1})"
-        )
-    if not chosen:
-        raise CircuitError("an empty layer band gates nothing; omit `layers` to gate the whole model")
-    inside = {id(parameter) for layer in chosen
-              for name, parameter in adapter.blocks[layer].named_parameters()
-              if "ln" not in name and "norm" not in name}
-    return {name: parameter for name, parameter in adapter.model.named_parameters()
-            if id(parameter) in inside}
-
-def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict[str, torch.Tensor]],
-           originals: Dict[str, torch.Tensor], temperature: float, reverse: bool = False,
-           deterministic: bool = False,
-           edge_logits: Optional[torch.Tensor] = None,
-           edge_ids: Optional[Sequence[tuple]] = None,
-           whole: bool = False, noise: float = 1.0,
-           units: Optional["Units"] = None,
-           weights: Optional[Dict[str, torch.Tensor]] = None) -> torch.Tensor:
-    """The good/bad logit pair at each named prompt's last real token, under the current gates
-
-    `whole` returns the entire last-token distribution instead of two of it,
-    which is what a KL faithfulness term needs. Two logits are a ranking; the
-    distribution is what the model would actually say.
-
-    `units` multiplies each weight's sampled gate by the sampled gates of the
-    head, neuron and block it belongs to (see units.py); the unit gates are
-    drawn once per call, so every slice of a head sees the same draw.
-    `weights` substitutes tensors for the model's own, with no gates: it is
-    how `attribution` runs the full model through leaves that carry a gradient.
-
-    Indexed by row rather than handed a list of prompts, because the answers
-    live in a parallel array and slicing one without the other scores every
-    prompt against another prompt's names. A first version took prompts
-    directly and only happened to be right because the slice was a prefix.
-    """
-    every = list(task.clean)
-    prompts = [every[row] for row in rows]
-    io_all, subject_all = task.answers(adapter)
-    io = [io_all[row] for row in rows]
-    subject = [subject_all[row] for row in rows]
-    # Set before encoding, not after. The backend's `_encode` mutates this on the
-    # shared tokenizer and leaves it "left" after any generation, and the last
-    # real token is found below as `mask.sum(dim=1) - 1`, which is a pad position
-    # under left padding. Setting it afterwards fixes the *next* call and scores
-    # this one on whatever the previous caller happened to leave behind.
-    adapter.tokenizer.padding_side = "right"
-    encoded = adapter.tokenizer(list(prompts), return_tensors="pt", padding=True)
-    ids = encoded["input_ids"].to(adapter.model.device)
-    mask = encoded["attention_mask"].to(adapter.model.device)
-
-    parameters = dict(adapter.model.named_parameters())
-    if weights is not None:
-        parameters.update(weights)
-    # The unit gates are drawn once here and read per tensor below, so the
-    # three slices of a head (q, k, v) and its output rows all see one draw;
-    # thresholded evaluation reads the logits directly and draws nothing.
-    drawing = (units.draw(lambda u: gumbel_sigmoid(u, temperature, noise=noise))
-               if units is not None and gates is not None and not deterministic
-               else _nothing())
-    with drawing:
-        for name, logits in (gates or {}).items():
-            # Training samples; evaluation thresholds. Scoring a sampled mask
-            # measures a different random subnetwork on every forward pass, and
-            # it is not the mask that was learned: a first version sampled
-            # everywhere and reported train accuracy flat at 0.70 from 55% of
-            # the weights down to 0.02%, because the number never depended on
-            # the gates at all.
-            sampled = ((logits > 0).to(logits.dtype) if deterministic
-                       else gumbel_sigmoid(logits, temperature, noise=noise))
-            if units is not None:
-                sampled = sampled * units.factor(name, sampled.ndim, deterministic).to(sampled.dtype)
-            # The gate logits are float32 whatever the model's dtype is (see
-            # `prune`), so the mask is cast down to the weight rather than the
-            # weight promoted up to the mask: promoting leaves this one
-            # parameter in float32 while every activation reaching it is
-            # bfloat16, which is a dtype error on a good day and a silent
-            # upcast of one matmul on a bad one.
-            gate = (1.0 - sampled if reverse else sampled).to(originals[name].dtype)
-            parameters[name] = gate * originals[name]
-    # The edge hooks sit on the modules and fire inside functional_call, which
-    # swaps parameters and leaves hooks alone -- so a head's write is
-    # reconstructed from the *masked* weights, and the two halves compose
-    # rather than each measuring the unmasked model.
-    # Sampled here rather than handed in, for the same reason the weight gates
-    # are: the faith pass and the complement pass each call backward, and a
-    # sample hoisted out of both would have its graph freed by the first.
-    edges = None
-    if edge_logits is not None and edge_ids:
-        drawn = ((edge_logits > 0).to(edge_logits.dtype) if deterministic
-                 else gumbel_sigmoid(edge_logits, temperature, noise=noise))
-        if reverse:
-            drawn = 1.0 - drawn
-        edges = {edge: drawn[index] for index, edge in enumerate(edge_ids)}
-    with adapter.edge_gate(edges) if edges else _nothing():
-        logits = torch.func.functional_call(
-            adapter.model, {**parameters, **dict(adapter.model.named_buffers())},
-            (ids,), {"attention_mask": mask, "use_cache": False},
-        ).logits
-    last = mask.sum(dim=1) - 1
-    index = torch.arange(logits.shape[0], device=logits.device)
-    final = logits[index, last]
-    if whole:
-        return final
-    good = final[index, torch.tensor(io, device=logits.device)]
-    bad = final[index, torch.tensor(subject, device=logits.device)]
-    return torch.stack([good, bad], dim=-1)
-
-def _faith(pairs: torch.Tensor, chunk: Sequence[int], faith_kind: str,
-           reference: Optional[Dict[int, torch.Tensor]]) -> torch.Tensor:
-    """The faithfulness term of one batch, by kind"""
-    if faith_kind in ("nll", "gold"):
-        # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
-        # masked model gives the token the *full* model predicted, over the
-        # whole vocabulary. Not a choice between two candidates. "gold"
-        # is the same sum with the task's y_i in place of y-hat_i.
-        labels = torch.cat([reference[row] for row in chunk], dim=0)
-        return functional.cross_entropy(pairs, labels)
-    if faith_kind == "kl":
-        # The soft-target relative: the whole distribution rather than its
-        # argmax. The paper uses KL to *evaluate* rather than to train.
-        labels = torch.cat([reference[row] for row in chunk], dim=0)
-        return functional.kl_div(pairs.log_softmax(dim=-1), labels,
-                                 log_target=True, reduction="batchmean")
-    # the masked model should prefer the right answer
-    return functional.cross_entropy(pairs, torch.zeros(pairs.shape[0], dtype=torch.long,
-                                                       device=pairs.device))
-
-def attribution(adapter, task: CircuitTask, rows: Sequence[int],
-                originals: Dict[str, torch.Tensor], faith_kind: str,
-                reference: Optional[Dict[int, torch.Tensor]], temperature: float,
-                batch: int, batches: int) -> Dict[str, torch.Tensor]:
-    """|w * dL/dw| of the faith term on the full model, summed over `batches` batches
-
-    First-order attribution per weight -- what edge attribution patching
-    (Syed et al. 2023) computes per edge -- on the unmasked model, so the
-    scores say which weights the task's loss is sensitive to before a gate
-    has moved. Whole batches of the training rows, the same ones the gates
-    will train on; nothing is held out because nothing is fitted.
-    """
-    leaves = {name: weight.detach().clone().requires_grad_(True)
-              for name, weight in originals.items()}
-    scores = {name: torch.zeros(weight.shape, dtype=torch.float32, device=weight.device)
-              for name, weight in originals.items()}
-    for index in range(batches):
-        chunk = _chunk(rows, index, batch)
-        pairs = _pairs(adapter, task, chunk, None, originals, temperature, deterministic=True,
-                       whole=(faith_kind in ("kl", "nll", "gold")), weights=leaves)
-        _faith(pairs, chunk, faith_kind, reference).backward()
-        with torch.no_grad():
-            for name, leaf in leaves.items():
-                if leaf.grad is not None:
-                    scores[name] += (leaf.grad * leaf).abs().float()
-                    leaf.grad = None
-        del pairs
-    return scores
-
-@contextmanager
-def _nothing():
-    """A do-nothing context, so the forward is written once rather than twice"""
-    yield
-
-def _accuracy(pairs: torch.Tensor) -> float:
-    return float((pairs[:, 0] > pairs[:, 1]).float().mean())
-
-def _first_token(adapter, task: CircuitTask, rows: Sequence[int], chunk: int, **kwargs) -> float:
-    """Fraction of rows whose argmax over the *whole* vocabulary is the answer
-
-    `_accuracy` asks whether the answer beats one distractor, which two logits
-    can satisfy while everything else in the distribution outranks both. This
-    asks the question generation actually asks. Chunked because `whole=True`
-    returns a row per vocabulary entry and the 1.7B's vocabulary is 151k wide.
-    """
-    io_all, _ = task.answers(adapter)
-    right = 0
-    for start in range(0, len(rows), chunk):
-        block = list(rows)[start:start + chunk]
-        final = _pairs(adapter, task, block, whole=True, **kwargs)
-        want = torch.tensor([io_all[row] for row in block], device=final.device)
-        right += int((final.argmax(dim=-1) == want).sum())
-    return right / max(1, len(rows))
-
-def _split(prompts: Sequence[str], holdout: float) -> "tuple[List[int], List[int]]":
-    """Train/held-out rows, split so that no *prompt* lands on both sides
-
-    This was `range(split), range(split, count)` -- a split by row index, which
-    is only a holdout when every row is a different prompt. The registered
-    translation task draws `size` examples from a pool with replacement and its
-    clean prompt depends on one word, so on this model it has 25 distinct
-    prompts however many rows are asked for: at size 128 the 96/32 row split put
-    all 32 held-out rows on prompts the mask had trained on, and `accuracy` --
-    the number that exists specifically to be the honest one -- was measuring
-    memorization for the third time in this module's history.
-
-    Grouping by the prompt is what `LabeledPrompts.split` already does for a
-    contrast pair, and for the same reason: a group straddling the split makes
-    the metric about the thing that was supposed to be held back.
-    """
-    order: Dict[str, List[int]] = {}
-    for row, prompt in enumerate(prompts):
-        order.setdefault(prompt, []).append(row)
-    groups = list(order.values())
-    kept = max(1, int(len(groups) * (1.0 - holdout)))
-    if kept >= len(groups):
-        raise CircuitError(
-            f"{len(prompts)} rows carry only {len(groups)} distinct prompts, which leaves no "
-            f"holdout at {holdout:.0%} once rows sharing a prompt are kept together. A mask "
-            f"scored on prompts it trained on reports memorization as faithfulness -- widen the "
-            f"task's pool rather than its row count, because repeating a prompt adds rows and "
-            f"no information."
-        )
-    train = [row for group in groups[:kept] for row in group]
-    test = [row for group in groups[kept:] for row in group]
-    return sorted(train), sorted(test)
-
-def _chunk(train_rows: Sequence[int], step: int, batch: int) -> List[int]:
-    """The batch this step trains on, walked round the training rows
-
-    This used to be `train_rows[:batch]`, which is the same eight prompts on
-    every step of every run: `size` grew the holdout and never reached the
-    training set at all. The retracted run in 5cc8dc3 was described as 24
-    training examples and was really 8, repeated 500 times, and "the data
-    regime is wrong" was the conclusion drawn from it -- so the standing
-    explanation for why the method does not reproduce here was measuring this
-    line rather than the method. A stride keeps the pass deterministic, which
-    a shuffle would not, while still showing the optimizer every example.
-    """
-    rows = list(train_rows)
-    if not batch or batch >= len(rows):
-        return rows
-    start = (step * batch) % len(rows)
-    return [rows[(start + offset) % len(rows)] for offset in range(batch)]
-
 def load_bearing(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
                  rows: Optional[Sequence[int]] = None) -> Dict[str, float]:
     """Score the task with the band fully open and with every gate in it shut
@@ -482,70 +201,11 @@ def load_bearing(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = N
                                  device=parameter.device)
                 for name, parameter in targets.items()}
         return {
-            "open": _accuracy(_pairs(adapter, task, chosen, None, originals, 1.0,
+            "open": ranking_accuracy(logit_pairs(adapter, task, chosen, None, originals, 1.0,
                                      deterministic=True)),
-            "shut": _accuracy(_pairs(adapter, task, chosen, shut, originals, 1.0,
+            "shut": ranking_accuracy(logit_pairs(adapter, task, chosen, shut, originals, 1.0,
                                      deterministic=True)),
         }
-
-def schedule(step: int, lambda_0: float, max_times: float, warmup: int) -> float:
-    """Ramp the sparsity price from lambda_0 to lambda_0 * max_times over `warmup` steps
-
-    A constant price does not work and the reference's defaults say why: it
-    ramps to a thousand times its starting value. Early on the gates have to
-    find which weights the task needs, and a price high enough to close them
-    all drowns that out; late on nothing else will push a working subnetwork to
-    give up the weights it does not need. Holding it constant at any value
-    picks one of those failures.
-    """
-    if warmup <= 0 or step >= warmup:
-        return lambda_0 * max_times
-    return lambda_0 + lambda_0 * (max_times - 1.0) * step / warmup
-
-def target_schedule(step: int, target: float, warmup: int) -> float:
-    """Lower the density target from 1.0 to `target` over `warmup` steps, then hold it
-
-    CoFi's schedule (2204.00408): the constraint starts satisfied and tightens,
-    so the learned price never has to spike to catch up with a target the mask
-    is nowhere near. Held afterwards, because a target reached on the last
-    step is a mask that was never trained at its own density.
-    """
-    if warmup <= 0 or step >= warmup:
-        return target
-    return 1.0 - (1.0 - target) * step / warmup
-
-# A pinned gate's logit: sigmoid(10) samples open 99.995% of the time, and the
-# threshold reads it as open, so nothing downstream has to know it is pinned.
-PINNED = 10.0
-
-def protected(originals: Dict[str, torch.Tensor], fraction: float) -> Dict[str, torch.Tensor]:
-    """The flat indices, per tensor, of the top `fraction` of weights by magnitude
-
-    The top 0.01% by |w| of Qwen3-1.7B, 150k weights of 1.5B, are the ones
-    without which it says ` the the the`: removing them costs 8 nats where a
-    random 4% of the weights costs nothing (scratchpad fragility test, 2026-
-    09-03). Not the only such set: the top 0.1% by Wanda's |w| * ||x|| (Sun et
-    al. 2023) overlaps it 7% and costs as much, on a layer-2 down_proj input
-    feature at 77,000x the median norm. Magnitude is the half that needs no
-    forward pass. Ranked over every gated tensor at once rather than within each,
-    because that is where the weights are: a per-tensor cut would pin the
-    biggest weights of a tensor that has none.
-    """
-    if fraction <= 0:
-        return {}
-    magnitudes = torch.cat([w.detach().abs().float().flatten() for w in originals.values()])
-    count = max(1, int(fraction * magnitudes.numel()))
-    threshold = torch.topk(magnitudes, count).values[-1]
-    del magnitudes
-    return {name: (w.detach().abs().float().flatten() >= threshold).nonzero().flatten()
-            for name, w in originals.items()}
-
-def pin(gates: Dict[str, torch.Tensor], pinned: Dict[str, torch.Tensor]) -> None:
-    """Hold every protected gate at `PINNED`, after the optimizer has moved the rest"""
-    with torch.no_grad():
-        for name, indices in pinned.items():
-            if indices.numel():
-                gates[name].view(-1)[indices] = PINNED
 
 def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           sparsity: float = 1.0, completeness: float = 0.3, temperature: float = 1.0,
@@ -760,7 +420,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     """
     adapter = require_circuits(adapter)
     if steps < 1:
-        raise CircuitError(f"pruning needs at least one step, got {steps}")
+        raise SheafError(f"pruning needs at least one step, got {steps}")
     if seed is not None:
         # Global rather than a threaded Generator: gumbel_sigmoid is called once
         # per gated parameter per pass and a generator argument would have to
@@ -769,7 +429,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         torch.manual_seed(seed)
     targets = gateable(adapter, layers)
     if not targets:
-        raise CircuitError("no maskable weights found; every block was norms and embeddings")
+        raise SheafError("no maskable weights found; every block was norms and embeddings")
 
     originals = {name: parameter.detach().clone() for name, parameter in targets.items()}
     for parameter in targets.values():
@@ -788,19 +448,16 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     total = sum(parameter.numel() for parameter in targets.values())
     if not gate_weights:
         if edge_sparsity <= 0.0 and target is None:
-            raise CircuitError(
+            raise SheafError(
                 "gate_weights False prunes edges only, so something has to price them: "
                 "give --edge-sparsity, or --target for a learned price on the edge density"
             )
         if protect > 0.0 or granular or attribute > 0:
-            raise CircuitError(
+            raise SheafError(
                 "protect, granular and attribute all shape the *weight* gates, and "
                 "gate_weights False has none"
             )
     pinned = protected(originals, protect) if gate_weights else {}
-    # imported here: gates.py reads `gateable` from this module, and units.py
-    # reads `kind_of` from gates.py, so the top of the file is a cycle
-    from .units import Units, init_from
     units = None
     if granular:
         units = Units.build(adapter, {name: tuple(g.shape) for name, g in gates.items()}, init,
@@ -833,9 +490,9 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     # of this reported 0.02% of weights open at accuracy 1.000, which is not a
     # circuit, it is eight examples learned by 20k weights. DiscoGP splits; so does
     # this, and `accuracy` below is the held-out number.
-    train_rows, test_rows = _split(list(task.clean), holdout)
+    train_rows, test_rows = split_rows(list(task.clean), holdout)
     with torch.no_grad():
-        baseline = _accuracy(_pairs(adapter, task, test_rows, None, originals, temperature,
+        baseline = ranking_accuracy(logit_pairs(adapter, task, test_rows, None, originals, temperature,
                                     deterministic=True))
     # A fixed set of held-out rows for the probe below, the same rows every time
     # so the curve is one quantity over the run rather than one per draw.
@@ -851,7 +508,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     probe_rows = test_rows[:max(1, min(len(test_rows), wanted))]
 
     if faith_kind not in ("pair", "kl", "nll", "gold"):
-        raise CircuitError(
+        raise SheafError(
             f"unknown faith_kind '{faith_kind}'; known kinds are 'nll' (the paper's), 'kl', "
             "'gold' (nll on the task's answer) and 'pair' (this repo's original, and too "
             "weak -- see the docstring)")
@@ -867,7 +524,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         with torch.no_grad():
             reference = {}
             for row in train_rows:
-                full = _pairs(adapter, task, [row], None, originals, temperature,
+                full = logit_pairs(adapter, task, [row], None, originals, temperature,
                               deterministic=True, whole=True)
                 # KL wants the distribution; NLL wants the token the full model
                 # would actually emit, which is what the paper's y-hat is.
@@ -876,7 +533,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
 
     if attribute > 0:
         if not init_low < init:
-            raise CircuitError(f"init_low must be below init, got {init_low} and {init}")
+            raise SheafError(f"init_low must be below init, got {init_low} and {init}")
         scores = attribution(adapter, task, train_rows, originals, faith_kind, reference,
                              temperature, batch, attribute)
         init_from(scores, gates, units, init_low, init)
@@ -884,7 +541,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         pin(gates, pinned)
 
     if target is not None and not 0.0 < target <= 1.0:
-        raise CircuitError(f"a density target is a fraction in (0, 1], got {target}")
+        raise SheafError(f"a density target is a fraction in (0, 1], got {target}")
     if warmup is None:
         warmup = steps // 2 if target is not None else steps
     # The learned price. Two scalars, ascended rather than descended: their
@@ -897,7 +554,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             multipliers.requires_grad_(True)
             optimizer.add_param_group({"params": [multipliers], "weight_decay": 0.0})
     elif dual_rate is not None or dual_restart:
-        raise CircuitError("dual_rate and dual_restart shape the learned price: give a target")
+        raise SheafError("dual_rate and dual_restart shape the learned price: give a target")
     restarts = 0
     history = []
     # The best mask seen, by the probe. `gates` is the *last* mask and that is
@@ -908,7 +565,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         price = schedule(step, sparsity, max_times, warmup)
         goal = target_schedule(step, target, warmup) if target is not None else None
         noise = 1.0 - step / max(1, steps - 1) if anneal else 1.0
-        chunk = _chunk(train_rows, step, batch)
+        chunk = chunk_rows(train_rows, step, batch)
         optimizer.zero_grad()
         # The two masked passes are backed through one at a time, and the
         # gradients accumulate into the same `.grad` -- which is the identical
@@ -921,10 +578,10 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # driver for more than a 27 GiB pool had and was killed two seconds in.
         # This is also why shrinking `batch` barely helps and narrowing the
         # layer band helps a great deal.
-        pairs = _pairs(adapter, task, chunk, gates, originals, temperature,
+        pairs = logit_pairs(adapter, task, chunk, gates, originals, temperature,
                        edge_logits=edge_logits, edge_ids=edge_ids,
                        whole=(faith_kind in ("kl", "nll", "gold")), noise=noise, units=units)
-        faith = _faith(pairs, chunk, faith_kind, reference)
+        faith = faith_term(pairs, chunk, faith_kind, reference)
         # every open gate costs something, measured on the relaxed probability so
         # the term has a gradient where the hard gate does not
         if not gate_weights:
@@ -994,7 +651,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
 
         # and the complement should be at chance: cross-entropy against a uniform
         # target, which is minimized when the reversed mask knows nothing
-        reversed_pairs = _pairs(adapter, task, chunk, gates, originals, temperature, reverse=True,
+        reversed_pairs = logit_pairs(adapter, task, chunk, gates, originals, temperature, reverse=True,
                                 edge_logits=edge_logits, edge_ids=edge_ids, noise=noise,
                                 units=units)
         complete = functional.cross_entropy(
@@ -1083,7 +740,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                     # passes and shut on every deterministic one -- and nothing
                     # else in the loop could see that, so it was found after
                     # 1h49m rather than at step 300.
-                    row["hard_accuracy"] = _accuracy(_pairs(
+                    row["hard_accuracy"] = ranking_accuracy(logit_pairs(
                         adapter, task, probe_rows, gates, originals, temperature,
                         deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids,
                         units=units))
@@ -1111,13 +768,13 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # and every 1.7B artifact before this recorded an `open` a few gates
         # off the mask it sat beside.
         open_count = hard_count()
-        final = _pairs(adapter, task, test_rows, gates, originals, temperature,
+        final = logit_pairs(adapter, task, test_rows, gates, originals, temperature,
                        deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids,
                        units=units)
-        complement = _pairs(adapter, task, test_rows, gates, originals, temperature,
+        complement = logit_pairs(adapter, task, test_rows, gates, originals, temperature,
                             reverse=True, deterministic=True,
                             edge_logits=edge_logits, edge_ids=edge_ids, units=units)
-        trained = _accuracy(_pairs(adapter, task, train_rows, gates, originals, temperature,
+        trained = ranking_accuracy(logit_pairs(adapter, task, train_rows, gates, originals, temperature,
                                    deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids,
                                    units=units))
         # With units the mask is a product and no one logit says whether a
@@ -1132,7 +789,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         probe = {"chunk": max(1, batch), "gates": gates, "originals": originals,
                  "temperature": temperature, "deterministic": True,
                  "edge_logits": edge_logits, "edge_ids": edge_ids, "units": units}
-        first = _first_token(adapter, task, test_rows, **probe)
+        first = first_token_accuracy(adapter, task, test_rows, **probe)
         # Rescored on every held-out row rather than trusted from the probe, so
         # `best_accuracy` and `accuracy` are the same measurement of two
         # different masks instead of two measurements of two masks.
@@ -1140,10 +797,10 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             snapshot = ({name: tensor.to(device) for name, tensor in best["gates"].items()}
                         if best["gates"] else None)
             snap_edges = best["edges"].to(device) if best["edges"] is not None else None
-            best["accuracy"] = _accuracy(_pairs(
+            best["accuracy"] = ranking_accuracy(logit_pairs(
                 adapter, task, test_rows, snapshot, originals, temperature,
                 deterministic=True, edge_logits=snap_edges, edge_ids=edge_ids))
-        base_first = _first_token(adapter, task, test_rows, chunk=max(1, batch),
+        base_first = first_token_accuracy(adapter, task, test_rows, chunk=max(1, batch),
                                   gates=None, originals=originals,
                                   temperature=temperature, deterministic=True)
     for name, parameter in targets.items():
@@ -1153,8 +810,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         units=None if units is None else units.report(),
         unit_logits=None if units is None else units.state(),
         density=open_count / total, n_parameters=total, n_open=open_count,
-        accuracy=_accuracy(final), train_accuracy=trained,
-        complement_accuracy=_accuracy(complement),
+        accuracy=ranking_accuracy(final), train_accuracy=trained,
+        complement_accuracy=ranking_accuracy(complement),
         baseline_accuracy=baseline, history=history,
         layers=None if layers is None else sorted(layers),
         n_edges=len(edge_ids),
