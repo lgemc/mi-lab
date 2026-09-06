@@ -1,0 +1,51 @@
+# gold-t02 with two changes to *what* is pruned rather than how hard.
+#
+# gold-t02 is the best 1.7B circuit so far (15.2%, ranking 0.86, first token
+# 45% against the full model's 71%) and the run that showed the faith signal
+# mattered more than the density or the price. What was left to vary was
+# the granularity: every earlier run gated weights one at a time, so a head
+# the task does not need dies only when 786k gates each cross zero, and the
+# route from a dense model to a sparse one runs through masks that are a
+# random 60% of every head. Two additions, both from the pruning literature
+# rather than from this repo's own sweeps:
+#
+#   --granular   a gate per head (kv-head for k/v, since Qwen3 groups 16
+#                queries on 8 keys) and per neuron, multiplied into the
+#                weight gates. One parameter closes a unit; the density is
+#                still counted per weight under every gate above it. Haider
+#                et al., COLM 2026 (2512.10903). Not per block: on GPT-2
+#                IOI a block gate moved 4% of the density at a stroke and
+#                the price spent the run switching blocks on and off
+#                (results/gpt2-sweep/nll-t003-units-blocks, 3.4% / 0.72
+#                against 2.2% / 0.97 for weights alone).
+#   --attribute  a warm start: 8 batches of |w * dL/dw| on the full model,
+#                the first-order attribution EAP (Syed et al. 2023) uses
+#                per edge, ranked into the gate logits so the least
+#                implicated weight of every tensor starts at 2 and the most
+#                at 5. The unit gates rank across the model. The gates
+#                begin where the gradient would have moved them.
+#
+# Same seed, pool, frame, faith, schedule and Adam dual as gold-t02, the
+# control one variable away (two, counted honestly).
+name: discogp translation on qwen3-1.7b, unit gates and a warm start
+config: qwen3-1.7b
+
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/gold-t02-units
+
+steps:
+  # ~2h at 2000 steps of 8 on the GB10, plus a minute of attribution.
+  - name: prune
+    module: scripts.sheaf_prune
+    args: [--task, translation, --layers, all, --steps, "2000", --size, "1024",
+           --batch, "8", --faith, gold, --seed, "0",
+           --init, "5", --anneal, --target, "0.2", --warmup, "1500",
+           --granular, --attribute, "8", --init-low, "2"]
+
+  - name: infer
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/gold-t02-units, --task, translation, --seed, "99", --show, "8"]
+
+  - name: extract
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/gold-t02-units, --task, translation]

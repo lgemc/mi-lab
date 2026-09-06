@@ -1,0 +1,30 @@
+# The deployed circuit: 26.3% of Qwen3-1.7B's 14140 residual-stream edges,
+# held-out ranking 1.000 (1.000 of range), first token 0.624 against the full
+# model's 0.629 on the same rows -- 99.2% of it. Weights untouched.
+#
+# completeness 0 is deliberate. At high density the reversed mask makes a
+# destination read a residual its own writes exactly cancel, and RMSNorm's
+# backward at an exactly-zero input is 0/0; the forward is finite so a loss
+# check misses it, and one NaN ends the run. The complement is still measured
+# at the end, it is just not trained against -- which makes its landing at
+# chance (0.462) evidence rather than an optimization target.
+defaults:
+  - sheaf_schema
+  - _self_
+config: qwen3-1.7b
+task: translation
+results: results/qwen3-1.7b-sweep/edges-t025
+edges_only: true
+size: 1024
+steps: 900
+batch: 16
+faith: kl
+target: 0.25
+warmup: 450
+init: 5.0
+rate: 0.1
+anneal: true
+completeness: 0.0
+dual_rate: 0.15
+dual_restart: true
+probe_every: 25

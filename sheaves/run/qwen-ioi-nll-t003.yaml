@@ -1,0 +1,28 @@
+# The same protocol transplanted to Qwen3-1.7B, and a failure to replicate:
+# 7.15% density (target was 3%, never reached) at 0.6903 held out -- 0.350 of
+# the range, against GPT-2's 0.934.
+#
+# Kept as a record of *why*, because the flags are identical and the experiment
+# is not. `faith: nll` trains the mask to reproduce the full model's argmax,
+# and on Qwen3-1.7B's IOI that token is the answer on only 52.4% of prompts
+# against GPT-2's 98.4% -- so half the training signal pointed at a token the
+# ranking metric does not score. sheaves.py documents this trap for the
+# translation frame; this is the same trap on a different task.
+#
+# `init: 5.0` is forced rather than chosen: 1.0 samples 27% of the weights shut
+# on the first pass, which a 1.7B does not survive. The cost is that every gate
+# starts far from the threshold and the price has to shove them down together
+# instead of selecting between them -- visible as price 285 at step 1000 with
+# density still 15x above target.
+defaults:
+  - sheaf_schema
+  - _self_
+config: qwen3-1.7b
+task: ioi
+results: results/qwen3-1.7b-sweep/ioi-nll-t003
+size: 2048
+steps: 2000
+batch: 8
+faith: nll
+target: 0.03
+init: 5.0

@@ -57,6 +57,13 @@ class TestMapping(TestCase):
                          step.command("gpt2-small"))
         self.assertEqual("scripts.phase1b_flops:flops", step.marker)
 
+    def test_a_step_can_refuse_the_positional_config(self):
+        """`scripts.sheaf` takes Hydra overrides, and a config handed to it is an invalid one"""
+        step = Step(name="prune", module="scripts.sheaf", args=["run=qwen-ioi-price"],
+                    takes_config=False)
+        self.assertEqual([sys.executable, "-m", "scripts.sheaf", "run=qwen-ioi-price"],
+                         step.command("qwen3-1.7b"))
+
     def test_only_selects_by_name_and_refuses_a_stranger(self):
         pipeline = Pipeline.from_mapping({**MAPPING, "only": ["sweep"]})
         self.assertEqual(["sweep"], [step.name for step in pipeline.selected])

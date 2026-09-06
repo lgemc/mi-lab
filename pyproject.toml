@@ -26,6 +26,13 @@ dependencies = [
 mi-lab = "src.cli.main:app"
 ie = "src.ie.main:run"
 
+[project.optional-dependencies]
+serve = [
+    "fastapi>=0.141.1",
+    "httpx>=0.28.1",
+    "uvicorn[standard]>=0.52.4",
+]
+
 [dependency-groups]
 dev = [
     "ruff>=0.16.4",

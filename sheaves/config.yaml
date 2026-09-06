@@ -1,0 +1,19 @@
+# Composition root for sheaf pruning runs. It lives beside specs/ and
+# pipelines/ rather than inside specs/ for the reason pipelines/config.yaml
+# gives: every directory under specs/ is a group Hydra composes into an
+# ExperimentSpec, and a pruning run is not one -- tests/spec.py pins that set.
+#
+# A run is a file, not a shell line. Pick one and override any key by dotted
+# path, the same grammar the experiment and pipeline sides use:
+#
+#   uv run python -m scripts.sheaf run=qwen-ioi-kl
+#   uv run python -m scripts.sheaf run=qwen-ioi-kl run.steps=500 run.faith=nll
+#   uv run python -m scripts.sheaf run=qwen-ioi-kl run.results=results/scratch
+#
+# Every key is a field of SheafSpec (src/experiment/sheaf.py) and an unknown
+# one is an error, so a misspelled `warmpup:` fails at composition rather than
+# two hours later. A run file states only what it changes; the rest are the
+# dataclass defaults, which keeps the diff between two experiments readable.
+defaults:
+  - run: qwen-ioi-kl
+  - _self_

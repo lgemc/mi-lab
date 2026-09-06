@@ -48,7 +48,7 @@ half that the node-level `mask` technique in discovery.py cannot express.
 
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Sequence
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Sequence
 
 import torch
 import torch.nn.functional as functional
@@ -57,6 +57,9 @@ from ..data.tasks import CircuitTask
 from ..model.adapter import require_circuits
 from ..telemetry.journal import Journal
 from .circuits import CircuitError
+
+if TYPE_CHECKING:
+    from .units import Units
 
 
 def gumbel_sigmoid(logits: torch.Tensor, temperature: float = 1.0, eps: float = 1e-10,
@@ -111,10 +114,52 @@ class Sheaf:
     n_edges: int = 0
     n_edges_open: int = 0
     edge_density: Optional[float] = None
+    # The open edges themselves. `n_edges_open` is a count, and a count is not
+    # a circuit: an edge run's whole product is *which* paths stayed, and
+    # nothing here recorded them, so every edge run so far was unreadable.
+    edges: Optional[List[tuple]] = None
+    # Held-out argmax over the whole vocabulary, masked and full. `accuracy` is
+    # a two-way comparison between the answer and one distractor, so its floor
+    # is chance and a mask can hold it while the distribution around those two
+    # logits collapses -- which is what ' mind mind mind' is. Cheap (one
+    # forward pass, no generation) and it is the number the ranking hides.
+    first_token: Optional[float] = None
+    baseline_first_token: Optional[float] = None
+    # The best mask the run ever held, and what it scored -- separately from
+    # the last one, which is what `gates` is. A pruning run walks down a
+    # density/faithfulness curve and stops when the step budget runs out, not
+    # when it is doing well: qwen3-1.7b ioi held 1.000 at 12.6% density at step
+    # 1975 and finished at step 1999 with 16.6% and 0.573, and the good mask
+    # was never written anywhere. Chosen on the in-run probe and then rescored
+    # here on the whole held-out set, so this number and `accuracy` mean the
+    # same thing.
+    best_gates: Optional[Dict[str, torch.Tensor]] = None
+    # The open edges at that step. Same reason and the same bug: an edge run's
+    # product is its edge list, and saving the last one saves whatever the
+    # schedule was holding when the step budget ran out.
+    best_edges: Optional[List[tuple]] = None
+    best_accuracy: Optional[float] = None
+    best_density: Optional[float] = None
+    best_step: Optional[int] = None
+    # What the metric scores when the mask knows nothing. Measured, not assumed
+    # to be 0.5: `load_bearing`'s `shut` is this same quantity and lands at
+    # 0.477 on the 1.7B's translation frame, so a circuit at 0.72 has recovered
+    # 46% of what there was to recover and not 72% of anything.
+    chance: float = 0.5
+
+    @property
+    def recovered(self) -> Optional[float]:
+        """The share of the range between chance and the full model that the mask holds"""
+        span_ = self.baseline_accuracy - self.chance
+        return None if span_ <= 0 else (self.accuracy - self.chance) / span_
     # Gates held open outside the search (`protect`); inside `n_open`.
     n_pinned: int = 0
     # Steps on which the learned price was reset because the constraint held.
     n_restarts: int = 0
+    # The head/neuron/block gates of a `granular` run: the report for the
+    # artifact, and the logits for the `-units.pt` file beside the mask.
+    units: Optional[dict] = None
+    unit_logits: Optional[Dict[str, torch.Tensor]] = None
 
     def __str__(self) -> str:
         # The band is in the string because `density` is a fraction of what was
@@ -123,10 +168,32 @@ class Sheaf:
         band = "all layers" if self.layers is None else f"layers {span(self.layers)}"
         edges = ("" if self.edge_density is None
                  else f" · {self.edge_density:.2%} of {self.n_edges} edges")
+        if self.units is not None:
+            counts = self.units["counts"]
+            edges += " · " + ", ".join(f"{entry['open']}/{entry['total']} {family}s"
+                                       for family, entry in counts.items())
+        # The recovered fraction, not the raw ranking. `accuracy` runs from
+        # chance to the full model's, so 0.72 against a 0.48 floor is not 72%
+        # of anything -- it is 46% of the range the mask could have recovered,
+        # and quoting the raw number has read as twice the result it is.
+        span_ = self.baseline_accuracy - self.chance
+        recovered = ("" if span_ <= 0
+                     else f" [{(self.accuracy - self.chance) / span_:.0%} of range]")
+        first = ("" if self.first_token is None else
+                 f" · first token {self.first_token:.3f}"
+                 + ("" if self.baseline_first_token is None
+                    else f" of {self.baseline_first_token:.3f}"))
+        # The best mask is named whenever it is not the last one, because a run
+        # that ended worse than it was is a run whose headline number is an
+        # accident of where the step budget ran out.
+        peak = ""
+        if self.best_accuracy is not None and self.best_step is not None:
+            peak = (f" · BEST {self.best_accuracy:.3f} at {self.best_density:.2%} "
+                    f"(step {self.best_step})")
         return (f"sheaf: {self.density:.2%} of {band} open{edges} · "
-                f"held-out {self.accuracy:.3f} "
+                f"held-out {self.accuracy:.3f}{recovered} "
                 f"(train {self.train_accuracy:.3f}) against {self.baseline_accuracy:.3f} full · "
-                f"complement {self.complement_accuracy:.3f}")
+                f"complement {self.complement_accuracy:.3f}{first}{peak}")
 
 def span(layers: Sequence[int]) -> str:
     """`21-27` for a contiguous band, the list itself for anything else"""
@@ -173,12 +240,20 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
            deterministic: bool = False,
            edge_logits: Optional[torch.Tensor] = None,
            edge_ids: Optional[Sequence[tuple]] = None,
-           whole: bool = False, noise: float = 1.0) -> torch.Tensor:
+           whole: bool = False, noise: float = 1.0,
+           units: Optional["Units"] = None,
+           weights: Optional[Dict[str, torch.Tensor]] = None) -> torch.Tensor:
     """The good/bad logit pair at each named prompt's last real token, under the current gates
 
     `whole` returns the entire last-token distribution instead of two of it,
     which is what a KL faithfulness term needs. Two logits are a ranking; the
     distribution is what the model would actually say.
+
+    `units` multiplies each weight's sampled gate by the sampled gates of the
+    head, neuron and block it belongs to (see units.py); the unit gates are
+    drawn once per call, so every slice of a head sees the same draw.
+    `weights` substitutes tensors for the model's own, with no gates: it is
+    how `attribution` runs the full model through leaves that carry a gradient.
 
     Indexed by row rather than handed a list of prompts, because the answers
     live in a parallel array and slicing one without the other scores every
@@ -201,8 +276,16 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
     mask = encoded["attention_mask"].to(adapter.model.device)
 
     parameters = dict(adapter.model.named_parameters())
-    if gates is not None:
-        for name, logits in gates.items():
+    if weights is not None:
+        parameters.update(weights)
+    # The unit gates are drawn once here and read per tensor below, so the
+    # three slices of a head (q, k, v) and its output rows all see one draw;
+    # thresholded evaluation reads the logits directly and draws nothing.
+    drawing = (units.draw(lambda u: gumbel_sigmoid(u, temperature, noise=noise))
+               if units is not None and gates is not None and not deterministic
+               else _nothing())
+    with drawing:
+        for name, logits in (gates or {}).items():
             # Training samples; evaluation thresholds. Scoring a sampled mask
             # measures a different random subnetwork on every forward pass, and
             # it is not the mask that was learned: a first version sampled
@@ -211,6 +294,8 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
             # the gates at all.
             sampled = ((logits > 0).to(logits.dtype) if deterministic
                        else gumbel_sigmoid(logits, temperature, noise=noise))
+            if units is not None:
+                sampled = sampled * units.factor(name, sampled.ndim, deterministic).to(sampled.dtype)
             # The gate logits are float32 whatever the model's dtype is (see
             # `prune`), so the mask is cast down to the weight rather than the
             # weight promoted up to the mask: promoting leaves this one
@@ -247,6 +332,55 @@ def _pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional[Dict
     bad = final[index, torch.tensor(subject, device=logits.device)]
     return torch.stack([good, bad], dim=-1)
 
+def _faith(pairs: torch.Tensor, chunk: Sequence[int], faith_kind: str,
+           reference: Optional[Dict[int, torch.Tensor]]) -> torch.Tensor:
+    """The faithfulness term of one batch, by kind"""
+    if faith_kind in ("nll", "gold"):
+        # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
+        # masked model gives the token the *full* model predicted, over the
+        # whole vocabulary. Not a choice between two candidates. "gold"
+        # is the same sum with the task's y_i in place of y-hat_i.
+        labels = torch.cat([reference[row] for row in chunk], dim=0)
+        return functional.cross_entropy(pairs, labels)
+    if faith_kind == "kl":
+        # The soft-target relative: the whole distribution rather than its
+        # argmax. The paper uses KL to *evaluate* rather than to train.
+        labels = torch.cat([reference[row] for row in chunk], dim=0)
+        return functional.kl_div(pairs.log_softmax(dim=-1), labels,
+                                 log_target=True, reduction="batchmean")
+    # the masked model should prefer the right answer
+    return functional.cross_entropy(pairs, torch.zeros(pairs.shape[0], dtype=torch.long,
+                                                       device=pairs.device))
+
+def attribution(adapter, task: CircuitTask, rows: Sequence[int],
+                originals: Dict[str, torch.Tensor], faith_kind: str,
+                reference: Optional[Dict[int, torch.Tensor]], temperature: float,
+                batch: int, batches: int) -> Dict[str, torch.Tensor]:
+    """|w * dL/dw| of the faith term on the full model, summed over `batches` batches
+
+    First-order attribution per weight -- what edge attribution patching
+    (Syed et al. 2023) computes per edge -- on the unmasked model, so the
+    scores say which weights the task's loss is sensitive to before a gate
+    has moved. Whole batches of the training rows, the same ones the gates
+    will train on; nothing is held out because nothing is fitted.
+    """
+    leaves = {name: weight.detach().clone().requires_grad_(True)
+              for name, weight in originals.items()}
+    scores = {name: torch.zeros(weight.shape, dtype=torch.float32, device=weight.device)
+              for name, weight in originals.items()}
+    for index in range(batches):
+        chunk = _chunk(rows, index, batch)
+        pairs = _pairs(adapter, task, chunk, None, originals, temperature, deterministic=True,
+                       whole=(faith_kind in ("kl", "nll", "gold")), weights=leaves)
+        _faith(pairs, chunk, faith_kind, reference).backward()
+        with torch.no_grad():
+            for name, leaf in leaves.items():
+                if leaf.grad is not None:
+                    scores[name] += (leaf.grad * leaf).abs().float()
+                    leaf.grad = None
+        del pairs
+    return scores
+
 @contextmanager
 def _nothing():
     """A do-nothing context, so the forward is written once rather than twice"""
@@ -254,6 +388,23 @@ def _nothing():
 
 def _accuracy(pairs: torch.Tensor) -> float:
     return float((pairs[:, 0] > pairs[:, 1]).float().mean())
+
+def _first_token(adapter, task: CircuitTask, rows: Sequence[int], chunk: int, **kwargs) -> float:
+    """Fraction of rows whose argmax over the *whole* vocabulary is the answer
+
+    `_accuracy` asks whether the answer beats one distractor, which two logits
+    can satisfy while everything else in the distribution outranks both. This
+    asks the question generation actually asks. Chunked because `whole=True`
+    returns a row per vocabulary entry and the 1.7B's vocabulary is 151k wide.
+    """
+    io_all, _ = task.answers(adapter)
+    right = 0
+    for start in range(0, len(rows), chunk):
+        block = list(rows)[start:start + chunk]
+        final = _pairs(adapter, task, block, whole=True, **kwargs)
+        want = torch.tensor([io_all[row] for row in block], device=final.device)
+        right += int((final.argmax(dim=-1) == want).sum())
+    return right / max(1, len(rows))
 
 def _split(prompts: Sequence[str], holdout: float) -> "tuple[List[int], List[int]]":
     """Train/held-out rows, split so that no *prompt* lands on both sides
@@ -401,12 +552,27 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
           init: float = 1.0, batch: int = 64, max_times: float = 1000.0,
           warmup: Optional[int] = None, holdout: float = 0.25,
           layers: Optional[Sequence[int]] = None,
-          journal: Optional[Journal] = None, probe_every: int = 10,
+          journal: Optional[Journal] = None, probe_every: int = 10, probe_size: int = 0,
           seed: Optional[int] = None, edge_sparsity: float = 0.0,
           faith_kind: str = "pair", anneal: bool = False,
           target: Optional[float] = None, protect: float = 0.0,
-          dual_rate: Optional[float] = None, dual_restart: bool = False) -> Sheaf:
+          dual_rate: Optional[float] = None, dual_restart: bool = False,
+          granular: Optional[Sequence[str]] = None, attribute: int = 0,
+          init_low: float = 2.0, gate_weights: bool = True) -> Sheaf:
     """Learn a weight mask that does the task and whose complement cannot
+
+    `granular` names unit families -- `head`, `kv`, `neuron`, `block` --
+    and adds a gate per unit over the gate per weight, multiplied in
+    (units.py; Haider et al., COLM 2026): a unit the task can spare closes
+    by one parameter, and the density is still the fraction of weights
+    open under every gate above them. Blocks are too coarse for the price
+    to track and are not a default (see `Units.build`). The
+    returned `gates` are then the effective boolean mask, since no single
+    logit says whether a weight is open. `attribute` warm-starts every gate
+    from first-order attribution on `attribute` batches of the full model
+    (`attribution`): logits are the percentile rank of |w * dL/dw| mapped
+    onto [`init_low`, `init`] -- the least implicated weight in each tensor
+    starts `init_low` above the threshold and the most implicated at `init`.
 
     `init` starts every gate open -- a logit of 3 is a sigmoid of 0.95 -- so the
     search prunes a working model down rather than growing one from nothing.
@@ -539,6 +705,20 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     0.85 and got the first token on a third of prompts, and the denser one
     was the worse, which is the signal and not the density.
 
+    `gate_weights` False leaves every weight open and prunes *only* edges,
+    which is not DiscoGP but is the experiment DiscoGP's own results make
+    hard to run at this scale. A gate per weight on the 1.7B is 1.4e9 free
+    bits trained against ~350 distinct prompts, and the strong lottery-ticket
+    results (Ramanujan et al. 2020; Malach et al. 2020) say a mask with that
+    much freedom is not finding a subnetwork, it is training one -- which is
+    what train 0.99 against held-out 0.72 looks like from the inside, on
+    every run of the sweep at every density. Dropping to ~14k edge gates
+    cuts the search space by five orders of magnitude and costs no
+    expressiveness the *circuit* claim needs: an edge is the unit the claim
+    is about. It also removes the 23 GiB of AdamW state, so a run is minutes
+    rather than two hours. With a `target`, the learned price rides the edges,
+    because they are then the only gates there are.
+
     `edge_sparsity` turns on the other half of the method. DiscoGP prunes
     "not only subsets of edges in an LM's computation graph but also the
     model's weight parameters", and weights alone is what this was until now --
@@ -567,6 +747,11 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     end, which on the whole 1.7B model is two hours of blank terminal and
     nothing at all if the process is killed -- and it has been, by the driver,
     at the two-second mark and by a stale split at the ninety-minute mark.
+    `probe_size` is how many held-out rows that probe scores, defaulting to
+    `batch` for the runs taken before it existed. A curve is only as resolvable
+    as its denominator: eight rows is a standard error of 0.18, which is most of
+    the range between chance and the full model on a two-way task.
+
     `probe_every` throttles the two metrics that are not free: `density`
     reduces over every gate, and `hard_accuracy` is a forward pass of the
     *thresholded* mask on held-out rows -- the mask the run is quoted on,
@@ -594,13 +779,55 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     # carries eight mantissa bits: AdamW's second moment underflows, and
     # `open_cost` below sums sigmoid over every gate, where accumulating 1.4e9
     # terms in bfloat16 stops adding once the running total passes 256.
-    gates = {name: torch.full(parameter.shape, init, dtype=torch.float32,
-                              device=parameter.device).requires_grad_(True)
-             for name, parameter in targets.items()}
-    total = sum(g.numel() for g in gates.values())
-    pinned = protected(originals, protect)
+    device = next(iter(targets.values())).device
+    gates = ({name: torch.full(parameter.shape, init, dtype=torch.float32,
+                               device=parameter.device).requires_grad_(True)
+              for name, parameter in targets.items()} if gate_weights else {})
+    # Of `targets`, not of `gates`: with the weights ungated there are no gate
+    # tensors to count and the density is still a fraction of the same band.
+    total = sum(parameter.numel() for parameter in targets.values())
+    if not gate_weights:
+        if edge_sparsity <= 0.0 and target is None:
+            raise CircuitError(
+                "gate_weights False prunes edges only, so something has to price them: "
+                "give --edge-sparsity, or --target for a learned price on the edge density"
+            )
+        if protect > 0.0 or granular or attribute > 0:
+            raise CircuitError(
+                "protect, granular and attribute all shape the *weight* gates, and "
+                "gate_weights False has none"
+            )
+    pinned = protected(originals, protect) if gate_weights else {}
+    # imported here: gates.py reads `gateable` from this module, and units.py
+    # reads `kind_of` from gates.py, so the top of the file is a cycle
+    from .units import Units, init_from
+    units = None
+    if granular:
+        units = Units.build(adapter, {name: tuple(g.shape) for name, g in gates.items()}, init,
+                            device, families=tuple(granular))
     pin(gates, pinned)
-    optimizer = torch.optim.AdamW(list(gates.values()), lr=rate)
+    # One scalar per (source, destination) the residual stream admits. Cheap
+    # next to the weights -- 2028 against 85M on GPT-2 small -- and the half
+    # that says which paths exist rather than how strong they are. Built before
+    # the optimizer rather than added to it after: an edges-only run has no
+    # weight gates, and AdamW refuses to be constructed on an empty list.
+    edge_ids = list(adapter.edges()) if (edge_sparsity > 0 or not gate_weights) else []
+    edge_logits = None
+    if edge_ids:
+        edge_logits = torch.full((len(edge_ids),), init, dtype=torch.float32,
+                                 device=device).requires_grad_(True)
+    optimizer = torch.optim.AdamW(
+        list(gates.values()) + (units.parameters() if units else [])
+        + ([edge_logits] if edge_logits is not None else []), lr=rate)
+
+    def hard_open(name: str, logits: torch.Tensor) -> torch.Tensor:
+        opened = logits > 0
+        return opened & units.hard(name, logits.ndim) if units is not None else opened
+
+    def hard_count() -> int:
+        if not gate_weights:
+            return total
+        return int(sum(int(hard_open(name, g).sum()) for name, g in gates.items()))
 
     # a mask trained and scored on the same prompts memorizes them. The first run
     # of this reported 0.02% of weights open at accuracy 1.000, which is not a
@@ -610,20 +837,18 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     with torch.no_grad():
         baseline = _accuracy(_pairs(adapter, task, test_rows, None, originals, temperature,
                                     deterministic=True))
-    # A fixed handful of held-out rows for the probe below, the same rows every
-    # time so the curve is one quantity over the run rather than one per draw.
-    probe_rows = test_rows[:max(1, min(len(test_rows), batch))]
-
-    # One scalar per (source, destination) the residual stream admits. Cheap
-    # next to the weights -- 2028 against 85M on GPT-2 small -- and the half
-    # that says which paths exist rather than how strong they are.
-    edge_ids = list(adapter.edges()) if edge_sparsity > 0 else []
-    edge_logits = None
-    if edge_ids:
-        device = next(iter(gates.values())).device
-        edge_logits = torch.full((len(edge_ids),), init, dtype=torch.float32,
-                                 device=device).requires_grad_(True)
-        optimizer.add_param_group({"params": [edge_logits]})
+    # A fixed set of held-out rows for the probe below, the same rows every time
+    # so the curve is one quantity over the run rather than one per draw.
+    #
+    # `probe_size` because `batch` was the wrong denominator: at batch 8 the
+    # curve is eight examples, +-0.18, and it read 1.000 -> 0.375 -> 0.875 on
+    # consecutive probes of a run that was descending smoothly. That is fine for
+    # what this was written as -- a collapse detector, which only has to tell
+    # zero from not-zero -- and useless as the accuracy curve anyone actually
+    # wants to plot. It costs one forward pass per probe either way; the rows in
+    # it are free. 0 keeps the old behaviour.
+    wanted = probe_size if probe_size > 0 else batch
+    probe_rows = test_rows[:max(1, min(len(test_rows), wanted))]
 
     if faith_kind not in ("pair", "kl", "nll", "gold"):
         raise CircuitError(
@@ -637,7 +862,6 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     if faith_kind == "gold":
         # The label is the task's, and the full model is never consulted.
         io, _ = task.answers(adapter)
-        device = next(iter(gates.values())).device
         reference = {row: torch.tensor([io[row]], device=device) for row in train_rows}
     if faith_kind in ("kl", "nll"):
         with torch.no_grad():
@@ -650,6 +874,15 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                 reference[row] = (full.log_softmax(dim=-1) if faith_kind == "kl"
                                   else full.argmax(dim=-1))
 
+    if attribute > 0:
+        if not init_low < init:
+            raise CircuitError(f"init_low must be below init, got {init_low} and {init}")
+        scores = attribution(adapter, task, train_rows, originals, faith_kind, reference,
+                             temperature, batch, attribute)
+        init_from(scores, gates, units, init_low, init)
+        del scores
+        pin(gates, pinned)
+
     if target is not None and not 0.0 < target <= 1.0:
         raise CircuitError(f"a density target is a fraction in (0, 1], got {target}")
     if warmup is None:
@@ -659,7 +892,6 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     # of the saddle. Started at zero, so step 0 is faith alone.
     multipliers = None
     if target is not None:
-        device = next(iter(gates.values())).device
         multipliers = torch.zeros(2, dtype=torch.float32, device=device)
         if dual_rate is None:
             multipliers.requires_grad_(True)
@@ -668,6 +900,10 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         raise CircuitError("dual_rate and dual_restart shape the learned price: give a target")
     restarts = 0
     history = []
+    # The best mask seen, by the probe. `gates` is the *last* mask and that is
+    # not the same thing; see Sheaf.best_gates.
+    best: Dict[str, Any] = {"accuracy": None, "density": None, "step": None,
+                            "gates": None, "edges": None}
     for step in range(steps):
         price = schedule(step, sparsity, max_times, warmup)
         goal = target_schedule(step, target, warmup) if target is not None else None
@@ -687,27 +923,20 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # layer band helps a great deal.
         pairs = _pairs(adapter, task, chunk, gates, originals, temperature,
                        edge_logits=edge_logits, edge_ids=edge_ids,
-                       whole=(faith_kind in ("kl", "nll", "gold")), noise=noise)
-        if faith_kind in ("nll", "gold"):
-            # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
-            # masked model gives the token the *full* model predicted, over the
-            # whole vocabulary. Not a choice between two candidates. "gold"
-            # is the same sum with the task's y_i in place of y-hat_i.
-            labels = torch.cat([reference[row] for row in chunk], dim=0)
-            faith = functional.cross_entropy(pairs, labels)
-        elif faith_kind == "kl":
-            # The soft-target relative: the whole distribution rather than its
-            # argmax. The paper uses KL to *evaluate* rather than to train.
-            labels = torch.cat([reference[row] for row in chunk], dim=0)
-            faith = functional.kl_div(pairs.log_softmax(dim=-1), labels,
-                                      log_target=True, reduction="batchmean")
-        else:
-            # the masked model should prefer the right answer
-            faith = functional.cross_entropy(pairs, torch.zeros(pairs.shape[0], dtype=torch.long,
-                                                                device=pairs.device))
+                       whole=(faith_kind in ("kl", "nll", "gold")), noise=noise, units=units)
+        faith = _faith(pairs, chunk, faith_kind, reference)
         # every open gate costs something, measured on the relaxed probability so
         # the term has a gradient where the hard gate does not
-        open_cost = sum(torch.sigmoid(g).sum() for g in gates.values()) / total
+        if not gate_weights:
+            # No weight gates, so nothing to price and nothing to differentiate;
+            # `sum(())` would be a plain 0 and `float(...detach())` would fail.
+            open_cost = torch.zeros((), device=pairs.device)
+        elif units is None:
+            open_cost = sum(torch.sigmoid(g).sum() for g in gates.values()) / total
+        else:
+            # a weight's expected openness is the product of every gate above it
+            open_cost = sum((torch.sigmoid(g) * units.relaxed(name, g.ndim)).sum()
+                            for name, g in gates.items()) / total
         edge_cost = (torch.sigmoid(edge_logits).mean() if edge_ids
                      else torch.zeros((), device=pairs.device))
         # Ramped on the same schedule as the weights, not held constant. A
@@ -723,13 +952,19 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             # throttles; here it is the constraint, and it is one comparison
             # and one sum per tensor against a forward pass of the model.
             with torch.no_grad():
-                hard_density = float(sum((g > 0).sum() for g in gates.values()) / total)
+                hard_density = (float((edge_logits > 0).float().mean()) if not gate_weights
+                                else hard_count() / total)
             gap = hard_density - goal
             # The marginal price of an open gate under the Lagrangian,
             # `l1 + 2 l2 (density - t)`, applied to the relaxed cost so the
             # gates have a gradient. Detached: the multipliers are ascended
             # on the gap itself, below, not through this product.
             price = float((multipliers[0] + 2.0 * multipliers[1] * gap).detach())
+        # With the weights ungated the edges are the only gates, so the learned
+        # price is theirs: `price` is what the Lagrangian moves against the
+        # density gap, and `edge_price` is the fixed ramp for the joint runs.
+        if not gate_weights and multipliers is not None:
+            edge_price = price
         sparse_term = price * open_cost
         (faith + sparse_term + edge_price * edge_cost).backward()
         restarted = False
@@ -760,17 +995,36 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # and the complement should be at chance: cross-entropy against a uniform
         # target, which is minimized when the reversed mask knows nothing
         reversed_pairs = _pairs(adapter, task, chunk, gates, originals, temperature, reverse=True,
-                                edge_logits=edge_logits, edge_ids=edge_ids, noise=noise)
+                                edge_logits=edge_logits, edge_ids=edge_ids, noise=noise,
+                                units=units)
         complete = functional.cross_entropy(
             reversed_pairs, torch.full_like(reversed_pairs, 0.5))
         (completeness * complete).backward()
         complete_value = float(complete.detach())
         del reversed_pairs, complete
 
+        # A single non-finite gradient is not survivable: AdamW carries it into
+        # both moments, every logit it touches becomes NaN on the next step,
+        # `logits > 0` is False everywhere and the density reads 0.0 -- which is
+        # how a 1.7B edge run reached step 25 with every edge shut and a NaN
+        # faith it never came back from. The complement pass is the source. With
+        # the mask reversed at high density a destination reads a residual its
+        # own writes exactly cancel, and RMSNorm's backward at an exactly-zero
+        # input is 0/0. Checking the loss does not catch it: the forward is
+        # finite (all-edges-shut logits reach 151 with no NaN on Qwen3-1.7B),
+        # so this checks what is about to be stepped instead. Zeroed rather than
+        # skipped, so the step still carries every gate whose gradient is real.
+        poisoned = 0
+        for tensor in ([*gates.values(), *(units.parameters() if units else [])]
+                       + ([edge_logits] if edge_logits is not None else [])):
+            if tensor.grad is not None and not bool(torch.isfinite(tensor.grad).all()):
+                poisoned += int((~torch.isfinite(tensor.grad)).sum())
+                tensor.grad = torch.nan_to_num(tensor.grad, nan=0.0, posinf=0.0, neginf=0.0)
         optimizer.step()
         # Every step rather than once: AdamW's decay would walk a pinned logit
         # from 10 toward the threshold over a long run with no gradient to stop it.
-        pin(gates, pinned)
+        if pinned:
+            pin(gates, pinned)
         if step % max(1, steps // 6) == 0 or step == steps - 1:
             history.append({
                 "step": step,
@@ -792,6 +1046,11 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                 "faith": faith_value, "open": open_value, "complete": complete_value,
                 "price": price, "noise": noise,
             }
+            if poisoned:
+                # Never expected, and silent if it is not written down: a run
+                # whose gradients are half NaN scores like one whose gates
+                # simply stopped moving.
+                row["poisoned"] = poisoned
             if multipliers is not None:
                 row["target"] = goal
                 row["density"] = hard_density
@@ -809,7 +1068,11 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
             if probe_every and (step % probe_every == 0 or step == steps - 1):
                 with torch.no_grad():
                     if "density" not in row:
-                        row["density"] = float(sum((g > 0).sum() for g in gates.values()) / total)
+                        row["density"] = (float((edge_logits > 0).float().mean())
+                                          if not gate_weights else hard_count() / total)
+                    if units is not None:
+                        for family, entry in units.counts().items():
+                            row[f"{family}s_open"] = entry["open"]
                     # The mask the result is quoted on, scored the way the result
                     # scores it: thresholded, no noise, held-out rows. `faith`
                     # above is a sampled mask's, and the two are different
@@ -822,25 +1085,73 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
                     # 1h49m rather than at step 300.
                     row["hard_accuracy"] = _accuracy(_pairs(
                         adapter, task, probe_rows, gates, originals, temperature,
-                        deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids))
+                        deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids,
+                        units=units))
+                    # Better means more accurate, or as accurate and sparser --
+                    # which is what walking a density curve is for. Snapshotted
+                    # to the CPU as one bool per gate: 1.4 GiB of host RAM on a
+                    # 1.7B against holding a second copy on the device, and it
+                    # only happens on an improvement.
+                    here = row.get("density")
+                    if here is None:
+                        here = hard_count() / total
+                    better = best["accuracy"] is None or (
+                        row["hard_accuracy"] > best["accuracy"]
+                        or (row["hard_accuracy"] >= best["accuracy"] and here < best["density"]))
+                    if better:
+                        best.update(accuracy=row["hard_accuracy"], density=here, step=step,
+                                    gates={name: hard_open(name, logits).to("cpu")
+                                           for name, logits in gates.items()},
+                                    edges=(edge_logits.detach() > 0).to("cpu")
+                                    if edge_logits is not None else None)
             journal.log(step, **row)
 
     with torch.no_grad():
         # Counted in integers: summed as float32 the count rounds past 2^24,
         # and every 1.7B artifact before this recorded an `open` a few gates
         # off the mask it sat beside.
-        open_count = int(sum(int((logits > 0).sum()) for logits in gates.values()))
+        open_count = hard_count()
         final = _pairs(adapter, task, test_rows, gates, originals, temperature,
-                       deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids)
+                       deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids,
+                       units=units)
         complement = _pairs(adapter, task, test_rows, gates, originals, temperature,
                             reverse=True, deterministic=True,
-                            edge_logits=edge_logits, edge_ids=edge_ids)
+                            edge_logits=edge_logits, edge_ids=edge_ids, units=units)
         trained = _accuracy(_pairs(adapter, task, train_rows, gates, originals, temperature,
-                                   deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids))
+                                   deterministic=True, edge_logits=edge_logits, edge_ids=edge_ids,
+                                   units=units))
+        # With units the mask is a product and no one logit says whether a
+        # weight is open, so the effective boolean mask is what is returned.
+        mask = ({name: logits.detach() for name, logits in gates.items()} if units is None
+                else {name: hard_open(name, logits) for name, logits in gates.items()})
+        # The question the ranking does not ask. One forward pass over the same
+        # held-out rows, argmax over the whole vocabulary: a mask that keeps two
+        # logits in order while the rest of the distribution collapses scores
+        # 0.72 above and near zero here, and that gap is the whole reason the
+        # generations read ' mind mind mind'.
+        probe = {"chunk": max(1, batch), "gates": gates, "originals": originals,
+                 "temperature": temperature, "deterministic": True,
+                 "edge_logits": edge_logits, "edge_ids": edge_ids, "units": units}
+        first = _first_token(adapter, task, test_rows, **probe)
+        # Rescored on every held-out row rather than trusted from the probe, so
+        # `best_accuracy` and `accuracy` are the same measurement of two
+        # different masks instead of two measurements of two masks.
+        if best["gates"] is not None or best["edges"] is not None:
+            snapshot = ({name: tensor.to(device) for name, tensor in best["gates"].items()}
+                        if best["gates"] else None)
+            snap_edges = best["edges"].to(device) if best["edges"] is not None else None
+            best["accuracy"] = _accuracy(_pairs(
+                adapter, task, test_rows, snapshot, originals, temperature,
+                deterministic=True, edge_logits=snap_edges, edge_ids=edge_ids))
+        base_first = _first_token(adapter, task, test_rows, chunk=max(1, batch),
+                                  gates=None, originals=originals,
+                                  temperature=temperature, deterministic=True)
     for name, parameter in targets.items():
         parameter.data.copy_(originals[name])
     return Sheaf(
-        gates={name: logits.detach() for name, logits in gates.items()},
+        gates=mask,
+        units=None if units is None else units.report(),
+        unit_logits=None if units is None else units.state(),
         density=open_count / total, n_parameters=total, n_open=open_count,
         accuracy=_accuracy(final), train_accuracy=trained,
         complement_accuracy=_accuracy(complement),
@@ -849,6 +1160,14 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         n_edges=len(edge_ids),
         n_edges_open=int((edge_logits > 0).sum()) if edge_ids else 0,
         edge_density=(float((edge_logits > 0).float().mean()) if edge_ids else None),
+        edges=([edge for edge, keep in zip(edge_ids, (edge_logits > 0).tolist(), strict=True) if keep]
+               if edge_ids else None),
+        first_token=first, baseline_first_token=base_first,
+        best_gates=best["gates"],
+        best_edges=([edge for edge, keep in zip(edge_ids, best["edges"].tolist(), strict=True)
+                     if keep] if best["edges"] is not None and edge_ids else None),
+        best_accuracy=best["accuracy"],
+        best_density=best["density"], best_step=best["step"],
         n_pinned=sum(int(indices.numel()) for indices in pinned.values()),
         n_restarts=restarts,
     )

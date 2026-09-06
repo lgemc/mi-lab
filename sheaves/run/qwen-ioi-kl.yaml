@@ -1,0 +1,31 @@
+# The fix for qwen-ioi-nll-t003: match the full distribution instead of its
+# argmax. KL cannot be satisfied by a token that is not the answer, so it does
+# not care that Qwen's argmax is the IO name only 52.4% of the time.
+#
+# Two other changes, both aimed at the optimization half of that failure:
+#   warmup 1500 of 2000 (not the default half) so the density target ramps
+#     slower than the gates can follow, instead of finishing at step 1000 with
+#     density still 15x above it and the price at 285 drowning out faith;
+#   dual_rate + dual_restart so the price ascends at its own rate and resets
+#     whenever the constraint holds (Gallego-Posada et al. 2022) rather than
+#     accumulating a debt it never pays off.
+#
+# target 0.05 rather than 0.03: the previous run never reached 3% and stalled
+# at 7%, so 3% was not a target it was refusing to meet, it was one it could
+# not see. Asking for something reachable makes the frontier readable.
+defaults:
+  - sheaf_schema
+  - _self_
+config: qwen3-1.7b
+task: ioi
+results: results/qwen3-1.7b-sweep/ioi-kl-t005
+size: 2048
+steps: 2000
+batch: 8
+faith: kl
+target: 0.05
+warmup: 1500
+init: 5.0
+anneal: true
+dual_rate: 0.15
+dual_restart: true

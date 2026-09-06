@@ -1,0 +1,27 @@
+# The edge circuit on the task the weight sheaf failed at, for the matched
+# comparison: same model, same task, same 2048 rows (1953 distinct prompts),
+# same KL objective, same seed -- only the gate type differs. 14140 edge gates
+# against 1.409e9 weight gates is 40 per distinct training prompt against
+# 962,000.
+#
+# Killed at step ~130 to free the GPU for the weight run; it read held-out
+# 1.000 at 93.4% edges on the way down. Rerunnable in ~50 minutes.
+defaults:
+  - sheaf_schema
+  - _self_
+config: qwen3-1.7b
+task: ioi
+results: results/qwen3-1.7b-sweep/ioi-edges-t025
+edges_only: true
+size: 2048
+steps: 900
+batch: 16
+faith: kl
+target: 0.25
+warmup: 450
+init: 5.0
+anneal: true
+completeness: 0.0
+dual_rate: 0.15
+dual_restart: true
+probe_every: 25

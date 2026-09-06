@@ -47,6 +47,9 @@ src/methods/
 src/share/
   artifact.py       the shareable form of a result: a JSON card plus one safetensors file
   sharing.py        converters between what this lab measures and that format
+src/serve/
+  circuits.py       one resident model, every learned mask packed beside it, swapped per request
+  app.py            /health, /circuits, /translate, /generate and a side-by-side page (FastAPI)
 src/experiment/
   spec.py           ExperimentSpec: the experiment as composable data, plus its hash
   run.py            what an experiment left behind; stdlib only, readable anywhere
@@ -57,6 +60,7 @@ src/cli/
   common.py         help-on-error Click customization
   commands/         one module per command group; viz/ is a package, one per chart group
 src/viz/            one chart module per subject, over a shared style
+scripts/serve.py    the circuit server entrypoint; Dockerfile builds it (see ~/m/projects/k8s/mi-lab)
 docs/
   artifact-format.md  the sharing format: what it stores and why
 tests/              unit tests, plus a golden capture that catches silent drift

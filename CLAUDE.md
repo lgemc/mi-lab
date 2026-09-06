@@ -28,7 +28,7 @@ uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec te
     tests.results tests.components tests.cost tests.quality tests.pipeline \
     tests.translation_study tests.ie tests.probing tests.runner tests.adapter tests.circuits \
     tests.discovery tests.comparison tests.faithfulness tests.edges tests.sheaves \
-    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes
+    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes tests.serve
 
 # offline subset: 374 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
@@ -106,6 +106,7 @@ methods     probing, steering, circuits,             -> core, model, data, telem
             components, knockout, cost, quality,
             neurons, gates
 share       schema/, storage, converters/      -> core, data, methods
+serve       backbones, circuits, app             -> data, methods (optional extra `serve`)
 experiment  spec, run, runner, pipeline,       -> core, model, data, methods, share
             translation_study
 viz                                            -> core
@@ -281,6 +282,56 @@ The split, by the question each module answers:
   on both GPT-2 IOI and the 1.7B the overshooting run produced the better circuit — density
   was not the variable. `--faith gold` is nll against the task's answer rather than the full
   model's argmax: not the paper's faithfulness, but the quantity the probes score.
+- `serve/` — the circuits over HTTP, and the one thing in the repo meant to run for days.
+  **The model is the deployment and the circuits are data**: `Circuits` loads one config, keeps a
+  clean copy of every gateable tensor, and otherwise holds nothing. Scanning reads each folder's
+  own `sheaf-<task>.json` and no tensors, the circuit itself is read the first time a request
+  names it, and the root is rescanned on `/circuits` and on any unrecognised name — so publishing
+  a circuit is writing a folder under the mount, not rebuilding an image, and the startup probe no
+  longer waits out a minute of unpacking masks nobody asked for. Residency is capped
+  (`--max-resident`, default 8, LRU); evicting is free because the folder is still there.
+  `backbones.py` is a registry the way `model/adapter.py` and `methods/discovery.py` are:
+  `@backbone` registers a class, `claims()` decides from the artifact whether it can run a folder,
+  and `applied()` is a context manager that puts the circuit into the model and takes it out again.
+  Two are registered. `WeightBackbone` multiplies a mask into the parameters and copies them back
+  (bits stay **packed on the device**, `gates.unpack_one` a tensor at a time as it is multiplied in
+  — the bool form is 1.4 GiB per 1.7B circuit). `EdgeBackbone` never touches a weight: the circuit
+  is the `edges_open` list in the artifact, applied as `adapter.edge_gate` hooks around the forward
+  pass. **An edge run writes no mask file, so before the registry it was not rejected by
+  `discover` — it was invisible**, which is why detection now lives with the thing that knows how
+  to run what it detects. A folder pruned against another config is listed *with its reason*
+  rather than dropped, and folders nothing claims are reported in `/circuits` under `skipped`.
+  Generation goes through the ordinary cached path for both kinds; that `edge_gate` is cache-safe
+  is a measured claim (`tests/edges.py::test_the_gate_survives_a_kv_cache`), not an assumption, and
+  if it ever fails `EdgeBackbone` has to force `use_cache=False` and pay O(n²).
+  **`edge_gate` has two implementations of one equation, chosen by `torch.is_grad_enabled()`.**
+  Training accumulates `(1 - g) * live` one edge at a time because every gate needs a node in the
+  graph, open ones included. Inference classifies the gates once at context entry (one stacked
+  device→host transfer, not one `float(g)` per edge), drops the open edges — `(1-1)*live` is a
+  provable no-op and was 26% of the work at this density — and reduces the rest with one
+  `stack().sum()`, so a destination costs ~3 kernel launches instead of ~3 per edge. That is
+  13.1x the full model down to 2.8x on the 1.7B, with generations token-identical.
+  `tests/edges.py::test_both_paths_through_the_gate_agree` is the receipt: two implementations of
+  one equation is two chances to be wrong. The costs have opposite shapes and it matters when
+  choosing a kind — a weight circuit pays once per request to multiply the mask in and then decodes
+  at *exactly* full-model speed, an edge circuit pays nothing up front and pays on every token. One lock across a
+  whole request, restore in a `finally`, so a failed generation cannot leave the next one
+  half-masked. **One model serves every task the folder holds**: the task is read off each
+  folder's artifact (checked against the task registry, so `sheaf-translation-inference.json` is
+  not a task called `translation-inference`), and `MI_LAB_TASKS` narrows that only if you want it
+  narrowed — pinning the server to one task meant an IOI circuit and a translation circuit on the
+  same checkpoint needed two deployments of the same 7 GiB of weights. A directory holding two
+  tasks names them `dir:ioi` and `dir:translation`, and only that directory's names move.
+  `app.py` is **three** routes and a page: `/health`, `/circuits`, and one `POST /infer` that takes
+  the task as a parameter. There was a route per task (`/translate`, `/generate`) and they were the
+  same three lines around a different template; the frame now lives in `data/tasks.py` behind
+  `@register_frame`, so serving a new task is a registration there and nothing in `serve/`.
+  `task` omitted means the inputs are already prompts, which is what tasks with no single-slot
+  frame need — IOI's prompts are whole sentences, `greater_than` wants a noun *and* a year — and
+  `/infer` returns the prompts it built alongside the outputs, because a caller who cannot see the
+  prompt cannot tell a bad circuit from a badly framed question. Optional extra:
+  `uv sync --extra serve`; `scripts/serve.py` is the entrypoint and the `Dockerfile` the image,
+  deployed from `~/m/projects/k8s/mi-lab` (`tests/serve.py`).
 - `data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
   head so a pair is never both, and `counterfactual_prompts` keep the form and drop the task.
 - `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`

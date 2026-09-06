@@ -76,6 +76,13 @@ class ModelConfig:
     device: str = "auto"
     dtype: str = "float32"
     max_new_tokens: int = 32
+    # An instruction-tuned checkpoint answers a *conversation*, not a raw
+    # continuation: its post-training only ever saw text wrapped in the chat
+    # template, so feeding it a bare prompt asks it something it was never
+    # trained on and reads as a much worse model than it is. Set for the
+    # served instruct checkpoints; the pruning work uses base models and
+    # leaves it false, which keeps every existing prompt byte-identical.
+    chat: bool = False
     sae: Optional[SAEConfig] = None
 
     def __post_init__(self):

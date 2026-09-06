@@ -1,0 +1,41 @@
+# The protocol of GPT-2 small's IOI price sweep, on Qwen3-1.7B.
+#
+# One file for seven runs: the sweep's only variable is the price, so it is a
+# `sparsity` overridden per point by pipelines/run/sheaf-ioi-1.7b-sweep.yaml,
+# not seven copies of these nine keys where a tenth can drift into one of them
+# unnoticed. Run bare, it is the 0.1 point.
+#
+# `results` interpolates the price rather than being passed beside it: a step
+# that names both can name them inconsistently, and then the sweep has two
+# points in one directory and no way to tell which artifact came from which
+# price. One value per step, and the path follows it.
+#
+# Every key here is a SheafSpec field, which is the difference that matters: a
+# misspelling fails at composition in a second, where the same mistake in a
+# flag list fails after the model has loaded -- or worse, does not fail, because
+# argparse took `--sparsity 0.1 --init 5` and the run that comes out is not the
+# run that was meant.
+#
+# The prices are GPT-2's: 0.01, 0.03, 0.1, 0.3, 1.0, 3.0, 10.0, each ramped
+# x1000 over the run (`max_times`, the reference's default). `target` is left
+# unset ON PURPOSE -- that switches sheaf_prune to the learned Lagrangian the
+# recent Qwen runs used, and the point of this sweep is to be the same
+# experiment GPT-2 had, hand-priced.
+#
+# `init: 5.0` is the one deviation from GPT-2's line, and it is forced:
+# qwen-ioi-nll-t003.yaml records that init 1.0 samples 27% of the weights shut
+# on the first pass, which a 1.7B does not survive. The gates therefore start
+# further from the threshold here than they did on GPT-2 -- read the frontier
+# knowing it.
+defaults:
+  - sheaf_schema
+  - _self_
+config: qwen3-1.7b
+task: ioi
+results: results/qwen3-1.7b-sweep/ioi-s${.sparsity}
+size: 512
+steps: 2000
+batch: 8
+seed: 0
+sparsity: 0.1
+init: 5.0

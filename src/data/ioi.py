@@ -37,6 +37,25 @@ the cost of changing two things at once.
 A common pipe could be: build_ioi | evaluate | direct_logit_attribution
 """
 
+# Wang et al. 2022 (arXiv:2211.00593) Figure 2: the IOI circuit in **GPT-2 small**,
+# by head, with the movement each performs. It is a fact about that checkpoint and
+# does not transfer -- head 9.6 in another model is another head -- so anything
+# comparing against it has to check the config first. Kept here because it is data
+# about the task, and a discovered circuit is only checkable against prior work if
+# the prior work is written down somewhere it can be read.
+WANG_HEADS = {
+    "0.1": "duplicate-token", "0.10": "duplicate-token", "3.0": "duplicate-token",
+    "2.2": "previous-token", "4.11": "previous-token",
+    "5.5": "induction", "5.8": "induction", "5.9": "induction", "6.9": "induction",
+    "7.3": "s-inhibition", "7.9": "s-inhibition", "8.6": "s-inhibition", "8.10": "s-inhibition",
+    "9.6": "name-mover", "9.9": "name-mover", "10.0": "name-mover",
+    "10.7": "negative-name-mover", "11.10": "negative-name-mover",
+    "9.0": "backup-name-mover", "9.7": "backup-name-mover", "10.1": "backup-name-mover",
+    "10.2": "backup-name-mover", "10.6": "backup-name-mover", "10.10": "backup-name-mover",
+    "11.2": "backup-name-mover", "11.6": "backup-name-mover",
+}
+
+
 class IOIError(ValueError):
     """Raised when an IOI dataset cannot be built honestly: names that split, prompts of unequal length"""
 

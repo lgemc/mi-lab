@@ -1,0 +1,21 @@
+# The DiscoGP replication that worked: 2.22% of GPT-2 small's weights at 0.9685
+# held out (0.934 of the range between chance and the full model), which is
+# inside the paper's 93-100% at 1-7% band.
+#
+# `faith: nll` is the paper's own term -- the likelihood of the token the FULL
+# MODEL predicts -- and it is the right objective here because that token is
+# the IO name on 98.4% of these prompts. That equivalence is a fact about GPT-2
+# small and does not travel; see qwen-ioi-nll-t003.yaml for what happens when
+# it is assumed.
+defaults:
+  - sheaf_schema
+  - _self_
+config: gpt2-small
+task: ioi
+results: results/gpt2-sweep/nll-t003
+size: 512
+steps: 2000
+batch: 8
+faith: nll
+target: 0.03
+init: 1.0
