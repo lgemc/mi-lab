@@ -32,6 +32,7 @@ A common pipe could be: gates | summary | manifest | masked_weights
 A common pipe could be: gates | pack | save | load_circuit | circuit_loaded
 """
 
+import json
 import math
 import re
 from collections import defaultdict
@@ -85,6 +86,9 @@ Packed = Dict[str, Dict[str, Any]]
 
 GATES_FILE = "sheaf-{task}-gates.pt"
 MASK_FILE = "sheaf-{task}-mask.pt"
+#: The best mask the run held, which is not always the last one it held.
+BEST_MASK_FILE = "sheaf-{task}-best-mask.pt"
+UNITS_FILE = "sheaf-{task}-units.pt"
 
 def is_open(tensor: torch.Tensor) -> torch.Tensor:
     """The mask under either representation, as bools"""
@@ -114,19 +118,25 @@ def pack(gates: Gates) -> Packed:
         packed[name] = {"shape": list(logits.shape), "bits": bits.cpu()}
     return packed
 
+def unpack_one(name: str, entry: dict) -> torch.Tensor:
+    """One packed entry back to its bool mask, on whatever device the bits are on
+
+    Kept separate from `unpack` so a server can hold a circuit as its bits
+    (one eighth of the bool mask) and unpack a tensor at a time, when it
+    is about to be multiplied in.
+    """
+    shape = tuple(int(n) for n in entry["shape"])
+    count = math.prod(shape)
+    bits = entry["bits"]
+    if bits.dtype != torch.uint8 or bits.numel() != -(-count // 8):
+        raise GateError(f"{name}: {bits.numel()} bytes of {bits.dtype} cannot hold a mask of shape {shape}")
+    shifts = torch.arange(8, dtype=torch.uint8, device=bits.device)
+    flat = ((bits.unsqueeze(-1) >> shifts) & 1).bool().flatten()
+    return flat[:count].view(shape)
+
 def unpack(packed: Packed) -> Gates:
     """A packed mask back to a bool tensor per gated parameter"""
-    shifts = torch.arange(8, dtype=torch.uint8)
-    gates: Gates = {}
-    for name, entry in packed.items():
-        shape = tuple(int(n) for n in entry["shape"])
-        count = math.prod(shape)
-        bits = entry["bits"]
-        if bits.dtype != torch.uint8 or bits.numel() != -(-count // 8):
-            raise GateError(f"{name}: {bits.numel()} bytes of {bits.dtype} cannot hold a mask of shape {shape}")
-        flat = ((bits.unsqueeze(-1) >> shifts) & 1).bool().flatten()
-        gates[name] = flat[:count].view(shape)
-    return gates
+    return {name: unpack_one(name, entry) for name, entry in packed.items()}
 
 def circuit_path(directory: Path, task: str) -> Path:
     """The file a results directory keeps the circuit in: the logits if it has them, else the mask"""
@@ -134,6 +144,23 @@ def circuit_path(directory: Path, task: str) -> Path:
         path = Path(directory) / template.format(task=task)
         if path.exists():
             return path
+    # An edges-only run has no weight mask by construction, and the message
+    # this would otherwise print sends the reader to rerun a point that ran
+    # correctly. The artifact says which kind of run it was, so ask it.
+    artifact = Path(directory) / f"sheaf-{task}.json"
+    if artifact.exists():
+        try:
+            record = json.loads(artifact.read_text())
+        except ValueError:
+            record = {}
+        if record.get("edges_open") is not None:
+            raise GateError(
+                f"{directory} is an edges-only run: {len(record['edges_open'])} of "
+                f"{record.get('n_edges', '?')} edges open and every weight left whole. Its circuit "
+                f"is the `edges_open` list in {artifact.name}, not a weight mask, and it is run "
+                "through `adapter.edge_gate` rather than multiplied into the weights -- which is "
+                "what this loader does, so it cannot run one."
+            )
     raise GateError(
         f"{directory} holds neither {GATES_FILE.format(task=task)} nor {MASK_FILE.format(task=task)}. "
         "The sweep ran with --no-save-gates and predates the packed mask; rerun that point "

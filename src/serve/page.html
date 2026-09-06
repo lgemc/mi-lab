@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mi-lab · circuits</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #fbfbfa; --panel: #fff; --line: #e3e1dd; --ink: #1d1c1a; --dim: #6d6a65;
+    --accent: #7a4b1e; --accent-soft: #f4ece2; --slot: #fff8ee; --ok: #2f6b3f;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #171614; --panel: #201f1c; --line: #33312d; --ink: #eceae6; --dim: #a09c95;
+      --accent: #d9a463; --accent-soft: #2b2620; --slot: #2b2620; --ok: #7bbf8b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: 2.5rem 1.25rem 5rem; }
+  header { border-bottom: 1px solid var(--line); padding-bottom: 1rem; margin-bottom: 2rem; }
+  h1 { font-size: 1.35rem; margin: 0 0 .3rem; letter-spacing: -.01em; }
+  .sub { color: var(--dim); font-size: .875rem; margin: 0; }
+  .step { margin-bottom: 1.75rem; }
+  .step > h2 {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .09em;
+    color: var(--dim); margin: 0 0 .5rem; font-weight: 600;
+  }
+  .step > h2 b { color: var(--accent); font-weight: 700; margin-right: .45rem; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 1rem; }
+  select, input[type=text], button {
+    font: inherit; color: inherit; border-radius: 7px; border: 1px solid var(--line);
+    background: var(--panel); padding: .55rem .7rem;
+  }
+  select { width: 100%; }
+  .about { color: var(--dim); font-size: .82rem; margin: .55rem 0 0; }
+  .about code { color: var(--ink); }
+  /* the frame, shown as the model sees it */
+  .frame { font: .95rem/1.9 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre-wrap; }
+  .frame .key { color: var(--dim); }
+  .slot input {
+    background: var(--slot); border: 1px solid var(--accent); width: 14rem;
+    padding: .15rem .45rem; font: inherit; border-radius: 5px;
+  }
+  .slot input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  /* A whole prompt is not a word. ToolAlpaca hands the model a tool schema and
+     an instruction -- hundreds of words with newlines that matter -- and a
+     one-line input renders that as an unreadable ribbon. */
+  .slot textarea {
+    background: var(--slot); border: 1px solid var(--accent); width: 100%;
+    min-height: 11rem; padding: .45rem .55rem; font: inherit; border-radius: 5px;
+    resize: vertical; white-space: pre-wrap;
+  }
+  .slot textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .slot.whole { display: block; }
+  .examples { display: flex; gap: .5rem; align-items: center; margin: 0 0 .7rem; }
+  .examples select { flex: 1; }
+  .examples label { color: var(--dim); font-size: .82rem; white-space: nowrap; }
+  .answer { color: var(--ok); font-weight: 600; }
+  .answer.pending { color: var(--dim); font-weight: 400; font-style: italic; }
+  .tail { color: var(--dim); font-weight: 400; }
+  .row { display: flex; gap: .6rem; align-items: center; margin-top: .9rem; flex-wrap: wrap; }
+  button.go {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    font-weight: 600; padding: .55rem 1.4rem; cursor: pointer;
+  }
+  @media (prefers-color-scheme: dark) { button.go { color: #171614; } }
+  button.go:disabled { opacity: .5; cursor: default; }
+  .hint { color: var(--dim); font-size: .82rem; }
+  .badges { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .6rem; }
+  .badge {
+    font-size: .74rem; padding: .12rem .5rem; border-radius: 99px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--line);
+  }
+  .err { color: #b3261e; font-size: .85rem; margin-top: .6rem; white-space: pre-wrap; }
+  table { border-collapse: collapse; width: 100%; font-size: .875rem; margin-top: .5rem; }
+  th, td { border-bottom: 1px solid var(--line); padding: .4rem .5rem; text-align: left; }
+  th { color: var(--dim); font-weight: 600; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; }
+  td.model { font-family: ui-monospace, Menlo, monospace; font-size: .82rem; color: var(--dim); }
+  footer { margin-top: 3rem; color: var(--dim); font-size: .8rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+  footer code { color: var(--ink); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>mi-lab · circuits</h1>
+    <p class="sub" id="sub">loading…</p>
+  </header>
+
+  <section class="step">
+    <h2><b>1</b>Pick a model</h2>
+    <div class="panel">
+      <div class="examples" id="checkpoint-row" hidden>
+        <label for="checkpoint">Checkpoint</label>
+        <select id="checkpoint"></select>
+      </div>
+      <select id="model"></select>
+      <p class="about" id="about"></p>
+      <div class="badges" id="badges"></div>
+    </div>
+  </section>
+
+  <section class="step">
+    <h2><b>2</b>The prompt it is given</h2>
+    <div class="panel">
+      <div class="examples" id="examples-row" hidden>
+        <label for="examples">Held-out example</label>
+        <select id="examples"></select>
+      </div>
+      <div class="frame" id="frame"></div>
+      <div class="row">
+        <button class="go" id="go">Run</button>
+        <span class="hint" id="hint"></span>
+      </div>
+      <div class="err" id="err" hidden></div>
+    </div>
+  </section>
+
+  <section class="step" id="history-step" hidden>
+    <h2><b>3</b>Answers so far</h2>
+    <div class="panel">
+      <table>
+        <thead><tr><th>Model</th><th>Input</th><th>Answer <span class="tail">· then the sample</span></th></tr></thead>
+        <tbody id="history"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    A circuit is this model with something learned removed from it — either a binary
+    mask multiplied into its weights, or a set of residual-stream edges cut by hooks
+    around the forward pass. The density is the share of that circuit's own unit left
+    open, which the badge names: 26% of <i>edges</i> is not 26% of <i>weights</i>.
+    <b>The answer is the first token</b>, which is what a circuit's
+    <code>first token</code> score is measured on;
+    anything dimmed after it is the sample carrying on, and a pruned circuit usually
+    cannot stop — losing the newline that ends the frame is not the same as getting the
+    word wrong. The API behind this page:
+    <code>GET /health</code>, <code>GET /circuits</code>, <code>POST /infer</code>
+    (<code>task</code> names the frame; omit it to send whole prompts).
+  </footer>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pct = (x) => (x * 100).toFixed(1) + '%';
+
+let state = { config: '', frames: {}, tasks: [], circuits: {}, busy: false,
+              maxNewTokens: 8, examples: [], checkpoint: null, checkpoints: [] };
+
+/* A starting input per task, for the box only -- never sent unless the reader
+ * runs it. It has to be shaped like the frame the circuit was pruned under
+ * (src/data/ioi.py FRAMES[0], src/data/translation.py WORD_FRAME), because a
+ * page that seeds a differently shaped prompt teaches the reader to ask the
+ * circuit a question it never saw and read the mess as a bad circuit. */
+const EXAMPLES = {
+  translation: 'perro',
+  ioi: 'Then, John and Mary went to the store. Mary gave a ring to',
+};
+
+/* Which task a choice speaks: a circuit says so itself, and the full model
+ * speaks whichever the folder holds -- unambiguous only when it holds one. */
+function taskOf(name) {
+  if (name === 'full') return state.tasks.length === 1 ? state.tasks[0] : null;
+  return (state.circuits[name] || {}).task || null;
+}
+
+/* The prompt shape to draw. A task with no one-input frame (IOI: its prompt is
+ * a whole sentence, not a template with a single hole) takes the input as the
+ * prompt itself, which is what `/infer` does when `task` is omitted. */
+function templateFor(name) {
+  return state.frames[taskOf(name)] || '{input}{answer}';
+}
+
+/** The answer is the first token; the rest of the sample is shown but not read as the answer.
+ *
+ * A circuit is scored on the token right after `English:` (that is what a
+ * run's `first_token` is), and a pruned one has usually lost the newline that
+ * ends the frame — so it never stops, and `/infer` has no line break to
+ * cut on. Printing all eight tokens then reads a correct answer as gibberish:
+ * `casa` -> "house house house house ..." is the circuit getting it right.
+ * So the first token is the answer and the tail is shown beside it, dimmed,
+ * as what it is: the sample running on past the answer.
+ */
+function split(text) {
+  const trimmed = (text || '').trim();
+  // Only where a frame made the answer one token. A generation server's answer
+  // is a whole block -- a tool call, a <reasoning> section and an <answer> --
+  // and cutting it at the first space shows the word `<think>` and dims the
+  // entire answer as if it were the sample running on.
+  if (!state.frames[taskOf($('model') ? $('model').value : 'full')]) return [trimmed, ''];
+  const at = trimmed.search(/\s/);
+  return at === -1 ? [trimmed, ''] : [trimmed.slice(0, at), trimmed.slice(at).trim()];
+}
+
+/** The task frame with a text field standing in for {input} and the answer for {answer}. */
+function renderFrame(answer, pending) {
+  const template = templateFor($('model') ? $('model').value : 'full');
+  // The typed input survives a redraw, but not a change of frame: carrying
+  // `perro` into an IOI box would ask a name-mover circuit to continue a
+  // Spanish word, which reads as a broken circuit rather than a wrong prompt.
+  const kept = $('word') && state.template === template;
+  const value = kept ? $('word').value : (EXAMPLES[taskOf($('model') ? $('model').value : 'full')] || '');
+  state.template = template;
+  let shown;
+  if (answer == null) {
+    shown = `<span class="answer pending">${pending || '…'}</span>`;
+  } else {
+    const [head, tail] = split(answer);
+    shown = `<span class="answer">${esc(head || '(empty)')}</span>`
+      + (tail ? ` <span class="tail" title="the sample continuing past the answer">${esc(tail)}</span>` : '');
+  }
+  // A framed task has a hole the size of a word; an unframed one *is* the
+  // prompt, and that prompt can be a tool schema. Same slot, different box.
+  const whole = !state.frames[taskOf($('model') ? $('model').value : 'full')];
+  const box = whole
+    ? `<span class="slot whole"><textarea id="word" spellcheck="false"></textarea></span>`
+    : `<span class="slot"><input type="text" id="word" autocomplete="off"></span>`;
+  const html = esc(template).replace('{input}', box).replace('{answer}', ' ' + shown);
+  $('frame').innerHTML = html;
+  const field = $('word');
+  field.value = value;
+  // Enter submits a one-line answer and inserts a newline in a prompt, because
+  // a prompt with newlines in it cannot be typed into a box that submits on
+  // one. Ctrl/Cmd+Enter runs either.
+  field.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (whole && !(e.ctrlKey || e.metaKey)) return;
+    e.preventDefault();
+    run();
+  });
+  return field;
+}
+
+function describe(name) {
+  const c = state.circuits[name];
+  if (!c) {
+    $('about').textContent = `The unmasked model — every weight open. This is the baseline every circuit is read against.`;
+    $('badges').innerHTML = '<span class="badge">100% of weights</span>';
+    return;
+  }
+  // `unit` matters: "26% of edges" and "26% of weights" are different claims,
+  // and a circuit is listed before it has ever been read, so `n_open` is only
+  // there once it is resident -- reading it unguarded threw for every circuit
+  // the server had not loaded yet.
+  const bits = [`${pct(c.density)} of ${c.unit || 'gated weights'}`];
+  if (c.n_open != null) bits.push(`${c.n_open.toLocaleString()} open`);
+  if (c.held_out_ranking != null) bits.push(`held-out ranking ${pct(c.held_out_ranking)}`);
+  if (c.recovered != null) bits.push(`recovered ${pct(c.recovered)}`);
+  const first = c.fresh_first_token != null ? c.fresh_first_token : c.first_token;
+  if (first != null) bits.push(`first token ${pct(first)}`);
+  if (c.complement_ranking != null) bits.push(`complement ${pct(c.complement_ranking)}`);
+  if (c.units) for (const [k, v] of Object.entries(c.units)) bits.push(`${v.open}/${v.total} ${k}s`);
+  // The mechanism sentence is per *kind*, not boilerplate. It read "multiplied
+  // into the weights ... and copied back after" for every circuit, which is a
+  // description of the weight backbone — and precisely what the edge backbone
+  // does not do. A page that misstates the intervention is worse than one that
+  // says nothing about it, because the reader has no reason to doubt it.
+  const how = {
+    weights: 'the weight mask this pruning run left, multiplied into the weights for '
+           + 'this request and copied back after',
+    edges: 'the set of residual-stream edges this pruning run left open, cut by hooks '
+         + 'around the forward pass for this request — no weight is touched',
+  }[c.kind] || 'the circuit this pruning run left';
+  $('about').innerHTML = `Run <code>${esc(c.name)}</code> — ${esc(how)}.`;
+  $('badges').innerHTML = bits.map((b) => `<span class="badge">${esc(b)}</span>`).join('');
+}
+
+async function load() {
+  await loadCheckpoint(null);
+  describe('full');
+  renderFrame(null, 'the answer appears here').focus();
+  hint('full');
+}
+
+/* One pod can answer for more than one checkpoint, loading each on demand and
+ * dropping it again when it goes idle -- so which one is being asked is a
+ * choice here rather than a property of the deployment. Everything downstream
+ * (the circuit list, the frames, the token budget) belongs to the chosen one,
+ * so this refetches rather than patching pieces of the old model's state. */
+async function loadCheckpoint(name) {
+  const query = name ? `health?model=${encodeURIComponent(name)}` : 'health';
+  const health = await (await fetch(query)).json();
+  state.config = health.config;
+  state.frames = health.frames || {};
+  // plural, and read from the server: one model serves every task its folder
+  // holds, and `health.task` (singular) stopped existing when it did -- the
+  // subtitle had been printing `undefined` ever since.
+  state.tasks = health.tasks || [];
+  if (health.max_new_tokens) state.maxNewTokens = health.max_new_tokens;
+  $('sub').textContent = `${health.config} · ${state.tasks.join(', ') || 'no circuits'} · ${health.device} · `
+    + `${health.circuits.length - 1} circuit${health.circuits.length === 2 ? '' : 's'} loaded`;
+
+  state.checkpoint = health.model;
+  state.checkpoints = health.models || [];
+  if (state.checkpoints.length > 1) {
+    $('checkpoint-row').hidden = false;
+    // `resident` is worth showing: a request against a checkpoint that is not
+    // loaded pays for the load, and a reader who is not told that reads the
+    // wait as a slow model rather than a cold one.
+    $('checkpoint').innerHTML = state.checkpoints.map((m) =>
+      `<option value="${esc(m.name)}"${m.name === health.model ? ' selected' : ''}>`
+      + `${esc(m.name)} — ${esc(m.config)}${m.resident ? '' : ' (not loaded)'}</option>`).join('');
+    if (!$('checkpoint').dataset.wired) {
+      $('checkpoint').dataset.wired = '1';
+      $('checkpoint').addEventListener('change', async () => {
+        await loadCheckpoint($('checkpoint').value);
+        describe('full');
+        renderFrame(null, 'the answer appears here').focus();
+        hint('full');
+      });
+    }
+  }
+
+  const listed = await (await fetch(
+    `circuits?model=${encodeURIComponent(health.model)}`)).json();
+  for (const c of listed.circuits) state.circuits[c.name] = c;
+  $('model').innerHTML =
+    `<option value="full">${esc(state.config)} — full model (no mask)</option>`
+    + listed.circuits.map((c) =>
+        `<option value="${esc(c.name)}">${esc(c.name)} — circuit, ${pct(c.density)} of weights</option>`).join('');
+  // The frame is redrawn too: the choice can change the task, and the task
+  // is what the prompt looks like.
+  if (!$('model').dataset.wired) {
+    $('model').dataset.wired = '1';
+    $('model').addEventListener('change', () => {
+      describe($('model').value);
+      renderFrame(null, 'the answer appears here');
+      hint($('model').value);
+    });
+  }
+  await loadExamples();
+}
+
+/* Held-out prompts, so the first thing anyone asks this model is a question it
+ * was fine-tuned to answer. Every one comes from a dataset's eval split, which
+ * training never reads -- see src/serve/examples.py. */
+async function loadExamples() {
+  let listed;
+  try {
+    listed = await (await fetch('examples')).json();
+  } catch (e) { return; }
+  state.examples = [];
+  for (const dataset of listed.datasets || []) {
+    for (const ex of dataset.examples) state.examples.push({dataset: dataset.dataset, ...ex});
+  }
+  if (!state.examples.length) return;
+  $('examples-row').hidden = false;
+  $('examples').innerHTML = '<option value="">— pick one, or type your own —</option>'
+    + state.examples.map((ex, i) =>
+        `<option value="${i}">${esc(ex.dataset)} #${esc(ex.index)} — ${esc(preview(ex))}</option>`).join('');
+  if ($('examples').dataset.wired) return;
+  $('examples').dataset.wired = '1';
+  $('examples').addEventListener('change', () => {
+    const chosen = state.examples[$('examples').value];
+    if (!chosen || !$('word')) return;
+    $('word').value = chosen.prompt;
+    // The gold answer is shown, not hidden: the point of a held-out example is
+    // to compare against something, and a reader who has to go and look it up
+    // will not.
+    $('hint').textContent = `gold: ${JSON.stringify(chosen.gold)}`;
+    $('word').focus();
+  });
+}
+
+/** The last line of a prompt is its actual question; the rest is the schema around it. */
+function preview(ex) {
+  const lines = (ex.prompt || '').trim().split('\n').filter((l) => l.trim());
+  const last = lines[lines.length - 1] || '';
+  return last.length > 90 ? last.slice(0, 90) + '…' : last;
+}
+
+/** What to type: a frame takes the one input it has a hole for, and a task without one takes the prompt. */
+function hint(name) {
+  const task = taskOf(name);
+  $('hint').textContent = state.frames[task]
+    ? `one ${task === 'translation' ? 'Spanish word' : task + ' input'} — Enter runs it`
+    : 'a whole prompt — Enter runs it';
+}
+
+async function run() {
+  if (state.busy) return;
+  const word = $('word').value.trim();
+  if (!word) return;
+  const model = $('model').value;
+  state.busy = true; $('go').disabled = true; $('err').hidden = true;
+  renderFrame(null, 'generating…');
+  try {
+    // One route for every task: `task` names the frame and `inputs` fill it,
+    // and it is omitted where the task has no frame -- then the input is the
+    // whole prompt. Sending `task: 'translation'` at an IOI circuit is a 400
+    // by design (a circuit answers the frame it was pruned under), which is
+    // what this page did on every stack that was not the translation one.
+    const task = taskOf(model);
+    const framed = !!state.frames[task];
+    // 8 tokens is the budget for a one-word answer after a frame. An instruct
+    // model answering a held-out prompt puts its answer on the far side of a
+    // <think> block hundreds of tokens long, so asking it for 8 returns the
+    // opening of its reasoning and nothing else -- which reads as the model
+    // failing the task it was about to pass.
+    const body = {inputs: [word], circuits: [model],
+                  max_new_tokens: framed ? 8 : state.maxNewTokens};
+    if (framed) body.task = task;
+    if (state.checkpoint) body.model = state.checkpoint;
+    const response = await fetch('infer', {
+      method: 'POST', headers: {'content-type': 'application/json'},
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const answer = (await response.json()).outputs[model][0];
+    renderFrame(answer || '(empty)');
+    if (!framed) $('hint').textContent = '';
+    $('history-step').hidden = false;
+    const [head, tail] = split(answer);
+    $('history').insertAdjacentHTML('afterbegin',
+      `<tr><td class="model">${esc(model)}</td><td>${esc(word)}</td>`
+      + `<td><span class="answer">${esc(head || '(empty)')}</span>`
+      + (tail ? ` <span class="tail">${esc(tail)}</span>` : '') + `</td></tr>`);
+  } catch (error) {
+    renderFrame(null, 'no answer');
+    $('err').textContent = String(error.message || error);
+    $('err').hidden = false;
+  } finally {
+    state.busy = false; $('go').disabled = false;
+  }
+}
+
+$('go').addEventListener('click', run);
+load().catch((e) => { $('sub').textContent = 'could not reach the server: ' + e; });
+</script>
+</body>
+</html>

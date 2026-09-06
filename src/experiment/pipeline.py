@@ -60,6 +60,14 @@ class Step:
     module: str
     args: List[str] = field(default_factory=list)
     repeat: bool = False
+    # Whether the module takes the config as its first positional argument.
+    # The phase1b scripts and sheaf_prune/infer/extract do. `scripts.sheaf`
+    # does not: its arguments are Hydra overrides and the config is a key
+    # inside the run file it composes, so handing it `qwen3-1.7b` fails as an
+    # invalid override. Without this flag a pipeline could only reach a sheaf
+    # through sheaf_prune's flag list -- which is a shell line in a YAML, and
+    # the thing src/experiment/sheaf.py exists to stop.
+    takes_config: bool = True
 
     @property
     def marker(self) -> str:
@@ -67,7 +75,8 @@ class Step:
         return f"{self.module}:{self.name}"
 
     def command(self, config: str) -> List[str]:
-        return [sys.executable, "-m", self.module, config, *self.args]
+        head = [sys.executable, "-m", self.module]
+        return [*head, config, *self.args] if self.takes_config else [*head, *self.args]
 
 @dataclass(frozen=True)
 class Pipeline:
@@ -101,7 +110,8 @@ class Pipeline:
         try:
             run = cfg["run"]
             steps = [Step(name=s["name"], module=s["module"],
-                          args=[str(a) for a in (s.get("args") or [])], repeat=bool(s.get("repeat", False)))
+                          args=[str(a) for a in (s.get("args") or [])], repeat=bool(s.get("repeat", False)),
+                          takes_config=bool(s.get("takes_config", True)))
                      for s in run["steps"]]
             return cls(name=run["name"], config=run["config"],
                        env={key: str(value) for key, value in (run.get("env") or {}).items()},

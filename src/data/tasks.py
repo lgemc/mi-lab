@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Protocol, Sequence, Tuple, runtime_checkable
+from typing import Callable, Dict, List, Optional, Protocol, Sequence, Tuple, runtime_checkable
 
 from .ioi import IOIDataset, build_ioi
 from .translation import build_translation
@@ -229,6 +229,33 @@ def register_task(name: str, description: str) -> Callable:
         return build
     return decorate
 
+#: How a caller's own input becomes a prompt for a task, where that is possible.
+#:
+#: A task's `frame` is a template, and the templates do not agree on how many
+#: holes they have: translation's takes one word, `greater_than` takes a noun
+#: *and* a year, `agreement` a subject *and* an attractor, and IOI's prompts are
+#: whole sentences with no single free slot at all. So this maps only the tasks
+#: with exactly one thing a caller could reasonably supply, and everything else
+#: is served raw prompts rather than given a guessed second argument. A missing
+#: entry is not an omission; it is the honest answer that there is no one-input
+#: form of that task.
+FRAMES: Dict[str, Callable[[str], str]] = {}
+
+def register_frame(name: str) -> Callable:
+    """Register the one-input prompt form of a task, for callers that have an input not a prompt"""
+    def wrap(builder: Callable[[str], str]) -> Callable[[str], str]:
+        FRAMES[name] = builder
+        return builder
+    return wrap
+
+def frame_for(name: str) -> Optional[Callable[[str], str]]:
+    """The task's one-input prompt form, or None where it has none"""
+    return FRAMES.get(name)
+
+def framed_tasks() -> List[str]:
+    """Every task a bare input can be turned into a prompt for"""
+    return sorted(FRAMES)
+
 def task_names() -> List[str]:
     """Every task this module knows how to build, sorted"""
     return sorted(TASKS)
@@ -399,3 +426,17 @@ def _agreement(adapter, size: int = 16, seed: int = 0, **options) -> TemplateTas
         examples=examples, name="agreement", frame=AGREEMENT_FRAME, corruption="flip-number",
         description="agree with the subject, not with the noun nearest the verb",
     ))
+
+
+@register_frame("translation")
+def _translation_frame(source: str) -> str:
+    """`Spanish: perro\nEnglish:` -- the frame every translation circuit was pruned under
+
+    Imported from data/translation.py rather than restated, because a server
+    framing a word differently from the run that learned the circuit is asking
+    the circuit a question it was never trained on, and the answer would look
+    like a bad circuit.
+    """
+    from .translation import WORD_FRAME
+
+    return WORD_FRAME.format(source=f" {source.strip()}", answer="")

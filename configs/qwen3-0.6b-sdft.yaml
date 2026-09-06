@@ -1,0 +1,29 @@
+# The model the sub-1B SDFT work selected, served so its answers can be read
+# by hand alongside the numbers.
+#
+# Chosen on measurement, not on published benchmarks: across 4046 ToolAlpaca
+# examples its demonstration-conditioned teacher reaches 63.6% against
+# MiniCPM5-1B's 53.3%, and its unconditioned student starts at 28.3% against
+# 8.9% -- the two quantities SDFT actually consumes. See
+# ~/main/Self-Distillation/docs/results/sub-1b-diagnostic.md.
+#
+# `chat: true` is the load-bearing line here. Every other config in this
+# directory is a base checkpoint being pruned, where a raw continuation is the
+# right question. This is an instruct checkpoint answering ToolAlpaca and
+# Science Q&A prompts, both of which are instructions; unwrapped, it answers a
+# question it was never post-trained on.
+#
+# `hf_name` is the base checkpoint until a fine-tune exists. Point it at a
+# trained output directory to serve that instead -- nothing else changes.
+id: qwen3-0.6b-sdft
+backend: transformers
+hf_name: Qwen/Qwen3-0.6B
+probe_layer_frac: 0.65
+batch_size: 8
+device: auto
+dtype: bfloat16
+# Qwen3 emits a <think> block before its answer, and the ToolAlpaca action is
+# on the far side of it. The diagnostic measured a median of 212 words there,
+# so a 64-token budget would cut every answer off inside its own reasoning.
+max_new_tokens: 1024
+chat: true

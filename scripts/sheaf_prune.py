@@ -34,12 +34,23 @@ Run: uv run python -m scripts.sheaf_prune qwen3-1.7b
 
 import argparse
 import json
+import os
 import sys
+from pathlib import Path
 
 import torch
 
 from src.data.tasks import build_task, task_names
-from src.methods.gates import GATES_FILE, MASK_FILE, pack, parse_layers, run_budget
+from src.experiment.sheaf import SheafError, SheafSpec
+from src.methods.gates import (
+    BEST_MASK_FILE,
+    GATES_FILE,
+    MASK_FILE,
+    UNITS_FILE,
+    pack,
+    parse_layers,
+    run_budget,
+)
 from src.methods.sheaves import load_bearing, prune, span
 from src.model.adapter import load_adapter
 from src.telemetry.journal import Journal, env_root, run_id
@@ -73,7 +84,8 @@ def run(args: argparse.Namespace) -> None:
         "task": f"{args.task}, {len(set(task.clean))} distinct of {args.size} rows, "
                 f"{1 - args.holdout:.0%}/{args.holdout:.0%} split by prompt",
         "band": "all layers" if layers is None else f"layers {span(layers)} of {len(adapter.blocks)}",
-        "gates": f"{n_gates / 1e6:.0f}M",
+        "gates": (f"{len(adapter.edges())} edges, weights ungated" if args.edges_only
+                  else f"{n_gates / 1e6:.0f}M"),
         "state": f"{cost['total_gib']} GiB state, ~{cost['peak_gib']} GiB peak, "
                  f"{free:.0f} GiB available",
         "schedule": f"{args.steps} steps of {args.batch}, price {args.sparsity} x{args.max_times}",
@@ -83,7 +95,11 @@ def run(args: argparse.Namespace) -> None:
     # The failure this replaces is an OOM after the model has loaded and the
     # task has been built, which reads as a broken script rather than as a band
     # that was too wide. Naming the smaller band is the whole point of saying so.
-    if free and cost["peak_gib"] > free - args.reserve and not args.force:
+    # An edges-only run has no weight gates, so none of this state exists: the
+    # 23 GiB is four float32 tensors per *gated weight* and there are none.
+    if args.edges_only:
+        pass
+    elif free and cost["peak_gib"] > free - args.reserve and not args.force:
         raise SystemExit(
             f"gating {n_gates / 1e6:.0f}M weights costs {cost['total_gib']} GiB of state and peaks "
             f"near {cost['peak_gib']} GiB with the graph, against {free:.0f} GiB available "
@@ -129,6 +145,13 @@ def run(args: argparse.Namespace) -> None:
         "init": args.init, "temperature": args.temperature, "anneal": args.anneal,
         "target": args.target, "protect": args.protect, "warmup": args.warmup,
         "dual_rate": args.dual_rate, "dual_restart": args.dual_restart,
+        "granular": args.granular, "attribute": args.attribute, "init_low": args.init_low,
+        # How the accuracy curve was measured is part of what the curve means:
+        # the same run probed on 8 rows and on 128 produces two different
+        # pictures of itself, and only one of them is readable. These were
+        # missing, so MLflow could show the curve and not its denominator.
+        "probe_every": args.probe_every, "probe_size": args.probe_size,
+        "edges_only": args.edges_only, "results": args.results,
         "holdout": args.holdout, "band_control": control, "budget": cost,
     })
     log(f"journal: {directory} (tail -f {journal.metrics_path})")
@@ -150,14 +173,25 @@ def run(args: argparse.Namespace) -> None:
                 adapter, task, steps=args.steps, rate=args.rate, sparsity=args.sparsity,
                 completeness=args.completeness, batch=args.batch, max_times=args.max_times,
                 holdout=args.holdout, layers=layers, journal=journal,
-                probe_every=args.probe_every, seed=args.seed,
+                probe_every=args.probe_every, probe_size=args.probe_size, seed=args.seed,
                 edge_sparsity=args.edge_sparsity, faith_kind=args.faith_kind,
                 init=args.init, temperature=args.temperature, anneal=args.anneal,
                 target=args.target, protect=args.protect, warmup=args.warmup,
                 dual_rate=args.dual_rate, dual_restart=args.dual_restart,
+                granular=args.granular.split(",") if args.granular else None,
+                attribute=args.attribute, init_low=args.init_low,
+                gate_weights=not args.edges_only,
             )
-            facts["density"] = f"{sheaf.density:.4%}"
+            # The metric's floor, measured above and not assumed: `accuracy` is
+            # a two-way comparison and `recovered` is the only reading of it
+            # that survives a floor at 0.477.
+            sheaf.chance = control["shut"]
+            facts["density"] = (f"{sheaf.edge_density:.4%} of edges" if args.edges_only
+                                else f"{sheaf.density:.4%}")
             facts["held-out"] = f"{sheaf.accuracy:.3f}"
+            if sheaf.recovered is not None:
+                facts["recovered"] = f"{sheaf.recovered:.3f}"
+            facts["first token"] = f"{sheaf.first_token:.3f}"
     except BaseException as error:
         journal.finish("failed", error=f"{type(error).__name__}: {error}")
         tracker.finish("FAILED")
@@ -174,10 +208,18 @@ def run(args: argparse.Namespace) -> None:
     log(str(sheaf))
     artifact = result(f"sheaf-{args.task}.json")
     artifact.write_text(json.dumps({
-        "protocol": "DiscoGP (2407.03779) joint weight pruning: a gate per weight, the weights "
-                    "frozen, the gates trained on faith + sparsity + completeness. `density` is "
-                    "the fraction of *gated* weights left open, so it is only comparable across "
-                    "runs that gated the same band.",
+        "protocol": ("edge pruning after DiscoGP (2407.03779) with the weights left whole: a "
+                     "gate per (source, destination) edge of the residual stream, trained on "
+                     "faith + sparsity"
+                     + (" + completeness" if args.completeness else "")
+                     + " (see `settings`). `density` is 100% by construction and "
+                     "`edge_density` is the circuit; `recovered` rescales `accuracy` onto the "
+                     "range between the shut band and the full model."
+                     if args.edges_only else
+                     "DiscoGP (2407.03779) joint weight pruning: a gate per weight, the weights "
+                     "frozen, the gates trained on faith + sparsity + completeness. `density` is "
+                     "the fraction of *gated* weights left open, so it is only comparable across "
+                     "runs that gated the same band."),
         "config": args.config,
         "task": args.task,
         "layers": sheaf.layers,
@@ -191,19 +233,41 @@ def run(args: argparse.Namespace) -> None:
         "n_restarts": sheaf.n_restarts,
         "edge_density": (None if sheaf.edge_density is None else round(sheaf.edge_density, 6)),
         "accuracy": round(sheaf.accuracy, 4),
+        # The last mask is `accuracy`; the best one the run ever held is this,
+        # rescored on the same held-out rows. They come apart when the step
+        # budget runs out somewhere other than the bottom of the curve.
+        "best_accuracy": (None if sheaf.best_accuracy is None else round(sheaf.best_accuracy, 4)),
+        "best_density": (None if sheaf.best_density is None else round(sheaf.best_density, 6)),
+        "best_step": sheaf.best_step,
+        "best_edges_open": (None if sheaf.best_edges is None
+                            else [list(edge) for edge in sheaf.best_edges]),
+        # The ranking rescaled onto the range it can actually move over. The
+        # sweep's raw numbers (0.61-0.72) sit above a floor of 0.477 and were
+        # read as if the floor were zero, which doubled every result in the
+        # table. This is the number to compare runs on.
+        "recovered": (None if sheaf.recovered is None else round(sheaf.recovered, 4)),
+        "first_token": round(sheaf.first_token, 4),
+        "baseline_first_token": round(sheaf.baseline_first_token, 4),
         "train_accuracy": round(sheaf.train_accuracy, 4),
         "complement_accuracy": round(sheaf.complement_accuracy, 4),
         "baseline_accuracy": round(sheaf.baseline_accuracy, 4),
         "band_control": {key: round(value, 4) for key, value in control.items()},
         "settings": {
-            "size": args.size, "seed": args.seed, "steps": args.steps, "batch": args.batch,
+            "size": args.size, "seed": args.seed, "probe_size": args.probe_size,
+            "steps": args.steps, "batch": args.batch,
             "rate": args.rate, "sparsity": args.sparsity, "completeness": args.completeness,
             "max_times": args.max_times, "holdout": args.holdout,
             "edge_sparsity": args.edge_sparsity, "faith": args.faith_kind,
             "init": args.init, "temperature": args.temperature, "anneal": args.anneal,
             "target": args.target, "protect": args.protect, "warmup": args.warmup,
             "dual_rate": args.dual_rate, "dual_restart": args.dual_restart,
+            "granular": args.granular, "attribute": args.attribute, "init_low": args.init_low,
         },
+        "units": sheaf.units,
+        # The circuit itself when the run pruned edges: `n_edges_open` is a
+        # count and the (source, destination) list is the result.
+        "edges_open": (None if sheaf.edges is None
+                       else [list(edge) for edge in sheaf.edges]),
         "budget": cost,
         "history": sheaf.history,
         "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by "
@@ -212,17 +276,33 @@ def run(args: argparse.Namespace) -> None:
                     "than poor. Read this artifact as a run of the method, not as a result from "
                     "it, until a sweep is monotone in density.",
         "journal": str(directory),
-        "command": " ".join(["uv run python -m scripts.sheaf_prune", *sys.argv[1:]]),
+        "command": " ".join([f"uv run python -m scripts.{Path(sys.argv[0]).stem}",
+                             *sys.argv[1:]]),
     }, indent=2) + "\n")
     # The mask is the run's product and is always written: one bit per gate,
     # small enough to copy off the box. The logits are 32x that and are the
     # optimizer's state, not the circuit; kept only when asked for.
-    torch.save(pack(sheaf.gates), result(MASK_FILE.format(task=args.task)))
-    log(f"-> {result(MASK_FILE.format(task=args.task))}")
+    # An edges-only run has no weight mask, and a file of 1.4e9 ones is not a
+    # circuit; its product is `edges_open` in the artifact above.
+    if sheaf.gates:
+        torch.save(pack(sheaf.gates), result(MASK_FILE.format(task=args.task)))
+        log(f"-> {result(MASK_FILE.format(task=args.task))}")
+    # Written beside the last mask, never instead of it: which one to serve is a
+    # judgement (the best is sparser and scored better, the last is what the
+    # schedule actually converged to) and deleting either would make it for you.
+    if sheaf.best_gates and sheaf.best_step is not None:
+        best_path = result(BEST_MASK_FILE.format(task=args.task))
+        torch.save(pack(sheaf.best_gates), best_path)
+        log(f"-> {best_path}")
     if args.save_gates:
         torch.save({name: logits.cpu() for name, logits in sheaf.gates.items()},
                    result(GATES_FILE.format(task=args.task)))
         log(f"-> {result(GATES_FILE.format(task=args.task))}")
+    if sheaf.unit_logits is not None:
+        # Small -- one float per head, neuron and block -- and the only record
+        # of which units closed, since the mask folds them into the weights.
+        torch.save(sheaf.unit_logits, result(UNITS_FILE.format(task=args.task)))
+        log(f"-> {result(UNITS_FILE.format(task=args.task))}")
     log(f"-> {artifact}")
 
 def main() -> None:
@@ -230,6 +310,10 @@ def main() -> None:
     parser.add_argument("config", nargs="?", default="qwen3-1.7b",
                         help="model config; the 1.7B, because the 8B's gates do not fit")
     parser.add_argument("--task", default="translation", choices=task_names())
+    parser.add_argument("--results", default=os.environ.get("MI_LAB_RESULTS"),
+                        help="where the run writes; a field of the spec rather than only an "
+                             "environment variable, because where a run writes is part of "
+                             "what the run is")
     parser.add_argument("--layers", default="all", help="'all', '21-27' or '21,23,26'")
     parser.add_argument("--size", type=int, default=128,
                         help="prompts; the retracted run had 32 and data scale is the standing suspect")
@@ -275,6 +359,20 @@ def main() -> None:
                         help="pin the top fraction of weights by |w| open, outside the search: "
                              "the first-order faith gradient underprices closing them 25x on "
                              "Qwen3-1.7B, and every run at any price went to chance where they shut")
+    parser.add_argument("--granular", nargs="?", const="head,kv,neuron", default=None,
+                        metavar="FAMILIES",
+                        help="a gate per unit over the gate per weight, multiplied in (Haider et "
+                             "al. COLM 2026); a unit the task can spare closes by one parameter. "
+                             "Comma-separated families from head, kv, neuron, block; bare "
+                             "--granular is head,kv,neuron (blocks are too coarse for the price "
+                             "to track)")
+    parser.add_argument("--attribute", type=int, default=0, metavar="BATCHES",
+                        help="warm-start every gate from |w * dL/dw| on this many batches of the "
+                             "full model: logits are the attribution rank mapped onto "
+                             "[--init-low, --init]")
+    parser.add_argument("--init-low", type=float, default=2.0,
+                        help="the logit the least implicated weight of each tensor starts at "
+                             "under --attribute")
     parser.add_argument("--anneal", action="store_true",
                         help="shrink the gate noise to zero across the run, so the mask trained "
                              "last is the thresholded one that is saved")
@@ -288,6 +386,17 @@ def main() -> None:
     # 0 disables it and the run is exactly the weights-only one.
     parser.add_argument("--edge-sparsity", type=float, default=0.0, dest="edge_sparsity",
                         help="price on open edges; 0 prunes weights only, as before")
+    # The other direction, and the one the sweep argues for. A gate per weight
+    # is 1.4e9 free bits against ~350 distinct prompts, and every run of the
+    # sweep memorized (train 0.93-0.99, held out 0.61-0.72) at every density
+    # and every faith kind -- which is what the strong lottery-ticket results
+    # predict a mask with that much freedom will do. Edges are ~14k gates on
+    # this model, five orders of magnitude smaller, and they are the unit the
+    # word "circuit" refers to.
+    parser.add_argument("--edges-only", action="store_true", dest="edges_only",
+                        help="leave every weight open and prune edges alone; needs "
+                             "--edge-sparsity or --target, and refuses --protect, "
+                             "--granular and --attribute, which gate weights")
     # "pair" is the reference's term and the one measured to be too weak: it
     # certified a circuit that ranks at 0.938 on unseen prompts and generates
     # ' Mary Emma Rose the Rose'. "kl" scores the whole last-token distribution
@@ -302,8 +411,20 @@ def main() -> None:
                         help="GiB of headroom held back on top of the projected peak")
     parser.add_argument("--needs", type=float, default=0.05,
                         help="accuracy the band must cost when shut, or the run is refused")
-    parser.add_argument("--tracking", default="none",
-                        help="tracking config in configs/tracking/ ('mlflow'), or 'none'")
+    # On by default, and the journal is untouched by it. Every run in
+    # results/qwen3-1.7b-sweep/ was launched on the old `none` default, so a
+    # working MLflow server sat empty through the whole sweep and nobody could
+    # see it was empty *because* nothing had been sent. The tracker is a mirror
+    # (telemetry/tracking.py): the row is on disk before it is posted, and a
+    # network failure disables the sink and says so once rather than raising
+    # into a two-hour training loop -- so defaulting it on cannot cost a run.
+    parser.add_argument("--tracking", default=os.environ.get("MI_LAB_TRACKING", "mlflow"),
+                        help="tracking config in configs/tracking/ ('mlflow', the default), or "
+                             "'none' to mirror nowhere; MI_LAB_TRACKING overrides. The journal "
+                             "and the artifact are written either way")
+    parser.add_argument("--probe-size", type=int, default=128, dest="probe_size",
+                        help="held-out rows the in-run accuracy probe scores; 0 uses --batch, "
+                             "which is what every run before this did and is +-0.18 at batch 8")
     parser.add_argument("--probe-every", type=int, default=10, dest="probe_every",
                         help="steps between hard-density probes; 0 logs the loss terms only")
     parser.add_argument("--force", action="store_true",
@@ -318,8 +439,34 @@ def main() -> None:
     parser.add_argument("--save-gates", action="store_true", dest="save_gates",
                         help="also write the float gate logits beside the packed mask")
     args = parser.parse_args()
-    guard(args.config)
-    run(args)
+    # Through the same schema the YAML door uses, so a flag and a key cannot
+    # validate differently. `sheaves/run/*.yaml` is the door to prefer -- a run
+    # in a file can be read and diffed before it costs two hours -- and this one
+    # stays because a one-off does not deserve a commit.
+    try:
+        spec = SheafSpec.from_mapping({
+            "config": args.config, "task": args.task, "layers": args.layers,
+            "results": args.results, "size": args.size, "seed": args.seed,
+            "holdout": args.holdout, "steps": args.steps, "batch": args.batch,
+            "rate": args.rate, "probe_every": args.probe_every, "probe_size": args.probe_size,
+            "faith": args.faith_kind, "completeness": args.completeness,
+            "init": args.init, "init_low": args.init_low,
+            "temperature": args.temperature, "anneal": args.anneal,
+            "protect": args.protect, "granular": args.granular,
+            "attribute": args.attribute, "target": args.target,
+            "warmup": args.warmup, "dual_rate": args.dual_rate,
+            "dual_restart": args.dual_restart, "sparsity": args.sparsity,
+            "max_times": args.max_times, "edges_only": args.edges_only,
+            "edge_sparsity": args.edge_sparsity, "reserve": args.reserve,
+            "needs": args.needs, "force": args.force,
+            "save_gates": args.save_gates, "tracking": args.tracking,
+        })
+    except SheafError as error:
+        raise SystemExit(str(error)) from None
+    if spec.results:
+        os.environ["MI_LAB_RESULTS"] = str(spec.results)
+    guard(spec.config)
+    run(spec)
 
 if __name__ == "__main__":
     main()

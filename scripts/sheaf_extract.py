@@ -1,4 +1,12 @@
-"""Turn a learned mask into a circuit: where it lives, and something you can run.
+"""Turn a learned circuit into something readable: where it lives, and what talks to what.
+
+Two kinds of run end up here and the folder says which. A weight mask reduces to
+the component vocabulary (`gates.summary`); an edge circuit reduces to
+components *and the paths between them* (`wiring.reduce`), which is the half a
+component list cannot express -- a source writes into the residual stream once
+and every later component reads the same sum, so "kept for `attn:10`, cut for
+`mlp:14`" is invisible in any per-component summary. Both write
+`sheaf-<task>-circuit.json`; `protocol` says which reduction produced it.
 
 A sheaf finishes with 276,476 open gates out of 85M and a held-out score. That
 is a number, not a circuit. Two things are missing and this adds both.
@@ -17,9 +25,11 @@ manifest makes the thing being claimed an object rather than a citation. It is
 not saved by default: on the 1.7B the masked weights are as large as the model.
 
 A common pipe could be: gates | summary | manifest | masked_weights
+                   or: edges_open | reduce | components + split | against
 
 Run: uv run python -m scripts.sheaf_extract gpt2-small results/gpt2-sweep/s0.1
      uv run python -m scripts.sheaf_extract gpt2-small <dir> --save-weights
+     uv run python -m scripts.sheaf_extract qwen3-1.7b <edge dir> --task ioi
 """
 
 import argparse
@@ -28,11 +38,88 @@ from pathlib import Path
 
 import torch
 
+from src.data.ioi import WANG_HEADS
+from src.methods.circuits import require_circuits
 from src.methods.gates import GateError, circuit_path, load_circuit, masked_weights, summary
+from src.methods.wiring import against, reduce
 from src.model.adapter import load_adapter
 from src.telemetry.observe import banner, log
 
 TOP_HEADS = 10
+TOP_EDGES = 12
+
+
+def extract_edges(args, directory: Path, record: dict) -> None:
+    """The edge branch: components, the paths between them, and the split count
+
+    Split sources are printed before anything else because they are the only
+    part of this that a weight mask could not have produced. If that number is
+    near zero the run found a component selection and the edge machinery bought
+    nothing.
+    """
+    adapter = require_circuits(load_adapter(args.config))
+    every = list(adapter.edges())
+    circuit = reduce([tuple(edge) for edge in record["edges_open"]], every)
+
+    banner("edge circuit extraction", {
+        "config": args.config,
+        "task": args.task,
+        "edges": f"{circuit['n_edges_open']} of {circuit['n_edges']} "
+                 f"({circuit['edge_density']:.4%})",
+        "sources": f"{circuit['n_sources']} total, {circuit['sources_split']} split across "
+                   f"readers, {circuit['sources_all_kept']} kept whole, "
+                   f"{circuit['sources_all_cut']} cut entirely",
+        "components": f"{len(circuit['heads_in_circuit'])} heads, "
+                      f"{len(circuit['mlps_in_circuit'])} mlps",
+    })
+
+    log(f"{'component':>14} {'reaches':>9} {'of':>5} {'reach':>8}  split  readers")
+    for row in circuit["components"][:args.top]:
+        readers = ", ".join(row["readers"][:4]) + (" ..." if len(row["readers"]) > 4 else "")
+        log(f"{row['component']:>14} {row['out_kept']:>9} {row['out_available']:>5} "
+            f"{row['reach']:>7.1%}  {'yes' if row['split'] else 'no ':>5}  {readers}")
+    log("")
+    log("open edges by destination layer: " + " ".join(
+        f"L{layer}={count}" for layer, count in circuit["by_layer"].items() if count))
+
+    comparison = None
+    if args.task == "ioi" and args.config == "gpt2-small":
+        comparison = against(circuit["heads_in_circuit"], WANG_HEADS, adapter.cfg.n_layers *
+                             adapter.cfg.n_heads)
+        log("")
+        verdict = ("no better than a random head set of the same size"
+                   if comparison["p_value"] is None or comparison["p_value"] > 0.05
+                   else "more overlap than chance")
+        log(f"against Wang et al.'s GPT-2 IOI circuit: {comparison['found']} of "
+            f"{comparison['reference']} found, {comparison['expected_by_chance']} expected by "
+            f"chance from {comparison['kept']} of "
+            f"{comparison['of_total']} heads -- p={comparison['p_value']}, {verdict}")
+        for hit in comparison["matches"]:
+            log(f"    {hit['head']:>6}  {hit['role']}")
+    elif args.task == "ioi":
+        # Wang et al.'s heads are GPT-2 small's. Head 9.6 in another model is
+        # another head, and printing the comparison anyway would manufacture a
+        # replication out of a coincidence.
+        log("")
+        log(f"no published head list for '{args.config}' -- Wang et al.'s circuit is "
+            f"GPT-2 small's and does not transfer")
+
+    out = directory / f"sheaf-{args.task}-circuit.json"
+    out.write_text(json.dumps({
+        "protocol": "an edge circuit reduced to components and the paths between them. Degrees "
+                    "are against what each source could reach, never against the model: a source "
+                    "at layer 0 can reach every later destination and one at the last layer can "
+                    "reach almost none, so a raw out-degree means opposite things at the two ends. "
+                    "`sources_split` is the count kept for some readers and cut for others, which "
+                    "is the claim no weight mask can express.",
+        "config": args.config,
+        "task": args.task,
+        **circuit,
+        **({"published_comparison": comparison} if comparison else {}),
+        "command": f"uv run python -m scripts.sheaf_extract {args.config} {directory} "
+                   f"--task {args.task}",
+    }, indent=2) + "\n")
+    log(f"-> {out}")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
@@ -45,6 +132,15 @@ def main() -> None:
     args = parser.parse_args()
 
     directory = Path(args.directory)
+    # The folder decides which reduction runs, the same way it decides which
+    # backbone serves it. An edge run writes no mask, so asking `circuit_path`
+    # first would fail on exactly the runs this branch exists for.
+    artifact = directory / f"sheaf-{args.task}.json"
+    if artifact.exists():
+        record = json.loads(artifact.read_text())
+        if record.get("edges_open") is not None:
+            extract_edges(args, directory, record)
+            return
     try:
         gates_path = circuit_path(directory, args.task)
     except GateError as error:

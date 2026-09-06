@@ -1,0 +1,144 @@
+# GPT-2 small's IOI price sweep, transplanted to Qwen3-1.7B.
+#
+# The seven prices results/gpt2-sweep/s0.01 .. s10.0 were run at, each followed
+# by the `infer` and `extract` GPT-2 only ever got on three of them.
+#
+# **Why a sweep and not another single run.** Every sheaf artifact in this repo
+# carries the same `standing`: read it as a run of the method, not a result from
+# it, *until a sweep is monotone in density*. GPT-2 has one -- price 0.01 -> 10
+# walks density 4.68% -> 0.00% and ranking 0.94, 0.98, 0.96, 0.46, 0.68, 0.45,
+# 0.45, so the frontier and the point it falls off are both visible. Qwen has
+# three one-off points at three different objectives (nll-t003, kl-t005,
+# edges-t025), which is not a frontier and cannot be read as one.
+#
+# **The prune steps name a run file, not a flag list.** The protocol is
+# sheaves/run/qwen-ioi-price.yaml and each step overrides the two keys the
+# sweep varies -- one, the price, since `results` interpolates it -- so every
+# value is checked against SheafSpec at composition --
+# `run.sparsty=0.03` is an error here and a two-hour surprise in an argv list.
+# `takes_config: false` because scripts.sheaf takes overrides, not a positional
+# config: the config is a key in the run file. (infer and extract keep the
+# positional config; they are CLI scripts over a finished directory, and there
+# is no spec for them to compose.)
+#
+# **Cost.** ~2h10m per price at 2000 steps of 8 on the GB10 (measured
+# 2026-09-04: 7,736 s and 7,466 s for two 2000-step IOI runs), so ~15h for the
+# seven, plus a few minutes each for infer and extract. Resumable: every
+# finished step is recorded in pipeline-state.json under MI_LAB_RESULTS and
+# skipped on re-entry, which matters because this box hard-crashed under an
+# NVRM out-of-memory at 17:39 on 2026-09-04 and took a finished 900-step run
+# with it. Re-run the same command to carry on from the last completed step --
+# the granularity is a whole step, so a prune that dies at 1900 of 2000 restarts
+# that price from zero.
+#
+#   uv run python -m scripts.pipeline run=sheaf-ioi-1.7b-sweep
+#   uv run python -m scripts.pipeline run=sheaf-ioi-1.7b-sweep dry_run=true
+#   uv run python -m scripts.pipeline run=sheaf-ioi-1.7b-sweep only=[prune-s0.1]
+name: discogp ioi on qwen3-1.7b, the gpt2 price sweep
+config: qwen3-1.7b
+
+# Only the pipeline's own state file lives here. Each point's results directory
+# comes from the run file's `results` key, overridden per step below: where a
+# run writes is part of what the run is, so it belongs in the spec and not in
+# one environment variable shared by seven of them.
+env:
+  MI_LAB_RESULTS: results/qwen3-1.7b-sweep/ioi-sweep
+
+steps:
+  # price 0.01 x1000, ~2h10m
+  - name: prune-s0.01
+    module: scripts.sheaf
+    takes_config: false
+    args: [run=qwen-ioi-price, run.sparsity=0.01]
+
+  - name: infer-s0.01
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/ioi-s0.01, --task, ioi, --seed, "99", --show, "8"]
+
+  - name: extract-s0.01
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/ioi-s0.01, --task, ioi]
+
+  # price 0.03 x1000, ~2h10m
+  - name: prune-s0.03
+    module: scripts.sheaf
+    takes_config: false
+    args: [run=qwen-ioi-price, run.sparsity=0.03]
+
+  - name: infer-s0.03
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/ioi-s0.03, --task, ioi, --seed, "99", --show, "8"]
+
+  - name: extract-s0.03
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/ioi-s0.03, --task, ioi]
+
+  # price 0.1 x1000, ~2h10m
+  - name: prune-s0.1
+    module: scripts.sheaf
+    takes_config: false
+    args: [run=qwen-ioi-price, run.sparsity=0.1]
+
+  - name: infer-s0.1
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/ioi-s0.1, --task, ioi, --seed, "99", --show, "8"]
+
+  - name: extract-s0.1
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/ioi-s0.1, --task, ioi]
+
+  # price 0.3 x1000, ~2h10m
+  - name: prune-s0.3
+    module: scripts.sheaf
+    takes_config: false
+    args: [run=qwen-ioi-price, run.sparsity=0.3]
+
+  - name: infer-s0.3
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/ioi-s0.3, --task, ioi, --seed, "99", --show, "8"]
+
+  - name: extract-s0.3
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/ioi-s0.3, --task, ioi]
+
+  # price 1.0 x1000, ~2h10m
+  - name: prune-s1.0
+    module: scripts.sheaf
+    takes_config: false
+    args: [run=qwen-ioi-price, run.sparsity=1.0]
+
+  - name: infer-s1.0
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/ioi-s1.0, --task, ioi, --seed, "99", --show, "8"]
+
+  - name: extract-s1.0
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/ioi-s1.0, --task, ioi]
+
+  # price 3.0 x1000, ~2h10m
+  - name: prune-s3.0
+    module: scripts.sheaf
+    takes_config: false
+    args: [run=qwen-ioi-price, run.sparsity=3.0]
+
+  - name: infer-s3.0
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/ioi-s3.0, --task, ioi, --seed, "99", --show, "8"]
+
+  - name: extract-s3.0
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/ioi-s3.0, --task, ioi]
+
+  # price 10.0 x1000, ~2h10m
+  - name: prune-s10.0
+    module: scripts.sheaf
+    takes_config: false
+    args: [run=qwen-ioi-price, run.sparsity=10.0]
+
+  - name: infer-s10.0
+    module: scripts.sheaf_infer
+    args: [results/qwen3-1.7b-sweep/ioi-s10.0, --task, ioi, --seed, "99", --show, "8"]
+
+  - name: extract-s10.0
+    module: scripts.sheaf_extract
+    args: [results/qwen3-1.7b-sweep/ioi-s10.0, --task, ioi]
