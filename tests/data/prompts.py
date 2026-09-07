@@ -196,7 +196,7 @@ class TestShippedSets(TestCase):
 
     def test_every_shipped_set_loads_and_is_balanced(self):
         # found relative to this file, so the tests do not depend on the working directory
-        for path in sorted((Path(__file__).resolve().parents[1] / "data").glob("*.prompts")):
+        for path in sorted((Path(__file__).resolve().parents[2] / "data").glob("*.prompts")):
             with self.subTest(path=str(path)):
                 data = load_prompts(str(path))
                 self.assertGreater(len(data), 1)

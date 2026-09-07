@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 
 from src.model.adapter import load_adapter
-from tests.adapter import GOLDEN, GOLDEN_FRACS, GOLDEN_PROMPTS
+from tests.model.adapter import GOLDEN, GOLDEN_FRACS, GOLDEN_PROMPTS
 
 """
 Regenerate the golden capture. Run this deliberately -- never to make a

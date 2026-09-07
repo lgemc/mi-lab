@@ -252,7 +252,7 @@ class EdgeBackbone(Backbone):
     to load and a file of 1.4e9 ones would not be one.
 
     Generation runs through the ordinary cached path. That is a measured claim
-    rather than an assumption: `tests/edges.py` checks that greedy decoding
+    rather than an assumption: `tests/model/edges.py` checks that greedy decoding
     with a KV cache produces the same tokens as an uncached loop under a
     non-trivial mask, because the hooks capture per-forward activations and
     incremental decoding hands them one position at a time. If that receipt

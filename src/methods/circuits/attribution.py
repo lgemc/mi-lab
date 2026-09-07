@@ -15,7 +15,7 @@ them. The disagreement is the finding rather than a bug in either.
 `residual` is the receipt. Every write into the stream, summed and pushed
 through the frozen unembedding, has to land on the logit difference the model
 actually produced; on a model whose layout the adapter understands it is
-numerically zero, and `tests/circuits.py` holds it to 1e-6. A decomposition
+numerically zero, and `tests/methods/circuits.py` holds it to 1e-6. A decomposition
 that does not add up is one where a component's write is being read at the
 wrong site, which produces plausible numbers and a wrong ranking.
 

@@ -18,7 +18,7 @@ in a single device-to-host transfer, drops the open edges -- (1 - 1) * live is
 a provable no-op and was most of the work at serving density -- and reduces the
 rest with one stack().sum(), so a destination costs about three kernel launches
 instead of three per edge. Two implementations of one equation is two chances
-to be wrong, which is why tests/edges.py checks them against each other.
+to be wrong, which is why tests/model/edges.py checks them against each other.
 
 A common pipe could be: edges | edge_gate | prune
 """

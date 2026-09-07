@@ -6,7 +6,7 @@ import torch
 from src.core.config import ConfigError, Position, load_config
 from src.model.adapter import BACKENDS, load_adapter
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 """
 Adapter tests need a real checkpoint, so they load GPT-2 small once for the
@@ -18,7 +18,7 @@ you cannot first rule out that your own capture code changed. Four frozen
 prompts, two layers, compared against a stored tensor.
 """
 
-GOLDEN = Path(__file__).parent / "stubs" / "gpt2-small-capture.pt"
+GOLDEN = Path(__file__).resolve().parents[1] / "stubs" / "gpt2-small-capture.pt"
 GOLDEN_PROMPTS = [
     "The capital of France is",
     "The Eiffel Tower stands in",

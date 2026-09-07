@@ -28,7 +28,7 @@ from src.methods.knockout.ablate import (
     translate,
 )
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 TEXTS = ["Spanish: hola\nEnglish: hello\n\nSpanish: gato\nEnglish:", "Spanish: perro\nEnglish:"]
 

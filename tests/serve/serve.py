@@ -29,7 +29,7 @@ from src.methods.sheaves.gateable import gateable
 from src.methods.sheaves.mask import MASK_FILE, pack
 from src.model.adapter import require_circuits
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 try:
     from fastapi.testclient import TestClient
@@ -490,7 +490,7 @@ class TestPooledApp(unittest.TestCase):
 
     Driven with a fake builder: what is under test here is the routing and the
     busy-marking, not the loading, and the loading has its own module
-    (`tests/pool.py`). The claim that matters is the one the GPU cares about --
+    (`tests/serve/pool.py`). The claim that matters is the one the GPU cares about --
     an in-flight generation is never swept.
     """
 

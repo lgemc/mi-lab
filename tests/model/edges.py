@@ -16,7 +16,7 @@ from src.data.tasks import build_task
 from src.model.adapter import require_circuits
 from src.model.backends.transformers.layout import _attention_norm
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 DESTINATION = 5
 

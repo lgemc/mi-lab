@@ -12,7 +12,7 @@ import torch
 
 from src.model.passes import attention_of, forward_batches, hooked, module_owning, token_strings
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 
 class TestOnline(TestCase):

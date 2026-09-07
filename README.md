@@ -356,11 +356,12 @@ templated sentiment is largely a bag-of-words task.
 ## Tests
 
 ```bash
-python -m unittest tests.config tests.dataset tests.prompts tests.torchdata
-python -m unittest tests.adapter          # downloads GPT-2 small
+python -m unittest tests.core.config tests.data.dataset tests.data.prompts tests.data.torchdata
+python -m unittest tests.model.adapter          # downloads GPT-2 small
 ```
 
-`tests.adapter` includes the golden capture: four frozen prompts through
+`tests/` mirrors the package layout of `src/`, one directory per package.
+`tests.model.adapter` includes the golden capture: four frozen prompts through
 GPT-2 small, compared against a stored tensor. It exists so that when you ask
 whether quantization changed a model's internals, you can rule out that your
 own capture code changed instead.

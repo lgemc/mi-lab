@@ -14,7 +14,7 @@ from src.methods.circuits.search import discover
 from src.methods.common.errors import CircuitError
 from src.model.adapter import require_circuits
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 
 class FaithfulnessTestCase(TestCase):

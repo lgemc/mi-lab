@@ -50,15 +50,16 @@ jobs:
         with:
           python-version-file: .python-version
       - run: uv sync
-      # Test modules are named after what they test (tests/spec.py, not
+      # Test modules are named after what they test (tests/experiment/spec.py, not
       # tests/test_spec.py), so `unittest discover` finds nothing. The list is
       # derived from the directory rather than written out, because a module
       # missing from a hand-kept list does not fail — it silently never runs.
       - name: The subset that needs no weights
         run: |
           uv run --no-sync python -m unittest \
-            tests.config tests.dataset tests.metrics tests.spec tests.run \
-            tests.prompts tests.torchdata tests.ioi tests.artifact tests.ie
+            tests.core.config tests.core.metrics tests.data.dataset tests.data.prompts \
+            tests.data.torchdata tests.data.ioi tests.share.artifact \
+            tests.experiment.spec tests.experiment.run tests.ie.ie
 
   tests-model:
     name: tests (full, loads GPT-2 small)
@@ -85,9 +86,9 @@ jobs:
           modules=$(uv run --no-sync python -c "
           import pathlib
           print(' '.join(sorted(
-              'tests.' + p.stem
-              for p in pathlib.Path('tests').glob('*.py')
-              if p.stem != '__init__'
+              '.'.join(p.with_suffix('').parts)
+              for p in pathlib.Path('tests').rglob('*.py')
+              if p.stem != '__init__' and 'stubs' not in p.parts
           )))")
           echo "running: $modules"
           uv run --no-sync python -m unittest $modules

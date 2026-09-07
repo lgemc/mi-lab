@@ -22,7 +22,7 @@ from src.methods.sheaves.training import load_bearing, prune
 from src.model.adapter import require_circuits
 from src.telemetry.journal import Journal, read_metrics
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 
 class TestGates(TestCase):
@@ -444,7 +444,7 @@ class TestEdges(TestCase):
 class TestEdgeGradient(TestCase):
     """The receipt the forward tests could not give.
 
-    `tests/discovery.py` checks head_gradients against a finite difference
+    `tests/methods/discovery.py` checks head_gradients against a finite difference
     because a gradient taken at the wrong site produces a plausible wrong
     ranking. The same trap caught the edge gate: all-open reproduced the model
     exactly and all-shut destroyed it, both passing, while the gradient was 54x

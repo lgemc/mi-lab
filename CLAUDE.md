@@ -19,33 +19,42 @@ uv run python -m src.app --multirun model=gpt2-small,pythia-70m   # Hydra sweeps
 Everything under `src/` is a namespace package except the three directories that need an
 `__init__.py` to run code on import: `src/cli/commands/viz/` holds its Typer app there,
 `src/model/backends/transformers/` composes its adapter and registers the backend there, and
-`src/serve/` carries a docstring. Test modules are named after the module they test
-(`tests/spec.py`, not `tests/test_spec.py`), so **`unittest discover` does not work**. Name the
-modules explicitly:
+`src/serve/` carries a docstring. `tests/` mirrors that layout one level deep — a directory per
+package row of the table below, with `methods/` flat inside it and `tests/stubs/` holding what
+more than one of them shares. Test modules are named after the module they test
+(`tests/experiment/spec.py`, not `tests/test_spec.py`), so **`unittest discover` does not work**.
+Name the modules explicitly:
 
 ```bash
 # everything: 690 tests, ~120s (the online half needs GPT-2 small; 26 more want `--extra serve`)
-uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
-    tests.results tests.components tests.cost tests.quality tests.pipeline \
-    tests.translation_study tests.ie tests.probing tests.runner tests.adapter tests.circuits \
-    tests.discovery tests.comparison tests.faithfulness tests.edges tests.sheaves \
-    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes tests.serve \
-    tests.units tests.wiring tests.pool
+uv run python -m unittest tests.core.config tests.core.metrics \
+    tests.data.dataset tests.data.prompts tests.data.torchdata tests.data.ioi tests.data.tasks \
+    tests.model.adapter tests.model.passes tests.model.edges \
+    tests.telemetry.journal tests.telemetry.observe tests.telemetry.results \
+    tests.methods.components tests.methods.probing tests.methods.circuits \
+    tests.methods.comparison tests.methods.discovery tests.methods.faithfulness \
+    tests.methods.wiring tests.methods.knockout tests.methods.cost tests.methods.quality \
+    tests.methods.neurons tests.methods.gates tests.methods.sheaves tests.methods.units \
+    tests.share.artifact tests.serve.serve tests.serve.pool \
+    tests.experiment.spec tests.experiment.run tests.experiment.runner \
+    tests.experiment.pipeline tests.experiment.translation_study tests.ie.ie
 
 # offline subset: 433 tests, no checkpoint needed, seconds
-uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
-    tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
-    tests.results tests.components tests.cost tests.quality tests.pipeline \
-    tests.translation_study tests.telemetry tests.wiring tests.pool
+uv run python -m unittest tests.core.config tests.core.metrics \
+    tests.data.dataset tests.data.prompts tests.data.torchdata tests.data.ioi tests.data.tasks \
+    tests.telemetry.journal tests.telemetry.observe tests.telemetry.results \
+    tests.methods.components tests.methods.cost tests.methods.quality tests.methods.wiring \
+    tests.share.artifact tests.serve.pool \
+    tests.experiment.spec tests.experiment.run tests.experiment.pipeline \
+    tests.experiment.translation_study
 
 # one module / class / method
-uv run python -m unittest tests.spec
-uv run python -m unittest tests.spec.TestComposition -v
-uv run python -m unittest tests.spec.TestSpecHash.test_output_paths_do_not_change_it
+uv run python -m unittest tests.experiment.spec
+uv run python -m unittest tests.experiment.spec.TestComposition -v
+uv run python -m unittest tests.experiment.spec.TestSpecHash.test_output_paths_do_not_change_it
 ```
 
-`tests/adapter.py` holds the **golden capture**: four frozen prompts through GPT-2 small compared
+`tests/model/adapter.py` holds the **golden capture**: four frozen prompts through GPT-2 small compared
 against `tests/stubs/gpt2-small-capture.pt` at 1e-3. It exists so that "did quantization change the
 model?" can be asked without first suspecting the capture code. Regenerate it only deliberately —
 never to make a failing test pass:
@@ -62,15 +71,15 @@ handlers turns a failure into "gpt2-small is not available" — so the suite rep
 GPU as a machine with no checkpoint and passed with a third of its tests skipped. `shared_adapter`
 re-raises an OOM rather than disguising it, for that reason.
 
-`tests/adapter.py::test_chunking_does_not_change_the_result` asserts a *relative* drift, not an
+`tests/model/adapter.py::test_chunking_does_not_change_the_result` asserts a *relative* drift, not an
 absolute tolerance: bit-exactness across batch shapes is a CPU-only property, because cuBLAS picks
 its kernel by shape and a batch of 3 reduces in a different order than a batch of 64 (~5e-7
-relative, which is float32 noise). A real chunking bug shows up there at relative order 1. `tests/discovery.py` holds the second receipt after the golden capture:
+relative, which is float32 noise). A real chunking bug shows up there at relative order 1. `tests/methods/discovery.py` holds the second receipt after the golden capture:
 `head_gradients` is checked against a finite difference -- perturb one head's output and the change
 in the logit difference has to be the one the gradient predicted -- because everything `eap` reports
 is that inner product, and a gradient taken at the wrong site produces a plausible wrong ranking.
 
-`tests/config.py::TestNoHardcodedModelFacts` greps every file under `src/` for `768`, `1600`,
+`tests/core/config.py::TestNoHardcodedModelFacts` greps every file under `src/` for `768`, `1600`,
 `2048`, `4096`, `5120`. It reads raw text, so **a size named in a docstring or comment fails it too** —
 if prose needs to talk about widths, say "hundreds of dimensions" rather than the number.
 
@@ -201,7 +210,7 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   graph, and which edges exist), `edge_patch` and `edge_gate` (the two interventions on one edge).
   The mixins share no state beyond what `AdapterBase` holds and define no method twice, so their
   order in the class statement decides nothing. Outside the package, `__init__.py` is the only
-  entry anything imports — except `tests/edges.py`, which reaches into `layout` for the norm it
+  entry anything imports — except `tests/model/edges.py`, which reaches into `layout` for the norm it
   registers its own hook on.
 - `experiment/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
   (`probe_sweep`, `probe_train`, `ioi_circuit`, `circuit_comparison`). Adding an experiment type is a
@@ -323,7 +332,7 @@ The split, by the question each module answers:
   an English noun" and lost the lookup, with every one of those weights chosen alone. A unit gate
   closes a unit with one parameter rather than by the coincidence of its 500,000 weight gates
   agreeing — which only holds if closing the unit reaches *every* tensor it touches, so
-  `tests/units.py` pins the bindings to the layouts GPT-2 and Qwen3 actually use (a head whose
+  `tests/methods/units.py` pins the bindings to the layouts GPT-2 and Qwen3 actually use (a head whose
   q/k/v are closed but whose output rows are open is not a closed head, and a density counted on
   the weight gates alone would not notice). `--attribute BATCHES` warm-starts the unit logits.
 - `serve/` — the circuits over HTTP, and the one thing in the repo meant to run for days.
@@ -346,7 +355,7 @@ The split, by the question each module answers:
   to run what it detects. A folder pruned against another config is listed *with its reason*
   rather than dropped, and folders nothing claims are reported in `/circuits` under `skipped`.
   Generation goes through the ordinary cached path for both kinds; that `edge_gate` is cache-safe
-  is a measured claim (`tests/edges.py::test_the_gate_survives_a_kv_cache`), not an assumption, and
+  is a measured claim (`tests/model/edges.py::test_the_gate_survives_a_kv_cache`), not an assumption, and
   if it ever fails `EdgeBackbone` has to force `use_cache=False` and pay O(n²).
   **`edge_gate` has two implementations of one equation, chosen by `torch.is_grad_enabled()`.**
   Training accumulates `(1 - g) * live` one edge at a time because every gate needs a node in the
@@ -355,7 +364,7 @@ The split, by the question each module answers:
   provable no-op and was 26% of the work at this density — and reduces the rest with one
   `stack().sum()`, so a destination costs ~3 kernel launches instead of ~3 per edge. That is
   13.1x the full model down to 2.8x on the 1.7B, with generations token-identical.
-  `tests/edges.py::test_both_paths_through_the_gate_agree` is the receipt: two implementations of
+  `tests/model/edges.py::test_both_paths_through_the_gate_agree` is the receipt: two implementations of
   one equation is two chances to be wrong. The costs have opposite shapes and it matters when
   choosing a kind — a weight circuit pays once per request to multiply the mask in and then decodes
   at *exactly* full-model speed, an edge circuit pays nothing up front and pays on every token. One lock across a
@@ -377,7 +386,7 @@ The split, by the question each module answers:
   `with pool.use(name) as circuits:` leaves `circuits` bound after the block, which pins the
   checkpoint forever); and `/health` reports what is resident against what is merely configured,
   because a first request that pays a model load is slow for a reason. A pool of one behaves like
-  the old always-resident server. `tests/pool.py` drives all of it with an injected loader, so it
+  the old always-resident server. `tests/serve/pool.py` drives all of it with an injected loader, so it
   runs in milliseconds and loads nothing.
   `examples.py` ships held-out prompts per dataset, read at request time from under the mount the
   way the circuits are — a generation server with an empty box asks its first visitor to write a
@@ -393,7 +402,7 @@ The split, by the question each module answers:
   `/infer` returns the prompts it built alongside the outputs, because a caller who cannot see the
   prompt cannot tell a bad circuit from a badly framed question. Optional extra:
   `uv sync --extra serve`; `scripts/serve.py` is the entrypoint and the `Dockerfile` the image,
-  deployed from `~/m/projects/k8s/mi-lab` (`tests/serve.py`).
+  deployed from `~/m/projects/k8s/mi-lab` (`tests/serve/serve.py`).
 - `data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
   head so a pair is never both, and `counterfactual_prompts` keep the form and drop the task.
 - `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`
@@ -560,7 +569,7 @@ get quietly wrong are all guarded:
 - **The decomposition is checked, not assumed.** `Decomposition.remainder` and
   `Attribution.residual` are the receipts: every write into the residual stream, summed and pushed
   through the frozen unembedding, has to land on the logit difference the model actually produced.
-  Both are asserted in `tests/circuits.py` and both are ~1e-6 on GPT-2 small.
+  Both are asserted in `tests/methods/circuits.py` and both are ~1e-6 on GPT-2 small.
 - **The final norm is frozen, and that is the approximation.** A component's write becomes logits
   by dividing by the scale the *complete* residual stream produced. `_normalizer` decides whether
   the norm centres by asking the module (LayerNorm is invariant to adding a constant to every
@@ -737,7 +746,7 @@ computed; `ie` is where what was computed is navigated.
   ran" to the numbers.
 - `session.py` — **the checkpoint is loaded lazily and that is the point.** Runs and artifacts
   are readable with no torch and no weights, so the explorer opens instantly on them; only a
-  view with `needs_model = True` pays. `tests/ie.py` drives the no-model path with a session
+  view with `needs_model = True` pays. `tests/ie/ie.py` drives the no-model path with a session
   that raises if anything asks for an adapter, because the way this breaks is one view quietly
   reaching for `session.adapter()`.
 
@@ -752,7 +761,7 @@ Four things that are easy to get wrong here, all of which were:
 - **`on_show` focuses the table, so it runs after the mount** (`call_after_refresh`). Focusing an
   unmounted widget quietly does nothing, and the result is a keyboard that ignores you.
 - **A key in `View.hints` must be in `View.keys`.** The footer advertised `<n>` and `<t>` on the
-  artifacts view for a while with nothing behind them; `tests/ie.py` presses the keys it claims.
+  artifacts view for a while with nothing behind them; `tests/ie/ie.py` presses the keys it claims.
 
 And note `capture(layers=None)` means *the config's probe layer*, not every layer — the
 activations view names all of them explicitly, and asking for "the activations" without doing so

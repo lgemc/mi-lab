@@ -37,7 +37,7 @@ class RunnerTestCase(TestCase):
     def setUpClass(cls):
         # the shared adapter rather than a fresh one: the runner builds its own
         # adapters anyway, and this only asks whether the checkpoint is reachable
-        from .stubs.model import shared_adapter
+        from ..stubs.model import shared_adapter
 
         if shared_adapter() is None:
             raise SkipTest("gpt2-small is not available; run once with network access")

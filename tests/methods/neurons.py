@@ -25,7 +25,7 @@ from src.methods.knockout.neurons import (
     trace,
 )
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 
 def planted() -> torch.Tensor:

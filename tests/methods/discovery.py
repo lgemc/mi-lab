@@ -7,7 +7,7 @@ from src.data.tasks import build_task
 from src.methods.circuits.techniques import TECHNIQUES, DiscoveryError, rank, technique_names
 from src.model.adapter import require_circuits
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 """
 Discovery tests need a real checkpoint and skip loudly without one.

@@ -227,7 +227,7 @@ class TestTracking(TestCase):
         config = load_tracking("mlflow")
         self.assertTrue(config.enabled)
         self.assertTrue(config.uri.startswith("https://"))
-        raw = (Path(__file__).resolve().parents[1] / "configs" / "tracking"
+        raw = (Path(__file__).resolve().parents[2] / "configs" / "tracking"
                / "mlflow.yaml").read_text().lower()
         for leak in ("password", "secret", "token", "api_key"):
             self.assertNotIn(f"{leak}:", raw, f"the committed config carries a {leak}")

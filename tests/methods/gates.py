@@ -33,7 +33,7 @@ from src.methods.sheaves.mask import (
     unpack,
 )
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 
 def mask(*shape, open_share: float) -> torch.Tensor:

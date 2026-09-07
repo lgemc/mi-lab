@@ -13,7 +13,7 @@ from src.methods.common.errors import CircuitError
 from src.methods.common.span import baselines
 from src.model.adapter import require_circuits
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 """
 Circuit tests need a real checkpoint and skip loudly without one.

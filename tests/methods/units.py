@@ -20,7 +20,7 @@ from src.methods.sheaves.training import prune
 from src.methods.sheaves.units import Units, bindings, init_from, rank_logits, unit_scores
 from src.telemetry.journal import Journal, read_metrics
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 
 class TestRanking(TestCase):
