@@ -158,3 +158,56 @@ class TestPackageLayering(TestCase):
         for importer, imported, path in self._imports():
             if importer == "core":
                 self.fail(f"{path} imports '{imported}'; core is what everything else rests on")
+
+class TestMethodsLayering(TestCase):
+    """`methods` has an order of its own, and the same argument applies to it
+
+    Four method packages over one shared foundation. `common` is what they all
+    need and what needs none of them -- the error tree, the component
+    vocabulary, the task span, the intervention contract -- and the four sit
+    side by side above it and never reach across.
+
+    The shape this replaces is the reason to check it: `CircuitError` used to
+    live in `circuits.py`, so `cost`, `knockout`, `neurons`, `components`,
+    `gates` and `sheaves` each imported the largest module in the package to
+    get a class with no behaviour in it. That is invisible in a flat directory
+    and obvious the moment the directory has an order, which is most of what
+    the split buys.
+    """
+
+    METHODS = ("probing", "circuits", "sheaves", "knockout")
+    FOUNDATION = "common"
+
+    def _crossings(self):
+        """Every (importer package, imported package, path) inside src/methods"""
+        known = {*self.METHODS, self.FOUNDATION}
+        for path in Path("src/methods").rglob("*.py"):
+            own = path.parts[2]
+            if own not in known:
+                continue
+            # a module at src/methods/pkg/mod.py reaches a sibling package with '..'
+            for target in re.findall(r"from \.\.([a-z_]+)[. ]", path.read_text()):
+                if target in known and target != own:
+                    yield own, target, str(path)
+
+    def test_the_foundation_imports_none_of_the_methods(self):
+        """`common` is the bottom, so nothing above it may be underneath it"""
+        for importer, imported, path in self._crossings():
+            if importer == self.FOUNDATION:
+                self.fail(f"{path} imports '{imported}'; common is what the methods rest on")
+
+    def test_no_method_package_imports_another(self):
+        """A module that cannot find a home without crossing is a module doing two jobs"""
+        for _, imported, path in self._crossings():
+            with self.subTest(path=path, imports=imported):
+                self.assertEqual(
+                    self.FOUNDATION, imported,
+                    f"{path} imports '{imported}'; the method packages are siblings and share "
+                    f"only '{self.FOUNDATION}'",
+                )
+
+    def test_every_method_package_is_actually_there(self):
+        """A rule over a list of names is only a rule while the names exist"""
+        for package in (*self.METHODS, self.FOUNDATION):
+            with self.subTest(package=package):
+                self.assertTrue(Path("src/methods", package).is_dir())

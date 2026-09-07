@@ -1,14 +1,12 @@
 from unittest import TestCase
 
 from src.data.tasks import build_task
-from src.methods.circuits import CircuitError, ablate, behaviour, completeness
-from src.methods.comparison import (
-    compare_techniques,
-    consistency,
-    discover_across,
-    specificity,
-)
-from src.methods.discovery import rank
+from src.methods.circuits.ablation import ablate
+from src.methods.circuits.comparison import compare_techniques, consistency, discover_across, specificity
+from src.methods.circuits.techniques import rank
+from src.methods.circuits.verify import completeness
+from src.methods.common.errors import CircuitError
+from src.methods.common.span import behaviour
 from src.model.adapter import require_circuits
 from src.share import storage
 from src.share.converters.comparison import from_comparison

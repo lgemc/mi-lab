@@ -31,7 +31,8 @@ src/core/           the two things nothing else can be built without
   metrics.py        AUC, accuracy, logit difference, and what a thing cost to run
 src/model/
   adapter.py        how to hook it; the ModelAdapter contract and backend registry
-  backends/         one module per implementation; transformers.py is the only one
+  backends/         one entry per implementation; transformers/ is the only one
+  backends/transformers/  the HuggingFace backend, one file per question it answers
 src/data/
   dataset.py        prompts with binary labels, split without leaking
   prompts.py        the plain-text dataset format: parse it, write it, check it
@@ -39,11 +40,15 @@ src/data/
   ioi.py            the Indirect Object Identification task, as balanced clean/corrupted data
   tasks.py          the task registry: what every circuit measurement needs a task to be
 src/methods/
-  probing.py        linear probes as self-contained, saveable artifacts
-  steering.py       the steering sweep: effect against fluency, with a random control
-  circuits.py       the circuit study: attribution, patching, discovery and four checks
-  discovery.py      the techniques for finding a circuit, as a registry: the thing under test
-  comparison.py     do the techniques agree, is it the same circuit twice, is it about the task
+  common/           what every measurement shares: the refusal tree, the component
+                    vocabulary, the clean behaviour and the span a corruption opened
+  probing/          linear probes as saveable artifacts, and the steering sweep over them
+  circuits/         the circuit study, one file per half and per question that follows:
+                    attribution, patching, ablation, search, verify, techniques,
+                    comparison, faithfulness, roles, wiring
+  knockout/         whole components taken out of a generation, what that costs, and
+                    how the sentences that come back are scored
+  sheaves/          DiscoGP gate training, the trained mask, and the units over it
 src/share/
   artifact.py       the shareable form of a result: a JSON card plus one safetensors file
   sharing.py        converters between what this lab measures and that format
@@ -130,7 +135,7 @@ From Python the same objects are one import away:
 ```python
 from src.model.adapter import load_adapter
 from src.data.dataset import synthetic
-from src.methods.probing import train_probe, evaluate
+from src.methods.probing.probe import train_probe, evaluate
 
 adapter = load_adapter("gpt2-small")
 train, test = synthetic(200).split(test_frac=0.3)
@@ -239,7 +244,7 @@ in the file.
 ```python
 from src.model.adapter import load_adapter
 from src.data.prompts import load_prompts
-from src.methods.probing import evaluate, train_probe
+from src.methods.probing.probe import evaluate, train_probe
 from src.data.torchdata import ActivationDataset, capture_dataset
 
 adapter = load_adapter("gpt2-small")

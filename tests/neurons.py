@@ -11,7 +11,7 @@ from unittest import TestCase
 
 import torch
 
-from src.methods.neurons import (
+from src.methods.knockout.neurons import (
     NeuronError,
     concentration,
     contrast,

@@ -15,8 +15,9 @@ from unittest import TestCase
 import torch
 
 from src.data.tasks import build_task
-from src.methods.sheaves import gateable, prune
-from src.methods.units import Units, bindings, init_from, rank_logits, unit_scores
+from src.methods.sheaves.gateable import gateable
+from src.methods.sheaves.training import prune
+from src.methods.sheaves.units import Units, bindings, init_from, rank_logits, unit_scores
 from src.telemetry.journal import Journal, read_metrics
 
 from .stubs.model import shared_adapter

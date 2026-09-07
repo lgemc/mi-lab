@@ -8,14 +8,7 @@ the tolerance it claims; and the on-disk report has to read back through
 
 from unittest import TestCase
 
-from src.methods.cost import (
-    MATCH_TOLERANCE,
-    CostError,
-    CostModel,
-    Dimensions,
-    matched_draw,
-    report,
-)
+from src.methods.knockout.cost import MATCH_TOLERANCE, CostError, CostModel, Dimensions, matched_draw, report
 
 # small enough to check by hand: 4 layers of 2 heads, d_model 8, d_head 4, d_ff 16
 TINY = Dimensions(hf_name="none/tiny", d_model=8, n_layers=4, n_heads=2, n_kv_heads=2, d_head=4, d_ff=16)

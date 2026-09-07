@@ -6,7 +6,7 @@ from unittest import TestCase
 import torch
 
 from src.core.config import ModelConfig
-from src.methods.probing import LinearProbe
+from src.methods.probing.probe import LinearProbe
 from src.share import storage
 from src.share.converters.activations import from_activations
 from src.share.converters.probe import from_probe, to_probe
@@ -347,7 +347,7 @@ class TestProbeArtifacts(TestCase):
 class TestOtherKinds(TestCase):
     def test_a_steering_vector_carries_its_sweep(self):
         """A direction without the curve that found its ceiling is untestable"""
-        from src.methods.steering import SteeringPoint
+        from src.methods.probing.steering import SteeringPoint
 
         points = [SteeringPoint(strength=value, effect=value, fluency=1.0 - value / 4) for value in (0.0, 1.0, 2.0)]
         artifact = from_steering(

@@ -25,8 +25,8 @@ from pathlib import Path
 
 import torch
 
-from src.methods.gates import MASK_FILE, pack
-from src.methods.sheaves import gateable
+from src.methods.sheaves.gateable import gateable
+from src.methods.sheaves.mask import MASK_FILE, pack
 from src.model.adapter import require_circuits
 
 from .stubs.model import shared_adapter

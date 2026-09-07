@@ -10,7 +10,7 @@ is what ablating "everything else" actually touches.
 from unittest import TestCase
 
 from src.core.config import ModelConfig
-from src.methods.components import (
+from src.methods.common.components import (
     CANDIDATE_BAND,
     ComponentError,
     atomic_components,

@@ -14,7 +14,8 @@ from unittest import TestCase
 
 import torch
 
-from src.methods.gates import (
+from src.methods.sheaves.gateable import gateable
+from src.methods.sheaves.mask import (
     GateError,
     budget,
     by_layer,
@@ -31,7 +32,6 @@ from src.methods.gates import (
     summary,
     unpack,
 )
-from src.methods.sheaves import gateable
 
 from .stubs.model import shared_adapter
 

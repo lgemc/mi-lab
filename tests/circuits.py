@@ -5,14 +5,12 @@ import torch
 from src.core.config import ConfigError, Position
 from src.core.metrics import logit_difference
 from src.data.ioi import build_ioi
-from src.methods.circuits import (
-    Circuit,
-    CircuitError,
-    baselines,
-    direct_logit_attribution,
-    patch_heads,
-    verify,
-)
+from src.methods.circuits.attribution import direct_logit_attribution
+from src.methods.circuits.patching import patch_heads
+from src.methods.circuits.search import Circuit
+from src.methods.circuits.verify import verify
+from src.methods.common.errors import CircuitError
+from src.methods.common.span import baselines
 from src.model.adapter import require_circuits
 
 from .stubs.model import shared_adapter

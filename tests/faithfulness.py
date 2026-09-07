@@ -9,14 +9,10 @@ what that paper measured and the numbers it produces mean something else.
 from unittest import TestCase
 
 from src.data.tasks import build_task
-from src.methods.circuits import CircuitError, discover, require_circuits
-from src.methods.faithfulness import (
-    AGGREGATIONS,
-    Methodology,
-    measure,
-    report,
-    sensitivity,
-)
+from src.methods.circuits.faithfulness import AGGREGATIONS, Methodology, measure, report, sensitivity
+from src.methods.circuits.search import discover
+from src.methods.common.errors import CircuitError
+from src.model.adapter import require_circuits
 
 from .stubs.model import shared_adapter
 

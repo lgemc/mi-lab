@@ -17,7 +17,7 @@ from unittest import TestCase
 from src.core.config import ModelConfig
 from src.data.translation import EvalSplit
 from src.experiment import translation_study as study
-from src.methods.cost import CostModel
+from src.methods.knockout.cost import CostModel
 from src.telemetry.results import ENV_ROOT
 
 

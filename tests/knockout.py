@@ -16,7 +16,7 @@ from unittest import TestCase
 
 import torch
 
-from src.methods.knockout import (
+from src.methods.knockout.ablate import (
     KnockoutError,
     Means,
     ablate,

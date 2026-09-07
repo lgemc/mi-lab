@@ -16,25 +16,28 @@ uv run python -m src.app --multirun model=gpt2-small,pythia-70m   # Hydra sweeps
 
 ### Tests
 
-Everything under `src/` is a namespace package except `src/cli/commands/viz/`, which needs an
-`__init__.py` to hold its Typer app. Test modules are named after the module they test
+Everything under `src/` is a namespace package except the three directories that need an
+`__init__.py` to run code on import: `src/cli/commands/viz/` holds its Typer app there,
+`src/model/backends/transformers/` composes its adapter and registers the backend there, and
+`src/serve/` carries a docstring. Test modules are named after the module they test
 (`tests/spec.py`, not `tests/test_spec.py`), so **`unittest discover` does not work**. Name the
 modules explicitly:
 
 ```bash
-# everything: 602 tests, ~90s on a CPU and ~60s on a GPU (the online half needs GPT-2 small)
+# everything: 690 tests, ~120s (the online half needs GPT-2 small; 26 more want `--extra serve`)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
     tests.results tests.components tests.cost tests.quality tests.pipeline \
     tests.translation_study tests.ie tests.probing tests.runner tests.adapter tests.circuits \
     tests.discovery tests.comparison tests.faithfulness tests.edges tests.sheaves \
-    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes tests.serve
+    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes tests.serve \
+    tests.units tests.wiring tests.pool
 
-# offline subset: 374 tests, no checkpoint needed, seconds
+# offline subset: 433 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
     tests.results tests.components tests.cost tests.quality tests.pipeline \
-    tests.translation_study
+    tests.translation_study tests.telemetry tests.wiring tests.pool
 
 # one module / class / method
 uv run python -m unittest tests.spec
@@ -101,14 +104,13 @@ telemetry   journal, tracking, observe, results      imports nothing
 model       adapter, passes, backends/               -> core
 data        dataset, prompts, torchdata, ioi, tasks, -> core
             translation
-methods     probing, steering, circuits,             -> core, model, data, telemetry
-            discovery, comparison, sheaves,
-            components, knockout, cost, quality,
-            neurons, gates
+methods     common/, circuits/, probing/,            -> core, model, data, telemetry
+            knockout/, sheaves/                          (common/ imports nothing above it)
 share       schema/, storage, converters/      -> core, data, methods
-serve       backbones, circuits, app             -> data, methods (optional extra `serve`)
+serve       backbones, circuits, models,         -> data, methods (optional extra `serve`)
+            examples, app
 experiment  spec, run, runner, pipeline,       -> core, model, data, methods, share
-            translation_study
+            sheaf, translation_study
 viz                                            -> core
 cli                                            -> everything
 ie          app, session, stack, view, views/  -> everything, and nothing imports it
@@ -126,8 +128,19 @@ see **Watching a run** below.
 `core` is small on purpose. It holds the two things with no dependencies of their own that every
 other package needs — what a model is, and how a number is scored — and nothing else earns a place
 there. In particular `metrics` sits below `methods` rather than inside it, because `data/ioi.py`
-scores a logit difference while `methods/circuits.py` builds on `data/ioi.py`; putting metrics in
+scores a logit difference while `methods/circuits/` builds on `data/ioi.py`; putting metrics in
 `methods` would make `data` and `methods` import each other.
+
+`methods` is five packages rather than fifteen modules, and the row above is a dependency order of
+its own: `common/` is the bottom (`errors` the refusal tree, `components` the component vocabulary,
+`span` the clean behaviour and the corruption span every causal number is a fraction of,
+`intervention` the put-it-in-and-take-it-out contract), and `circuits/`, `probing/`, `knockout/` and
+`sheaves/` sit on it without importing each other. Inside `circuits/` the order is
+`attribution`/`patching`/`ablation`/`roles` → `search` → `verify`/`techniques` → `comparison`.
+The names moved but the import paths are the only thing that changed: `methods/gates.py` is
+`methods/sheaves/mask.py`, `methods/discovery.py` is `methods/circuits/techniques.py`,
+`methods/knockout.py` is `methods/knockout/ablate.py`, and `methods/circuits.py` and
+`methods/sheaves.py` are the two that became packages.
 
 ### Two config layers, and the difference matters
 
@@ -169,14 +182,27 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   reads and `patch` writes, and keeps the graph rather than detaching there: cutting it would delete
   every path an earlier head has to the answer through this layer's attention, leaving a gradient
   that looks fine and answers a different question.
-- `model/backends/` — one module per implementation. `transformers.py` is the only one;
+- `model/backends/` — one entry per implementation. `transformers/` is the only one;
   `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not implemented, and
-  adding it is a new file here rather than an edit to `adapter.py`. All architecture knowledge is
-  quarantined in `_blocks`, `_attention_projection`, `_mlp` and `_final_norm` — four lookup lists;
-  teaching the backend a new model family is editing those and nothing else.
+  adding it is a new module here rather than an edit to `adapter.py`. All architecture knowledge is
+  quarantined in `transformers/layout.py` — `_blocks`, `_attention_projection`, `_mlp`,
+  `_attention_norm`, `_mlp_norm` and `_final_norm`, six lookup lists; teaching the backend a new
+  model family is editing those and nothing else.
   `adapter.py` imports this package **at the bottom of the file**, which is the one import in the
   repo whose position is load-bearing: registration has to happen when `adapter` is imported, and
   the backend imports the protocols above it, so anywhere else is a cycle.
+- `model/backends/transformers/` — one backend, one file per question it answers, assembled in
+  `__init__.py` as one mixin per file over `base.py`. The split is the two sites the backend
+  addresses, taken apart: `layout` (where the sites are), `positions` (which token is the real one
+  under padding), `base` (state and the plumbing more than one file needs), `capture` (the residual
+  stream, read and steered), `outputs` (tokens, logits, continuations), `heads` (patterns, head
+  outputs, gradients), `patching` (another run's activations written where capture reads),
+  `decompose` (the final token split into the writes that built it), `graph` (the stream as a
+  graph, and which edges exist), `edge_patch` and `edge_gate` (the two interventions on one edge).
+  The mixins share no state beyond what `AdapterBase` holds and define no method twice, so their
+  order in the class statement decides nothing. Outside the package, `__init__.py` is the only
+  entry anything imports — except `tests/edges.py`, which reaches into `layout` for the norm it
+  registers its own hook on.
 - `experiment/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
   (`probe_sweep`, `probe_train`, `ioi_circuit`, `circuit_comparison`). Adding an experiment type is a
   registration, not an edit to `ExperimentSpec` or the runner body — `ioi_circuit` shares none of the
@@ -197,7 +223,7 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   there rather than a special case inside the format; `share/loaders.py` is the one door for
   reading a probe from either form. See `docs/artifact-format.md` for the prose,
   `docs/rfcs/0001-mia-format.md` for the field-by-field spec, drawn in `docs/sharing/`.
-- `methods/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
+- `methods/probing/steering.py` — `strength_sweep` is the steering experiment: one curve, not one generation
   at one strength. It measures *effect* (the probe's score on the steered continuation) against
   *fluency* (share of non-repeated words), because those two moving together is what "the ceiling"
   means. `random_control` is the check that makes the rest mean anything — a random vector of the
@@ -208,12 +234,16 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
 - `data/ioi.py` — the Indirect Object Identification task (Wang et al., 2023) as data: one frame per
   dataset, single-token names, the two name orders balanced, and clean/corrupted pairs under either
   the `abc` corruption (replace the repeated name) or `swap` (exchange the two roles).
-- `methods/circuits.py` — the circuit study itself, asked twice. `direct_logit_attribution` is the
-  correlational half (exact, one forward pass, blind to everything but the direct path);
-  `patch_heads` / `patch_residual` are the causal half (one forward pass per site). `discover`
-  grows a circuit greedily and `verify` checks it three ways. **The two halves disagree and the
-  disagreement is the finding** — on GPT-2 small the negative name movers write hard against the
-  answer and patching says the model needs them.
+- `methods/circuits/` — the circuit study itself, asked twice, one file per half and per question
+  that follows. `attribution.py` is the correlational half (exact, one forward pass, blind to
+  everything but the direct path); `patching.py` and `ablation.py` are the causal half from its two
+  sides (restore into a corrupted run, or take away from a clean one), one forward pass per site.
+  `search.py` grows a circuit greedily, `verify.py` checks it four ways, `techniques.py` is the
+  registry that scores every head by any of them, `comparison.py` asks which technique to believe,
+  `faithfulness.py` measures the surface rather than a number, `roles.py` is the one module about
+  IOI in particular, and `wiring.py` reduces an edge circuit to its structural claim. **The two
+  halves disagree and the disagreement is the finding** — on GPT-2 small the negative name movers
+  write hard against the answer and patching says the model needs them.
 
 ### The translation study, and where its machinery lives
 
@@ -238,24 +268,24 @@ The split, by the question each module answers:
   `no_grad` and yields ids and mask *after* each pass, the moment a hook has filled what it was
   pointed at; `hooked` removes handles even when the body raises; `attention_of` finds the
   attention module by which module owns the projection rather than by a name.
-- `methods/components.py` — the vocabulary `mlp:L`, `heads:L`, `head:L:H` and the set algebra
+- `methods/common/components.py` — the vocabulary `mlp:L`, `heads:L`, `head:L:H` and the set algebra
   over it. `CANDIDATE_BAND` is a pair of depth fractions (invariant 1) resolved on the loaded
   model: `(0.75, 1.0)` is layers 27–35 on 36 layers and 9–11 on 12, where the `range(27, 36)` it
   replaced was silently bound to one checkpoint.
-- `methods/knockout.py` — mean ablation of whole components on a *generation*. `Means` carries
+- `methods/knockout/ablate.py` — mean ablation of whole components on a *generation*. `Means` carries
   the model's geometry and `check` refuses another checkpoint; `cached_means` slices a superset
   capture rather than re-capturing; `ablate` replaces a head's write at the attention output
   projection input and an MLP's at its output, under hooks removed on exit.
-- `methods/cost.py` — MACs per head and per MLP read off the checkpoint config with no weights
+- `methods/knockout/cost.py` — MACs per head and per MLP read off the checkpoint config with no weights
   loaded, and `matched_draw`: a random control matched to the discovered set **by cost, not by
   count**, since one MLP is worth dozens of heads.
-- `methods/quality.py` — BLEU, chrF, COMET, the paired bootstrap with FDR over the systems
+- `methods/knockout/quality.py` — BLEU, chrF, COMET, the paired bootstrap with FDR over the systems
   screened, split-half `agreement`, and `survival_frontier`, whose rule is that one lucky seed
   does not raise the ceiling.
-- `methods/neurons.py` — the Tang et al. activation contrast: neurons read at the input to the
+- `methods/knockout/neurons.py` — the Tang et al. activation contrast: neurons read at the input to the
   MLP down projection (the one honest "neuron"), a two-sigma `flag`, and a per-token `trace`
   that decodes from the padded batch so position `i` is the token printed at `i`.
-- `methods/gates.py` — a trained weight mask after training: `circuit_loaded` multiplies it into
+- `methods/sheaves/mask.py` — a trained weight mask after training: `circuit_loaded` multiplies it into
   the weights and restores them **exactly**, `per_component` reduces it to the component
   vocabulary (GPT-2's `c_proj` is filed by branch), `budget` prices a band in memory before the
   model loads. The circuit is the *sign* of the gate logits and nothing else — everything here
@@ -264,7 +294,7 @@ The split, by the question each module answers:
   the logits only with `--save-gates`; `circuit_path`/`load_circuit` read either, and every
   function accepts a bool mask in place of logits. Both files are gitignored; the mask is the one
   to copy off the box.
-- `methods/sheaves.py` — DiscoGP gate training, and three things learned on the 1.7B that the
+- `methods/sheaves/training.py` — DiscoGP gate training, and three things learned on the 1.7B that the
   flags encode. `--faith nll` trains against the full model's **argmax** token, which on a frame
   like `The Spanish word X means` is ` "` (274 of 300 pool words) — every run on it collapsed to
   emitting quotes at 95–98% density while faith read ~0. Use `--faith kl` (the paper evaluates
@@ -282,6 +312,20 @@ The split, by the question each module answers:
   on both GPT-2 IOI and the 1.7B the overshooting run produced the better circuit — density
   was not the variable. `--faith gold` is nll against the task's answer rather than the full
   model's argmax: not the paper's faithfulness, but the quantity the probes score.
+  The package around it is one file per question: `gateable.py` (which weights carry a gate, and
+  why norms and embeddings do not — a gated embedding deletes tokens rather than computation),
+  `gate.py` (the Gumbel-sigmoid itself, its schedules and the pins), `forward.py` (`logit_pairs`,
+  the one masked forward pass every loss term goes through, masked via `torch.func.functional_call`
+  rather than by writing into the frozen parameters), and `units.py`.
+- `methods/sheaves/units.py` — a gate on the block, the head and the neuron *over* the gates on the
+  weights (Haider et al., COLM 2026, 2512.10903), reached by `--granular`. A weight gate is the
+  finest thing a mask can remove and the least constrained: the 1.7B translation masks kept "emit
+  an English noun" and lost the lookup, with every one of those weights chosen alone. A unit gate
+  closes a unit with one parameter rather than by the coincidence of its 500,000 weight gates
+  agreeing — which only holds if closing the unit reaches *every* tensor it touches, so
+  `tests/units.py` pins the bindings to the layouts GPT-2 and Qwen3 actually use (a head whose
+  q/k/v are closed but whose output rows are open is not a closed head, and a density counted on
+  the weight gates alone would not notice). `--attribute BATCHES` warm-starts the unit logits.
 - `serve/` — the circuits over HTTP, and the one thing in the repo meant to run for days.
   **The model is the deployment and the circuits are data**: `Circuits` loads one config, keeps a
   clean copy of every gateable tensor, and otherwise holds nothing. Scanning reads each folder's
@@ -290,7 +334,7 @@ The split, by the question each module answers:
   a circuit is writing a folder under the mount, not rebuilding an image, and the startup probe no
   longer waits out a minute of unpacking masks nobody asked for. Residency is capped
   (`--max-resident`, default 8, LRU); evicting is free because the folder is still there.
-  `backbones.py` is a registry the way `model/adapter.py` and `methods/discovery.py` are:
+  `backbones.py` is a registry the way `model/adapter.py` and `methods/circuits/techniques.py` are:
   `@backbone` registers a class, `claims()` decides from the artifact whether it can run a folder,
   and `applied()` is a context manager that puts the circuit into the model and takes it out again.
   Two are registered. `WeightBackbone` multiplies a mask into the parameters and copies them back
@@ -322,10 +366,28 @@ The split, by the question each module answers:
   narrowed — pinning the server to one task meant an IOI circuit and a translation circuit on the
   same checkpoint needed two deployments of the same 7 GiB of weights. A directory holding two
   tasks names them `dir:ioi` and `dir:translation`, and only that directory's names move.
-  `app.py` is **three** routes and a page: `/health`, `/circuits`, and one `POST /infer` that takes
-  the task as a parameter. There was a route per task (`/translate`, `/generate`) and they were the
-  same three lines around a different template; the frame now lives in `data/tasks.py` behind
-  `@register_frame`, so serving a new task is a registration there and nothing in `serve/`.
+  **The weights are neither the deployment nor the data.** `models.py` holds a `ModelPool`:
+  `--models` takes a comma-separated list of configs, a checkpoint is loaded the first time a
+  request names it, and it is dropped once it has been idle for `--idle-timeout` — so two
+  checkpoints can share one time-sliced GPU slice, because they are almost never busy at the same
+  moment. Three things it has to get right — `use` marks a model busy for
+  the length of a request so the sweeper cannot free the weights out from under a running
+  generation; dropping the last reference is *not* returning the memory, so `unload` collects and
+  empties the caching allocator and `resident_bytes` is how you check rather than assume (note that
+  `with pool.use(name) as circuits:` leaves `circuits` bound after the block, which pins the
+  checkpoint forever); and `/health` reports what is resident against what is merely configured,
+  because a first request that pays a model load is slow for a reason. A pool of one behaves like
+  the old always-resident server. `tests/pool.py` drives all of it with an injected loader, so it
+  runs in milliseconds and loads nothing.
+  `examples.py` ships held-out prompts per dataset, read at request time from under the mount the
+  way the circuits are — a generation server with an empty box asks its first visitor to write a
+  fine-tuning-shaped prompt from memory, and they will type something else and read the answer as
+  the model being bad. A malformed file is reported by name rather than dropped.
+  `app.py` is **five** routes and a page: `/health`, `/circuits`, `/models`, `/examples`, and one
+  `POST /infer` that takes the task as a parameter. There was a route per task (`/translate`,
+  `/generate`) and they were the same three lines around a different template; the frame now lives
+  in `data/tasks.py` behind `@register_frame`, so serving a new task is a registration there and
+  nothing in `serve/`.
   `task` omitted means the inputs are already prompts, which is what tasks with no single-slot
   frame need — IOI's prompts are whole sentences, `greater_than` wants a noun *and* a year — and
   `/infer` returns the prompts it built alongside the outputs, because a caller who cannot see the
@@ -337,6 +399,15 @@ The split, by the question each module answers:
 - `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`
   names every file by key, the band, the pre-registered ceiling and saturation rule, `Corpus`,
   and `score_set`, so a BLEU in one script is the same BLEU in the next.
+- `experiment/sheaf.py` — a pruning run as a *file*. Every sheaf in `results/` was launched from a
+  shell line, which is enough to rerun and not enough to read: the parameters that decide a result
+  lived in argv, so two runs differing in one flag looked like two unrelated commands. `SheafSpec`
+  is that record, composed by Hydra from `sheaves/run/*.yaml` the way `ExperimentSpec` is, and
+  `uv run python -m scripts.sheaf run=qwen-ioi-kl run.steps=500` overrides one key without editing
+  it. `scripts/sheaf_prune.py` keeps its flags and both doors build the same record and call the
+  same `run`, so a parameter that does not exist in the schema cannot be passed to either — and
+  unknown keys are errors (invariant 3), because a misspelled `warmpup:` is a line that silently
+  did nothing on a two-hour run.
 - `experiment/pipeline.py` — a phase as steps in a Hydra config under `pipelines/`, run as
   **subprocesses** (each script reads its environment at import time) with the results root and
   corpus size exported once; completed steps are recorded in `pipeline-state.json` and skipped.
@@ -507,7 +578,7 @@ get quietly wrong are all guarded:
 ### Comparing techniques
 
 The field's question moved from "what is the circuit for this task" to "which way of finding one
-should anybody believe", so the technique became the thing under test. `methods/discovery.py` is a
+should anybody believe", so the technique became the thing under test. `methods/circuits/techniques.py` is a
 registry of techniques the way `model/adapter.py` is a registry of backends: each scores every head
 on a task, and adding one is a `@register_technique` rather than an edit to anything that measures.
 
@@ -521,6 +592,17 @@ on a task, and adding one is a `@register_technique` rather than an edit to anyt
   a different question. Divided by the span, so it lands in patching's units and can be subtracted
   rather than merely ranked. On GPT-2 small it reaches rho 0.99 against patching for 5 passes
   against 147, and direct attribution reaches 0.15 — that gap is the argument for both of them.
+- `eap_ig` — the same estimate with the gradient integrated along the straight line from corrupted
+  to clean (Hanna et al., 2403.17806) rather than read at one end of it, mixing the *input
+  embeddings* — the `inputs` variant, `IG_STEPS` backward passes and four forward ones. It exists
+  because a first-order expansion returns nothing where the metric has saturated: a head behind a
+  saturated softmax scores zero under `eap` and is not thereby unimportant.
+- `mask` — a per-head gate trained by gradient descent under a sparsity penalty (`MASK_STEPS`
+  forward-and-backward passes, independent of the head count), the way Edge Pruning, DiscoGP and
+  UGS do it. It is the one technique here that optimizes the *set* instead of scoring heads one at
+  a time and hoping the scores add up, which is why its units are `gate` and not a recovery — "which
+  heads together are enough" is a different question from "which head alone matters most", and a
+  redundant pair scores low under patching and is opened together here.
 - `random` — the control. Not a straw man: a model spreads a task widely enough that an arbitrary
   handful of heads recovers a real fraction of the span.
 
@@ -530,12 +612,12 @@ ranking being right and faithfulness being the wrong question to ask of it.
 
 `data/tasks.py` is the matching registry for tasks, because specificity has no meaning with one.
 `CircuitTask` is a Protocol -- clean prompts, corrupted twins, two answer ids, positions, `subset` --
-and `IOIDataset` satisfied it before the module existed. Everything in `methods/circuits.py` is typed
+and `IOIDataset` satisfied it before the module existed. Everything in `methods/circuits/` is typed
 against it now; `classify_heads` is the one exception, because it names the four attention movements
 IOI in particular is built out of. The other three tasks (`greater_than`, `induction`, `agreement`)
 are single-frame, single-token-answer, length-aligned and all above chance on GPT-2 small.
 
-`methods/comparison.py` asks the three questions finding a circuit does not answer:
+`methods/circuits/comparison.py` asks the three questions finding a circuit does not answer:
 
 - `compare_techniques` — every technique on one task at **one circuit size**, because faithfulness
   climbs with the head count and a comparison at different sizes is a comparison of sizes. Compared
@@ -708,10 +790,14 @@ data URIs, so the file survives being moved or attached. Every `viz` command tak
 - Every module opens with a docstring stating what it is *for* and which decision it encodes,
   usually ending in a `A common pipe could be: a | b | c` line. Match that when adding a module.
 - Each subsystem raises its own `ValueError` subclass (`ConfigError`, `SpecError`, `DatasetError`,
-  `ProbeError`, `MetricError`, `RunError`, `ResultsError`, `PipelineError`, `StudyError`; the
-  knockout modules subclass `CircuitError` as `ComponentError`, `KnockoutError`, `CostError`,
-  `NeuronError`, `GateError`, and `QualityError` is a `MetricError`) with a message that says
-  what to do instead.
+  `MetricError`, `RunError`, `ResultsError`, `PipelineError`, `StudyError`) with a message that
+  says what to do instead. Everything `methods` raises is written down once in
+  `methods/common/errors.py` and nowhere else: `MethodError` is the root, `CircuitError` is every
+  claim about which parts of a model do a task (`ComponentError`, `KnockoutError`, `CostError`,
+  `NeuronError`, `GateError`, `SheafError`, `DiscoveryError` under it), `ProbeError` is deliberately
+  *not* one of those, and `QualityError` hangs off `MetricError` instead. The tree lived in
+  `circuits.py` before, so six modules imported the largest module in the layer to get a name with
+  no behaviour in it.
 - A script under `scripts/` imports from `src/` and holds no shared helper of its own —
   `scripts/observe.py` and `scripts/paths.py` were the last two and are gone. If two scripts
   need the same function, it goes into the package whose question it answers, with a test.

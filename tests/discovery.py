@@ -4,7 +4,7 @@ import torch
 
 from src.core.metrics import spearman
 from src.data.tasks import build_task
-from src.methods.discovery import TECHNIQUES, DiscoveryError, rank, technique_names
+from src.methods.circuits.techniques import TECHNIQUES, DiscoveryError, rank, technique_names
 from src.model.adapter import require_circuits
 
 from .stubs.model import shared_adapter

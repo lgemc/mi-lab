@@ -10,7 +10,7 @@ replaced called 9-against-7.2 an enrichment.
 from unittest import TestCase
 
 from src.data.ioi import WANG_HEADS
-from src.methods.wiring import WiringError, against, reduce
+from src.methods.circuits.wiring import WiringError, against, reduce
 
 # a two-layer toy: embed and one head per layer, writing into attn/mlp
 EVERY = [

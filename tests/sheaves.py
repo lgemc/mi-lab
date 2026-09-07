@@ -14,18 +14,12 @@ import torch
 import torch.nn.functional as functional
 
 from src.data.tasks import build_task
-from src.methods.circuits import CircuitError, require_circuits
-from src.methods.sheaves import (
-    _chunk,
-    _split,
-    gateable,
-    gumbel_sigmoid,
-    load_bearing,
-    prune,
-    schedule,
-    span,
-    target_schedule,
-)
+from src.methods.common.errors import CircuitError
+from src.methods.sheaves.forward import chunk_rows, split_rows
+from src.methods.sheaves.gate import gumbel_sigmoid, schedule, target_schedule
+from src.methods.sheaves.gateable import gateable, span
+from src.methods.sheaves.training import load_bearing, prune
+from src.model.adapter import require_circuits
 from src.telemetry.journal import Journal, read_metrics
 
 from .stubs.model import shared_adapter
@@ -295,24 +289,24 @@ class TestChunking(TestCase):
 
     def test_the_batch_walks_the_training_rows(self):
         rows = list(range(12))
-        self.assertEqual([0, 1, 2, 3], _chunk(rows, 0, 4))
-        self.assertEqual([4, 5, 6, 7], _chunk(rows, 1, 4))
-        self.assertEqual([8, 9, 10, 11], _chunk(rows, 2, 4))
-        self.assertEqual([0, 1, 2, 3], _chunk(rows, 3, 4))
+        self.assertEqual([0, 1, 2, 3], chunk_rows(rows, 0, 4))
+        self.assertEqual([4, 5, 6, 7], chunk_rows(rows, 1, 4))
+        self.assertEqual([8, 9, 10, 11], chunk_rows(rows, 2, 4))
+        self.assertEqual([0, 1, 2, 3], chunk_rows(rows, 3, 4))
 
     def test_every_row_is_seen_within_one_pass(self):
         rows = list(range(12))
-        seen = {row for step in range(3) for row in _chunk(rows, step, 4)}
+        seen = {row for step in range(3) for row in chunk_rows(rows, step, 4)}
         self.assertEqual(set(rows), seen, "a full pass did not reach every training row")
 
     def test_a_batch_at_least_as_wide_as_the_rows_is_all_of_them(self):
-        self.assertEqual([0, 1, 2], _chunk([0, 1, 2], 7, 8))
-        self.assertEqual([0, 1, 2], _chunk([0, 1, 2], 7, 0))
+        self.assertEqual([0, 1, 2], chunk_rows([0, 1, 2], 7, 8))
+        self.assertEqual([0, 1, 2], chunk_rows([0, 1, 2], 7, 0))
 
     def test_it_wraps_rather_than_running_short(self):
         """A batch straddling the end must still be a full batch"""
-        self.assertEqual([3, 4, 0], _chunk(list(range(5)), 1, 3))
-        self.assertEqual(4, len(_chunk(list(range(6)), 1, 4)))
+        self.assertEqual([3, 4, 0], chunk_rows(list(range(5)), 1, 3))
+        self.assertEqual(4, len(chunk_rows(list(range(6)), 1, 4)))
 
 class TestLoadBearing(TestCase):
     """The check that tells a circuit apart from a band nothing needed"""
@@ -360,24 +354,24 @@ class TestSplit(TestCase):
 
     def test_no_prompt_lands_on_both_sides(self):
         prompts = ["a", "b", "c", "a", "b", "d", "a", "e"]
-        train, test = _split(prompts, 0.25)
+        train, test = split_rows(prompts, 0.25)
         self.assertEqual(set(), {prompts[row] for row in train} & {prompts[row] for row in test},
                          "a prompt appears in both the training and the held-out rows")
 
     def test_every_row_is_placed_exactly_once(self):
         prompts = ["a", "b", "c", "a", "b", "d", "a", "e"]
-        train, test = _split(prompts, 0.25)
+        train, test = split_rows(prompts, 0.25)
         self.assertEqual(list(range(len(prompts))), sorted(train + test))
 
     def test_rows_repeating_one_prompt_leave_no_holdout(self):
         """128 rows of 1 prompt is 1 prompt, and the old split called it 96/32"""
         with self.assertRaises(CircuitError):
-            _split(["same"] * 128, 0.25)
+            split_rows(["same"] * 128, 0.25)
 
     def test_the_holdout_is_taken_in_prompts_not_rows(self):
         """Four distinct prompts over many rows: the split counts the four"""
         prompts = ["a"] * 50 + ["b"] * 50 + ["c"] * 50 + ["d"] * 50
-        train, test = _split(prompts, 0.25)
+        train, test = split_rows(prompts, 0.25)
         self.assertEqual({"a", "b", "c"}, {prompts[row] for row in train})
         self.assertEqual({"d"}, {prompts[row] for row in test})
 

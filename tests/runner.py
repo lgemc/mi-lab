@@ -58,7 +58,7 @@ class TestProbeTrain(RunnerTestCase):
             self.assertEqual(run, Run.load(str(directory)))
 
     def test_the_probe_it_wrote_is_the_probe_it_claims(self):
-        from src.methods.probing import LinearProbe
+        from src.methods.probing.probe import LinearProbe
 
         with tempfile.TemporaryDirectory() as root:
             spec = _tiny(root)
