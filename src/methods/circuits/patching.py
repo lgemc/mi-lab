@@ -8,7 +8,7 @@ why attribution is worth doing first.
 
 The site is the thing to get right, and it is the same site three ways: `capture`
 reads the residual stream leaving a block and the input to the attention output
-projection, `patch` writes them, and `head_gradients` differentiates there. So
+projection, `patch` writes them, and `gradients` differentiates there. So
 writing back what was already there is exactly a no-op, and every causal number
 in this package is a difference against that no-op. A patch site that is not the
 capture site breaks the property silently -- the numbers stay plausible.
@@ -34,12 +34,13 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import torch
 
 from ...core.config import Position
+from ...core.readout import mean_score
 from ...data.tasks import CircuitTask
 from ...model.adapter import require_circuits
 from ..common.components import HeadId
 from ..common.errors import CircuitError
 from ..common.intervention import head_patch
-from ..common.span import Baselines, baselines, mean_logit_difference
+from ..common.span import Baselines, baselines
 
 
 @dataclass
@@ -93,12 +94,12 @@ def patch_residual(adapter, dataset: CircuitTask, layers: Optional[Sequence[int]
             donor = corrupted[:, row].clone()
             donor[:, position] = clean[:, row, position]
             with adapter.patch(residual={layer: donor}):
-                patched = mean_logit_difference(adapter, dataset.corrupted, reference.io, reference.subject)
+                patched = mean_score(adapter, dataset.corrupted, reference.readout)
             effects[row, position] = reference.recovery(patched)
 
     return PatchGrid(
         effects=effects,
-        tokens=dataset.token_labels(adapter),
+        tokens=dataset.labels(adapter),
         landmarks=dataset.landmarks(adapter),
         baselines=reference,
         layers=indices,
@@ -146,7 +147,7 @@ def patch_heads(adapter, dataset: CircuitTask, layers: Optional[Sequence[int]] =
     for row, layer in enumerate(indices):
         for head in range(adapter.cfg.n_heads):
             with adapter.patch(heads={layer: {head: donors[:, row, head]}}):
-                patched = mean_logit_difference(adapter, dataset.corrupted, reference.io, reference.subject)
+                patched = mean_score(adapter, dataset.corrupted, reference.readout)
             effects[row, head] = reference.recovery(patched)
     return HeadEffects(effects=effects, baselines=reference, layers=indices)
 
@@ -161,5 +162,5 @@ def restore(adapter, dataset: CircuitTask, reference: Baselines, heads: Sequence
     if not heads:
         return reference.recovery(reference.corrupted)
     with adapter.patch(heads=head_patch(heads, donors)):
-        patched = mean_logit_difference(adapter, dataset.corrupted, reference.io, reference.subject)
+        patched = mean_score(adapter, dataset.corrupted, reference.readout)
     return reference.recovery(patched)

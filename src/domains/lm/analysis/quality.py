@@ -6,6 +6,10 @@ scores over those. Three scorers and two judgements live here so that every
 script compares the same way:
 
 - `bleu` is corpus BLEU through sacrebleu, the number every table reports.
+- `TextQuality` is the same two metrics as a `Score`, so a knockout can be
+  driven through the ordinary measurement path. It declares itself
+  non-differentiable, which is what makes a gradient technique refuse it by
+  name instead of failing on a missing grad_fn minutes into a run.
 - `comet` is COMET-22, the learned metric, loaded once and scored many times
   because the checkpoint is heavier than the numbers it produces.
 - `paired_significance` is the paired bootstrap of every system against the
@@ -25,10 +29,11 @@ shows measurement changes and not float noise.
 A common pipe could be: translate | bleu | paired_significance | agreement
 """
 
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from ...core.metrics import benjamini_hochberg
-from ..common.errors import QualityError
+from ....core.metrics import benjamini_hochberg
+from ....methods.common.errors import QualityError
 
 SIGNIFICANCE_ALPHA = 0.05
 BOOTSTRAP_RESAMPLES = 1000
@@ -65,6 +70,91 @@ def chrf(hypotheses: Sequence[str], references: Sequence[str]) -> float:
     if len(hypotheses) != len(references):
         raise QualityError(f"{len(hypotheses)} hypotheses against {len(references)} references")
     return round(sacrebleu.corpus_chrf(list(hypotheses), [list(references)]).score, 2)
+
+#: What each of the three quality scores is, written where the number is
+#: computed. A Score carries its own definition for the reason
+#: `share/schema/metric.py` refuses an empty one: a table keyed by metric name
+#: is a second opinion about what was measured, and nothing checks that it
+#: agrees with the code that produced this artifact's number.
+QUALITY_DEFINITIONS = {
+    "bleu": (
+        "sacrebleu sentence BLEU of each hypothesis against its single reference, with the corpus "
+        "score -- the number every table reports -- available from `corpus`",
+        "bleu",
+    ),
+    "chrf": (
+        "sacrebleu sentence chrF of each hypothesis against its single reference; character-level, "
+        "so a lucky n-gram does not carry it",
+        "chrf",
+    ),
+}
+
+@dataclass(frozen=True)
+class TextQuality:
+    """One of the corpus quality metrics, bound to its references, as a Score
+
+    BLEU and chrF are perfectly good scores for an ablation -- take a component
+    away and the sentences get worse -- and they have no gradient at all. That
+    is the whole reason `Score` and `Readout` are two things: under one
+    abstract score they meet the gradient techniques, and the failure without
+    `differentiable` here is a RuntimeError about a missing grad_fn several
+    minutes into a run rather than a refusal naming the readout.
+
+    `__call__` is per example because a Score is per example, and per-example
+    BLEU is *not* the corpus BLEU every table in this study reports -- corpus
+    BLEU pools n-gram counts before dividing and is not a mean of sentence
+    scores. So `corpus` is kept beside it and the two are never mixed: the
+    knockout tables go on calling `bleu()` and their numbers do not move.
+    """
+
+    metric: str
+    references: List[str]
+    differentiable = False
+
+    def __post_init__(self) -> None:
+        if self.metric not in QUALITY_DEFINITIONS:
+            raise QualityError(
+                f"unknown quality metric '{self.metric}'; known ones are {sorted(QUALITY_DEFINITIONS)}"
+            )
+        if not self.references:
+            raise QualityError("a quality score needs at least one reference to score against")
+
+    @property
+    def name(self) -> str:
+        return self.metric
+
+    @property
+    def units(self) -> str:
+        return QUALITY_DEFINITIONS[self.metric][1]
+
+    @property
+    def definition(self) -> str:
+        return QUALITY_DEFINITIONS[self.metric][0]
+
+    def __call__(self, output: Sequence[str]):
+        import torch
+        from sacrebleu.metrics import BLEU, CHRF
+
+        hypotheses = list(output)
+        if len(hypotheses) != len(self.references):
+            raise QualityError(
+                f"{len(hypotheses)} hypotheses against {len(self.references)} references; "
+                "they index the same batch"
+            )
+        scorer = BLEU(effective_order=True) if self.metric == "bleu" else CHRF()
+        return torch.tensor(
+            [scorer.sentence_score(hypothesis, [reference]).score
+             for hypothesis, reference in zip(hypotheses, self.references, strict=True)],
+            dtype=torch.float64,
+        )
+
+    def select(self, rows: slice) -> "TextQuality":
+        """The same metric over a slice of the batch, since the references index it"""
+        return TextQuality(metric=self.metric, references=list(self.references[rows]))
+
+    def corpus(self, hypotheses: Sequence[str]) -> float:
+        """The pooled corpus score, which is the number the knockout tables report"""
+        return (bleu if self.metric == "bleu" else chrf)(hypotheses, self.references)
 
 class Comet:
     """COMET-22 loaded once; `score` many times

@@ -6,9 +6,8 @@ from typing import Any, Dict, List, Optional
 
 from ..core.config import ModelConfig, load_config
 from ..data.dataset import LabeledPrompts, load_jsonl, synthetic
-from ..data.ioi import CORRUPTIONS, FRAMES
 from ..data.prompts import load_prompts
-from ..data.tasks import task_names
+from ..data.tasks import TaskError, check_options, task_names
 from ..methods.circuits.techniques import technique_names
 
 """
@@ -217,10 +216,13 @@ class ExperimentSpec:
             raise SpecError(f"unknown data.source '{self.data.source}'; known sources are {sorted(SOURCES)}")
         if self.data.source != "synthetic" and not self.data.path:
             raise SpecError(f"data.source is '{self.data.source}' but data.path is not set")
-        if self.ioi.corruption not in CORRUPTIONS:
-            raise SpecError(f"unknown ioi.corruption '{self.ioi.corruption}'; known ones are {sorted(CORRUPTIONS)}")
-        if not 0 <= self.ioi.frame < len(FRAMES):
-            raise SpecError(f"ioi.frame must be one of the {len(FRAMES)} shipped frames, got {self.ioi.frame}")
+        # what a corruption or a frame may be is the task's own fact, registered
+        # with it in domains/lm/tasks.py: a spec still fails before the model
+        # loads, and this module never learns what a corruption is
+        try:
+            check_options("ioi", corruption=self.ioi.corruption, frame=self.ioi.frame)
+        except TaskError as error:
+            raise SpecError(str(error)) from error
         if self.ioi.size < 1:
             raise SpecError(f"ioi.size must be at least one prompt pair, got {self.ioi.size}")
         if self.ioi.max_heads < 1:

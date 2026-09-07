@@ -83,6 +83,16 @@ class OutputMixin:
         ids = self.tokenizer.encode(prompt, add_special_tokens=False)
         return [self.tokenizer.decode([token]) for token in ids]
 
+    def outputs(self, inputs: Sequence[str]) -> torch.Tensor:
+        """What this model produces for these inputs, which for a decoder is its next-token logits
+
+        The CircuitAdapter name, delegating to the TokenAdapter one. A decoder's
+        `outputs` *is* logits, so this is a name and not a second
+        implementation -- the split exists so that `methods/` can ask what came
+        out without claiming it is indexed by a vocabulary.
+        """
+        return self.logits(inputs)
+
     def logits(self, prompts: Sequence[str]) -> torch.Tensor:
         """Next-token logits at each prompt's final real token, as [batch, vocab]"""
         if not prompts:

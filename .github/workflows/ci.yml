@@ -23,17 +23,20 @@ env:
 
 jobs:
   lint:
-    name: ruff
+    name: ruff + import-linter
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
       - uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
-      # Only the dev group, and not the project itself: ruff is the whole job,
-      # and installing torch to run it costs minutes for nothing.
+      # Only the dev group, and not the project itself: ruff and import-linter
+      # are the whole job, and installing torch to run them costs minutes for
+      # nothing. import-linter reads the source with an AST rather than by
+      # importing it, so it finds src/ in the checkout without the project.
       - run: uv sync --only-group dev --no-install-project
       - run: uv run --no-sync ruff check .
+      - run: uv run --no-sync lint-imports
       # `ruff format` has never been run over this repo, so `format --check`
       # would fail on every file. Formatting is deliberately not a gate here;
       # see the note in CLAUDE.md before changing that.
@@ -57,9 +60,10 @@ jobs:
       - name: The subset that needs no weights
         run: |
           uv run --no-sync python -m unittest \
-            tests.core.config tests.core.metrics tests.data.dataset tests.data.prompts \
-            tests.data.torchdata tests.data.ioi tests.share.artifact \
-            tests.experiment.spec tests.experiment.run tests.ie.ie
+            tests.core.architecture tests.core.config tests.core.metrics tests.core.readout \
+            tests.data.dataset tests.data.prompts tests.data.torchdata \
+            tests.methods.span tests.data.tasks \
+            tests.share.artifact tests.experiment.spec tests.experiment.run tests.ie.ie
 
   tests-model:
     name: tests (full, loads GPT-2 small)

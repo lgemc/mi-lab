@@ -31,10 +31,10 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Dict, List, Optional, Sequence
 
 import torch
-import torch.nn.functional as functional
 
 from ...data.tasks import CircuitTask
 from ..common.errors import SheafError
+from .faith import Faithfulness
 from .gate import gumbel_sigmoid
 
 if TYPE_CHECKING:
@@ -72,9 +72,11 @@ def logit_pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional
     """
     every = list(task.clean)
     prompts = [every[row] for row in rows]
-    io_all, subject_all = task.answers(adapter)
-    io = [io_all[row] for row in rows]
-    subject = [subject_all[row] for row in rows]
+    # The ids come off the task's readout rather than off the task, so the rule
+    # that turns two logits into a number and the ids inside it are one object.
+    score = task.readout(adapter)
+    io = [score.positive[row] for row in rows]
+    subject = [score.negative[row] for row in rows]
     # Set before encoding, not after. The backend's `_encode` mutates this on the
     # shared tokenizer and leaves it "left" after any generation, and the last
     # real token is found below as `mask.sum(dim=1) - 1`, which is a pad position
@@ -142,25 +144,17 @@ def logit_pairs(adapter, task: CircuitTask, rows: Sequence[int], gates: Optional
     bad = final[index, torch.tensor(subject, device=logits.device)]
     return torch.stack([good, bad], dim=-1)
 
-def faith_term(pairs: torch.Tensor, chunk: Sequence[int], faith_kind: str,
+def faith_term(pairs: torch.Tensor, chunk: Sequence[int], faith: Faithfulness,
                reference: Optional[Dict[int, torch.Tensor]]) -> torch.Tensor:
-    """The faithfulness term of one batch, by kind"""
-    if faith_kind in ("nll", "gold"):
-        # The paper's term: -sum_i log p_m(y-hat_i | x_i), the likelihood the
-        # masked model gives the token the *full* model predicted, over the
-        # whole vocabulary. Not a choice between two candidates. "gold"
-        # is the same sum with the task's y_i in place of y-hat_i.
-        labels = torch.cat([reference[row] for row in chunk], dim=0)
-        return functional.cross_entropy(pairs, labels)
-    if faith_kind == "kl":
-        # The soft-target relative: the whole distribution rather than its
-        # argmax. The paper uses KL to *evaluate* rather than to train.
-        labels = torch.cat([reference[row] for row in chunk], dim=0)
-        return functional.kl_div(pairs.log_softmax(dim=-1), labels,
-                                 log_target=True, reduction="batchmean")
-    # the masked model should prefer the right answer
-    return functional.cross_entropy(pairs, torch.zeros(pairs.shape[0], dtype=torch.long,
-                                                       device=pairs.device))
+    """The faithfulness term of one batch, by kind
+
+    The kind is an object rather than a string, so what it measures travels
+    with the number it produces (faith.py). Which reference it wants is the
+    kind's own business: everything that compares against the full model needs
+    the row's stored label, and `pair` needs none.
+    """
+    labels = torch.cat([reference[row] for row in chunk], dim=0) if faith.whole else None
+    return faith(pairs, labels)
 
 def ranking_accuracy(pairs: torch.Tensor) -> float:
     return float((pairs[:, 0] > pairs[:, 1]).float().mean())
@@ -173,7 +167,7 @@ def first_token_accuracy(adapter, task: CircuitTask, rows: Sequence[int], chunk:
     asks the question generation actually asks. Chunked because `whole=True`
     returns a row per vocabulary entry and the 1.7B's vocabulary is 151k wide.
     """
-    io_all, _ = task.answers(adapter)
+    io_all = task.readout(adapter).positive
     right = 0
     for start in range(0, len(rows), chunk):
         block = list(rows)[start:start + chunk]
@@ -234,7 +228,7 @@ def chunk_rows(train_rows: Sequence[int], step: int, batch: int) -> List[int]:
     return [rows[(start + offset) % len(rows)] for offset in range(batch)]
 
 def attribution(adapter, task: CircuitTask, rows: Sequence[int],
-                originals: Dict[str, torch.Tensor], faith_kind: str,
+                originals: Dict[str, torch.Tensor], faith: Faithfulness,
                 reference: Optional[Dict[int, torch.Tensor]], temperature: float,
                 batch: int, batches: int) -> Dict[str, torch.Tensor]:
     """|w * dL/dw| of the faith term on the full model, summed over `batches` batches
@@ -252,8 +246,8 @@ def attribution(adapter, task: CircuitTask, rows: Sequence[int],
     for index in range(batches):
         chunk = chunk_rows(rows, index, batch)
         pairs = logit_pairs(adapter, task, chunk, None, originals, temperature, deterministic=True,
-                       whole=(faith_kind in ("kl", "nll", "gold")), weights=leaves)
-        faith_term(pairs, chunk, faith_kind, reference).backward()
+                       whole=faith.whole, weights=leaves)
+        faith_term(pairs, chunk, faith, reference).backward()
         with torch.no_grad():
             for name, leaf in leaves.items():
                 if leaf.grad is not None:

@@ -195,8 +195,9 @@ def circuit_loaded(adapter, gates: Gates) -> Iterator[None]:
 def ranking(adapter, task: CircuitTask) -> float:
     """The training objective's own metric: the share of prompts where the answer outranks the distractor"""
     prompts = list(task.clean)
-    io, subject = task.answers(adapter)
-    logits = adapter.logits(prompts)
+    score = task.readout(adapter)
+    io, subject = score.positive, score.negative
+    logits = adapter.outputs(prompts)
     right = sum(1 for row in range(len(prompts))
                 if float(logits[row, io[row]]) > float(logits[row, subject[row]]))
     return right / len(prompts)
@@ -211,7 +212,8 @@ def generation(adapter, task: CircuitTask, tokens: int) -> Dict[str, Any]:
     off the examples, because that is the one shape every task agrees on.
     """
     prompts = list(task.clean)
-    io_ids, subject_ids = task.answers(adapter)
+    score = task.readout(adapter)
+    io_ids, subject_ids = score.positive, score.negative
     answers = [adapter.tokenizer.decode([i]) for i in io_ids]
     distractors = [adapter.tokenizer.decode([i]) for i in subject_ids]
     completions = adapter.generate(prompts, max_new_tokens=tokens)

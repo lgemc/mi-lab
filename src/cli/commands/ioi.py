@@ -3,10 +3,11 @@ from typing import Optional
 
 import typer
 
-from ...data.ioi import CORRUPTIONS, FRAMES, build_ioi, evaluate
+from ...domains.lm.analysis.roles import classify_heads
+from ...domains.lm.data.ioi import CORRUPTIONS, FRAMES, build_ioi, evaluate
+from ...domains.lm.experiments import ioi_card
 from ...methods.circuits.attribution import direct_logit_attribution
 from ...methods.circuits.patching import patch_heads, patch_residual
-from ...methods.circuits.roles import classify_heads
 from ...methods.circuits.search import discover
 from ...methods.circuits.verify import verify
 from ...model.adapter import load_adapter, require_circuits
@@ -77,7 +78,7 @@ def show_dataset(
 
     landmarks = {position: name for name, position in dataset.landmarks(adapter).items()}
     typer.echo("positions:")
-    for index, token in enumerate(dataset.token_labels(adapter)):
+    for index, token in enumerate(dataset.labels(adapter)):
         marker = f"  <- {landmarks[index]}" if index in landmarks else ""
         typer.echo(f"  {index:>3}  {token!r}{marker}")
 
@@ -258,7 +259,8 @@ def circuit(
             adapter.cfg, dataset,
             direct_logit_attribution(adapter, dataset), effects, report,
             roles=measured_roles,
-            tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
+            tokens=dataset.labels(adapter), landmarks=dataset.landmarks(adapter),
+            description=ioi_card(dataset),
         )
         storage.save(artifact, str(save))
         typer.echo(f"\nwrote {save}: {artifact}")

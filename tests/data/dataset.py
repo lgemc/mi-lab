@@ -5,7 +5,13 @@ from unittest import TestCase
 
 from src.data.dataset import _SUBJECTS, DatasetError, LabeledPrompts, load_csv, load_jsonl, save_jsonl, synthetic
 from src.data.prompts import dumps, parse
-from src.data.translation import SHOTS, clean_completion, counterfactual_prompts, eval_split, translation_prompt
+from src.domains.lm.data.translation import (
+    SHOTS,
+    clean_completion,
+    counterfactual_prompts,
+    eval_split,
+    translation_prompt,
+)
 
 """
 The dataset object is small enough that the only things worth testing are the

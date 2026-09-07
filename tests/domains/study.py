@@ -15,8 +15,8 @@ from tempfile import TemporaryDirectory
 from unittest import TestCase
 
 from src.core.config import ModelConfig
-from src.data.translation import EvalSplit
-from src.experiment import translation_study as study
+from src.domains.lm import study
+from src.domains.lm.data.translation import EvalSplit
 from src.methods.knockout.cost import CostModel
 from src.telemetry.results import ENV_ROOT
 

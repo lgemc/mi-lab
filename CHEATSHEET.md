@@ -161,7 +161,7 @@ uv run python -m sacrebleu -t wmt13 -l es-en --echo src ref \
 uv run python -m scripts.build_translation_data
 ```
 
-`src/data/translation.py::load_pairs` reads a bitext back as `(spanish, english)` tuples and
+`src/domains/lm/data/translation.py::load_pairs` reads a bitext back as `(spanish, english)` tuples and
 refuses a group that is not exactly one of each. The registered `translation` *task* is a different
 thing on purpose: single-token word pairs in one frame, because patching needs aligned positions
 and two FLORES sentences never tokenize to one length.

@@ -5,7 +5,7 @@ Everything here turns on one hinge, the projection that mixes the heads back
 into the residual stream. Its input is the heads laid end to end -- n_heads
 contiguous slices of d_head -- so reading it splits the heads apart, writing it
 patches one head without reimplementing attention, and differentiating at it
-gives the gradient of the answer with respect to a head's output. Three
+gives the gradient of the readout with respect to a head's output. Three
 measurements, one site, which is what lets an activation from one run and a
 gradient from another multiply into an estimate of a patch nobody paid for.
 
@@ -13,7 +13,7 @@ Attention patterns are the exception that needs the model changed rather than
 hooked: the fast kernels never build the [query, key] matrix, so reading a
 pattern means running eager for the duration.
 
-A common pipe could be: head_outputs | head_gradients | eap
+A common pipe could be: head_outputs | gradients | eap
 """
 
 from contextlib import contextmanager
@@ -22,6 +22,7 @@ from typing import Iterator, Optional, Sequence, Tuple
 import torch
 
 from ....core.config import ConfigError
+from ....core.readout import Readout, require_readout
 from .positions import _last_real
 
 
@@ -96,16 +97,15 @@ class HeadMixin:
             chunks.append(stacked.permute(0, 1, 3, 2, 4).float().cpu())
         return torch.cat(chunks, dim=0)
 
-    def head_gradients(
+    def gradients(
         self,
-        prompts: Sequence[str],
-        positive: Sequence[int],
-        negative: Sequence[int],
+        inputs: Sequence[str],
+        readout: Readout,
         layers: Optional[Sequence[int]] = None,
         toward: Optional[Sequence[str]] = None,
         alpha: float = 1.0,
     ) -> torch.Tensor:
-        """The logit difference's gradient at each head's output, as [batch, layer, head, seq, d_head]
+        """The readout's gradient at each head's output, as [batch, layer, head, seq, d_head]
 
         The gradient is taken at the projection's input -- the same site
         head_outputs reads and patch writes -- so a gradient and an activation
@@ -132,13 +132,10 @@ class HeadMixin:
         Circuit tasks in this repo are length-aligned by construction, and this
         raises rather than broadcasts when one is not.
         """
+        prompts = list(inputs)
         if not prompts:
-            raise ConfigError("head_gradients needs at least one prompt")
-        if len(positive) != len(prompts) or len(negative) != len(prompts):
-            raise ConfigError(
-                f"{len(prompts)} prompts but {len(positive)} positive and {len(negative)} negative "
-                "token ids; they index the same batch"
-            )
+            raise ConfigError("gradients needs at least one prompt")
+        require_readout(readout, by=f"a gradient at {self.cfg.id}'s head outputs")
         layers = self._resolve_layers(layers if layers is not None else range(self.cfg.n_layers))
         input_ids, attention_mask = self._encode(prompts, padding_side="right")
         donor_ids = None
@@ -156,7 +153,6 @@ class HeadMixin:
                 )
             if not torch.equal(attention_mask, donor_mask):
                 raise ConfigError("the two prompt sets pad differently, so their positions do not correspond")
-        answers = torch.tensor(list(positive)), torch.tensor(list(negative))
         embed = self.model.get_input_embeddings()
 
         chunks = []
@@ -173,28 +169,26 @@ class HeadMixin:
                     mixed = here + alpha * (there - here)
                     output = self.model(inputs_embeds=mixed, attention_mask=mask, use_cache=False).logits
                 final = _last_real(output, mask)
-                batch = torch.arange(final.shape[0], device=final.device)
                 # summed over the batch because each row's answer depends on its own
-                # activations alone, so one backward pass carries every row's gradient
-                objective = (
-                    final[batch, answers[0][rows].to(final.device)]
-                    - final[batch, answers[1][rows].to(final.device)]
-                ).sum()
+                # activations alone, so one backward pass carries every row's gradient.
+                # The readout is narrowed to this chunk's rows first: it holds one
+                # answer per row of the whole batch, and scoring a chunk against
+                # another chunk's answers is the bug `_Patch.select` exists to stop.
+                objective = readout.select(rows)(final).sum()
                 gradients = torch.autograd.grad(objective, [captured[layer] for layer in layers])
             stacked = torch.stack([self._split_heads(gradient) for gradient in gradients], dim=1)
             chunks.append(stacked.permute(0, 1, 3, 2, 4).float().cpu())
         return torch.cat(chunks, dim=0)
 
-    def head_gate_gradients(
+    def gate_gradients(
         self,
-        prompts: Sequence[str],
+        inputs: Sequence[str],
         donor: torch.Tensor,
-        positive: Sequence[int],
-        negative: Sequence[int],
+        readout: Readout,
         gates: torch.Tensor,
         layers: Optional[Sequence[int]] = None,
     ) -> Tuple[float, torch.Tensor]:
-        """The logit difference with each head interpolated toward a donor by its gate, and d(that)/d(gates)
+        """The readout with each head interpolated toward a donor by its gate, and d(that)/d(gates)
 
         Each head's output becomes donor + gate * (clean - donor), so a gate of
         1 leaves the head alone and a gate of 0 ablates it to the donor exactly.
@@ -218,8 +212,10 @@ class HeadMixin:
         over batch and position: a gate is a statement about a head, not about
         a head at a token.
         """
+        prompts = list(inputs)
         if not prompts:
-            raise ConfigError("head_gate_gradients needs at least one prompt")
+            raise ConfigError("gate_gradients needs at least one prompt")
+        require_readout(readout, by=f"a gate gradient at {self.cfg.id}'s head outputs")
         layers = self._resolve_layers(layers if layers is not None else range(self.cfg.n_layers))
         if gates.shape != (len(layers), self.cfg.n_heads):
             raise ConfigError(
@@ -232,7 +228,6 @@ class HeadMixin:
                 "the activation a gate of zero falls back to, so it has to cover the same sites"
             )
         input_ids, attention_mask = self._encode(prompts, padding_side="right")
-        answers = torch.tensor(list(positive)), torch.tensor(list(negative))
         live = gates.detach().clone().requires_grad_(True)
 
         total = 0.0
@@ -262,11 +257,7 @@ class HeadMixin:
                 with torch.enable_grad():
                     output = self.model(ids, attention_mask=mask, use_cache=False).logits
                     final = _last_real(output, mask)
-                    batch = torch.arange(final.shape[0], device=final.device)
-                    objective = (
-                        final[batch, answers[0][rows].to(final.device)]
-                        - final[batch, answers[1][rows].to(final.device)]
-                    ).sum()
+                    objective = readout.select(rows)(final).sum()
                     (gradient,) = torch.autograd.grad(objective, [live])
             finally:
                 for handle in handles:

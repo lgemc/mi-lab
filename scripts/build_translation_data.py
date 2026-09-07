@@ -16,7 +16,7 @@ from pathlib import Path
 import pandas as pd
 
 from src.data.prompts import save_prompts
-from src.data.translation import default_pairs_path, pairs_to_prompts
+from src.domains.lm.data.translation import default_pairs_path, pairs_to_prompts
 
 EXTERNAL = Path("data/external/translation")
 WMT_SUBSET = 500

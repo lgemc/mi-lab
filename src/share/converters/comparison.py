@@ -40,7 +40,6 @@ different claims, and they must not be byte-identical.
 A common pipe could be: compare_techniques | specificity | from_comparison | save
 """
 
-LOGIT_DIFFERENCE = "logit_difference"
 REQUIRES = {"attribution": "head_attribution", "patching": "head_effects"}
 
 def _task_card(task: CircuitTask, tokens: Sequence[str], landmarks: Dict[str, int]) -> Dict:
@@ -136,7 +135,7 @@ def from_comparison(
 
     anchor = found[reference]
     baselines = anchor.ranking.baselines or found["patching"].ranking.baselines
-    span = Span(metric=LOGIT_DIFFERENCE, clean=baselines.clean, corrupted=baselines.corrupted)
+    span = Span(metric=baselines.readout.name, clean=baselines.clean, corrupted=baselines.corrupted)
     layers = found["patching"].ranking.layers
     positions = list(tokens if tokens is not None else [])
     marks = dict(landmarks if landmarks is not None else {})

@@ -31,8 +31,8 @@ import time
 from typing import Any, Dict, List
 
 from scripts.phase1b_ablation import PROGRESS, load_progress, migrate_baseline, save_progress
-from src.experiment import translation_study as study
-from src.methods.knockout.quality import Comet
+from src.domains.lm import study
+from src.domains.lm.analysis.quality import Comet
 from src.telemetry.observe import Budget, banner, duration, log, set_log_file
 from src.telemetry.results import guard, load_state
 

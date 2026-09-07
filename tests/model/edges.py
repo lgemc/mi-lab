@@ -13,8 +13,8 @@ import torch
 
 from src.core.config import ConfigError
 from src.data.tasks import build_task
+from src.domains.lm.backend.layout import _attention_norm
 from src.model.adapter import require_circuits
-from src.model.backends.transformers.layout import _attention_norm
 
 from ..stubs.model import shared_adapter
 

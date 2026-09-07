@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 import torch
 
-from ..core.metrics import logit_difference
+from ..readout import LogitDifference, logit_difference_readout
 
 """
 Indirect Object Identification is the task the circuit literature is built on
@@ -93,6 +93,7 @@ class IOIDataset:
     frame: str
     corruption: str
     name: str = "ioi"
+    modality: str = "text"
 
     def __len__(self) -> int:
         return len(self.examples)
@@ -128,7 +129,7 @@ class IOIDataset:
             raise IOIError(f"examples {outside} are outside the {len(self.examples)} this dataset holds")
         return IOIDataset(
             examples=[self.examples[index] for index in chosen],
-            frame=self.frame, corruption=self.corruption, name=self.name,
+            frame=self.frame, corruption=self.corruption, name=self.name, modality=self.modality,
         )
 
     def answers(self, adapter) -> Tuple[List[int], List[int]]:
@@ -142,7 +143,20 @@ class IOIDataset:
         subject = [adapter.single_token(" " + example.subject) for example in self.examples]
         return io, subject
 
-    def token_labels(self, adapter) -> List[str]:
+    def readout(self, adapter) -> LogitDifference:
+        """The logit difference between the indirect object and the subject, on the model in hand
+
+        The scoring rule and the ids inside it are read off this adapter for
+        one reason, stated in `answers` above and true of the whole rule: they
+        are the tokenizer's opinion, and a dataset carrying one would be
+        silently wrong the moment it met another model.
+        """
+        if not self.examples:
+            raise IOIError("an empty dataset has nothing to score")
+        io, subject = self.answers(adapter)
+        return logit_difference_readout(adapter, io, subject)
+
+    def labels(self, adapter) -> List[str]:
         """The first prompt as token strings, for labelling a position axis"""
         if not self.examples:
             raise IOIError("an empty dataset has no positions to label")
@@ -298,9 +312,9 @@ def evaluate(adapter, dataset: IOIDataset) -> IOIReport:
     """
     if not len(dataset):
         raise IOIError("an empty dataset has nothing to evaluate")
-    io, subject = dataset.answers(adapter)
-    clean = logit_difference(adapter.logits(dataset.clean), io, subject)
-    corrupted = logit_difference(adapter.logits(dataset.corrupted), io, subject)
+    score = dataset.readout(adapter)
+    clean = score(adapter.outputs(dataset.clean))
+    corrupted = score(adapter.outputs(dataset.corrupted))
     return IOIReport(
         n=len(dataset),
         accuracy=float((clean > 0).to(torch.float64).mean()),

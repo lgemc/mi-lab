@@ -3,6 +3,7 @@ from unittest import TestCase
 import torch
 
 from src.core.metrics import spearman
+from src.core.readout import ReadoutError
 from src.data.tasks import build_task
 from src.methods.circuits.techniques import TECHNIQUES, DiscoveryError, rank, technique_names
 from src.model.adapter import require_circuits
@@ -12,12 +13,16 @@ from ..stubs.model import shared_adapter
 """
 Discovery tests need a real checkpoint and skip loudly without one.
 
-Two of them are load-bearing. The first is that head_gradients is the gradient
-of the thing it says it is: perturb one head's output by a small amount, and
-the change in the logit difference has to be the one the gradient predicted.
-Everything eap reports is that inner product, so a gradient taken at the wrong
-site, or with the graph cut, produces a ranking that looks entirely plausible
-and is answering a different question.
+Two of them are load-bearing. The first is that `gradients` is the gradient of
+the thing it says it is: perturb one head's output by a small amount, and the
+change in the readout has to be the one the gradient predicted. Everything eap
+reports is that inner product, so a gradient taken at the wrong site, or with
+the graph cut, produces a ranking that looks entirely plausible and is
+answering a different question.
+
+Its expected values did not move when the measurement contract landed, and
+that is the point of it being here: `gradients(readout=)` differentiates the
+same quantity `head_gradients` did, and this is what says so.
 
 The second is that eap tracks patching. It is the claim the technique is used
 for -- one backward pass standing in for a forward pass per head -- and it is
@@ -31,6 +36,19 @@ question they are being asked here is whether they work, not what GPT-2 does.
 """
 
 LAYERS = [8, 9, 10, 11]
+
+class _NoGradient:
+    """A well-formed Score that says it has no gradient, standing in for BLEU"""
+    name = "no-gradient"
+    units = "share"
+    definition = "a score with no derivative, for testing the refusal"
+    differentiable = False
+
+    def __call__(self, output):
+        return output.sum(dim=-1).detach()
+
+    def select(self, rows):
+        return self
 
 class DiscoveryTestCase(TestCase):
     adapter = None
@@ -47,27 +65,29 @@ class DiscoveryTestCase(TestCase):
 class TestGradients(DiscoveryTestCase):
     def test_the_gradient_predicts_what_a_small_change_does(self):
         """The receipt on every number eap reports"""
-        io, subject = self.task.answers(self.adapter)
-        gradients = self.adapter.head_gradients(self.task.clean, io, subject, layers=[9])
+        score = self.task.readout(self.adapter)
+        gradients = self.adapter.gradients(self.task.clean, score, layers=[9])
         donors = self.adapter.head_outputs(self.task.clean, layers=[9])
 
-        before = float(
-            (self.adapter.logits(self.task.clean)[range(len(io)), io]
-             - self.adapter.logits(self.task.clean)[range(len(io)), subject]).mean()
-        )
+        before = float(score(self.adapter.outputs(self.task.clean)).mean())
         step = torch.zeros_like(donors[:, 0, 9])
         step[..., :] = 1e-3
         with self.adapter.patch(heads={9: {9: donors[:, 0, 9] + step}}):
-            after = float(
-                (self.adapter.logits(self.task.clean)[range(len(io)), io]
-                 - self.adapter.logits(self.task.clean)[range(len(io)), subject]).mean()
-            )
+            after = float(score(self.adapter.outputs(self.task.clean)).mean())
         predicted = float((gradients[:, 0, 9] * step).sum(dim=(1, 2)).mean())
         self.assertAlmostEqual(after - before, predicted, delta=max(2e-2 * abs(predicted), 1e-3))
 
     def test_the_ids_have_to_index_the_prompts(self):
+        """A readout built for one batch, scored against another, is refused rather than broadcast"""
+        score = self.task.readout(self.adapter)
         with self.assertRaises(ValueError):
-            self.adapter.head_gradients(self.task.clean, [0], [1], layers=[9])
+            self.adapter.gradients(self.task.clean, score.select(slice(0, 1)), layers=[9])
+
+    def test_a_gradient_refuses_a_readout_it_cannot_differentiate(self):
+        """The refusal lands before the forward pass, not as a missing grad_fn inside it"""
+        with self.assertRaises(ReadoutError) as raised:
+            self.adapter.gradients(self.task.clean, _NoGradient(), layers=[9])
+        self.assertIn("gradient through the score", str(raised.exception))
 
 class TestTechniques(DiscoveryTestCase):
     def test_every_technique_scores_every_head_it_swept(self):

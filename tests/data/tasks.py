@@ -4,19 +4,12 @@ from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest import TestCase, mock
 
+from src.core.readout import require_score
 from src.data.dataset import DatasetError
-from src.data.ioi import build_ioi
-from src.data.tasks import (
-    TASKS,
-    TaskError,
-    TaskExample,
-    TemplateTask,
-    build_task,
-    require_alignment,
-    single_tokens,
-    task_names,
-)
-from src.data.translation import WORD_FRAME, WORD_PAIRS, load_word_pairs, pool_path
+from src.data.tasks import TASKS, TaskError, build_task, check_options, task_names
+from src.domains.lm.data.ioi import build_ioi
+from src.domains.lm.data.translation import WORD_FRAME, WORD_PAIRS, load_word_pairs, pool_path
+from src.domains.lm.tasks import TaskExample, TemplateTask, require_alignment, single_tokens
 
 """
 The task registry is tested against a stub tokenizer, for the same reason IOI
@@ -56,6 +49,40 @@ class TestRegistry(TestCase):
         for name in task_names():
             with self.subTest(task=name):
                 self.assertEqual(len(build_task(name, self.adapter, size=6, seed=0)), 6)
+
+    def test_every_registered_task_builds_a_readout(self):
+        """The third thing CircuitTask promises, checked for all five
+
+        A task that hands back prompts and twins and no scoring rule is a task
+        every technique will fail on halfway through, with a message about an
+        attribute rather than about the task.
+        """
+        for name in task_names():
+            with self.subTest(task=name):
+                task = build_task(name, self.adapter, size=6, seed=0)
+                score = require_score(task.readout(self.adapter))
+                self.assertEqual(6, len(score.positive))
+                self.assertEqual(6, len(score.negative))
+                self.assertTrue(score.differentiable)
+                self.assertEqual("stub", score.model)
+
+    def test_every_registered_task_says_what_its_inputs_are(self):
+        """`modality` is what a reader of the .mia card has to tell two artifacts apart by"""
+        for name in task_names():
+            with self.subTest(task=name):
+                self.assertEqual("text", build_task(name, self.adapter, size=2, seed=0).modality)
+
+    def test_an_option_the_task_cannot_build_is_refused_before_the_model_loads(self):
+        """The values live with the task; experiment/spec.py checks against them without knowing them"""
+        check_options("ioi", corruption="abc")
+        with self.assertRaises(TaskError) as caught:
+            check_options("ioi", corruption="mangle")
+        self.assertIn("ioi.corruption", str(caught.exception))
+        with self.assertRaises(TaskError):
+            check_options("ioi", frame=99)
+        # an option nothing registered is not this table's business
+        check_options("ioi", size=1000)
+        check_options("induction", length=3)
 
     def test_every_task_is_reproducible_from_its_seed(self):
         for name in task_names():
@@ -221,7 +248,7 @@ class TestWordPool(TestCase):
     def _write(self, config, body):
         path = self.root / f"es-en-words-{config}.tsv"
         path.write_text(body, encoding="utf-8")
-        patch = mock.patch("src.data.translation.pool_path", lambda name: self.root /
+        patch = mock.patch("src.domains.lm.data.translation.pool_path", lambda name: self.root /
                            f"es-en-words-{name}.tsv")
         patch.start()
         self.addCleanup(patch.stop)

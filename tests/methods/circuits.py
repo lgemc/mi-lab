@@ -4,7 +4,7 @@ import torch
 
 from src.core.config import ConfigError, Position
 from src.core.metrics import logit_difference
-from src.data.ioi import build_ioi
+from src.domains.lm.data.ioi import build_ioi
 from src.methods.circuits.attribution import direct_logit_attribution
 from src.methods.circuits.patching import patch_heads
 from src.methods.circuits.search import Circuit

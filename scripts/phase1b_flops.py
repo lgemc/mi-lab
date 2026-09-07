@@ -16,7 +16,7 @@ import sys
 from dataclasses import replace
 
 from src.core.config import load_config
-from src.experiment import translation_study as study
+from src.domains.lm import study
 from src.methods.common import components as comp
 from src.methods.knockout.cost import CostModel, read_dimensions, report
 from src.telemetry.results import guard

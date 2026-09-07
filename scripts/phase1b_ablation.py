@@ -40,10 +40,11 @@ import sys
 import time
 from typing import Any, Dict
 
-from src.experiment import translation_study as study
+from src.domains.lm import study
+from src.domains.lm.analysis.generate import preview, translate
+from src.domains.lm.analysis.quality import BOOTSTRAP_RESAMPLES, SIGNIFICANCE_ALPHA, Comet, bleu, paired_significance
 from src.methods.common import components as comp
-from src.methods.knockout.ablate import Means, ablate, preview, translate
-from src.methods.knockout.quality import BOOTSTRAP_RESAMPLES, SIGNIFICANCE_ALPHA, Comet, bleu, paired_significance
+from src.methods.knockout.ablate import Means, ablate
 from src.telemetry.observe import Budget, banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, save_state
 

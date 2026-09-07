@@ -124,9 +124,15 @@ class TestPackageLayering(TestCase):
     """
 
     # viz sits above the packages that measure and below cli, which drives it, so the
-    # one order covers every package and needs no exceptions. ie is last because it is
-    # a second front end: it may reach for anything, and nothing may reach for it.
-    ORDER = ("core", "model", "data", "methods", "share", "experiment", "viz", "cli", "ie")
+    # one order covers every package and needs no exceptions. domains is above all of
+    # them and below the two front ends: a domain imports patching, patching never
+    # imports a domain. ie is last because it is a second front end: it may reach for
+    # anything, and nothing may reach for it.
+    #
+    # `.importlinter` is the stronger form of this and covers the packages the dot
+    # counting below skips. This stays because it needs nothing installed, and the two
+    # must not disagree: a package added to one belongs in the other.
+    ORDER = ("core", "model", "data", "methods", "share", "experiment", "viz", "domains", "cli", "ie")
 
     def _imports(self):
         """Every (importer, imported) package pair, read off the relative imports"""

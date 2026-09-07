@@ -14,14 +14,19 @@ Anything not here is a metric some other tool named, and the honest answer for
 it is that its definition was never recorded -- not a plausible-sounding
 sentence invented after the fact.
 
+A converter that holds the `Score` which produced a number reads the definition
+off that instead, and passes it here as `score`. This table stays where it is
+useful and is no longer where a new artifact's definition comes from.
+
 A common pipe could be: define | Metric | validate
 """
 
 # name -> (what was computed, what the number is in)
 DEFINITIONS: Dict[str, Tuple[str, str]] = {
     "faithfulness": (
-        "recovery of the clean logit difference when only these heads are restored into the "
-        "corrupted run; 1.0 is the clean baseline, 0.0 the corrupted one",
+        "recovery of the task's clean score -- the readout named by this artifact's span -- when "
+        "only these heads are restored into the corrupted run; 1.0 is the clean baseline, 0.0 the "
+        "corrupted one",
         "recovery",
     ),
     "necessity": (
@@ -35,8 +40,9 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
         "recovery",
     ),
     "attribution_remainder": (
-        "logit difference left over after summing every component's direct write through the frozen "
-        "unembedding; a receipt on the decomposition, not a result",
+        "the task's score left over after summing every component's direct write through the frozen "
+        "unembedding; a receipt on the decomposition, not a result, and quoted in the readout's own "
+        "units",
         "logits",
     ),
     "incompleteness": (
@@ -56,8 +62,8 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
         "share",
     ),
     "damage": (
-        "share of the clean logit difference lost when a set of heads is replaced by its mean over the "
-        "task's own clean prompts; a fraction of the behaviour, not of a corruption's span",
+        "share of the clean score lost when a set of heads is replaced by its mean over the task's own "
+        "clean prompts; a fraction of the behaviour, not of a corruption's span",
         "share",
     ),
     "margin": (
@@ -94,14 +100,28 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
 
 UNKNOWN = "unspecified"
 
-def describe(name: str, source: str = "") -> Tuple[str, str]:
+def describe(name: str, source: str = "", score=None) -> Tuple[str, str]:
     """The definition and unit for a metric name, or an honest admission
 
     A name this table does not know gets a definition saying so rather than a
     guess. That keeps the v0.2 gate meaningful -- the field says whether the
     quantity is pinned down, and "nobody wrote it down" is a real answer to
     that question while an invented sentence is not.
+
+    `score` is the readout that produced the number, where the caller has one.
+    A definition read off the callable that computed a number cannot drift from
+    it; a table keyed by *name* can, and nothing checks that the entry for
+    "faithfulness" describes the code that produced this artifact's
+    faithfulness -- the day `--faith` changed from nll to kl the table did not
+    move. That is the same class of bug as a `.pt` file identified by its
+    filename, which `ActivationDataset` exists to prevent.
+
+    So this table is now the fallback and not the source: it is what migrating
+    an old artifact has, since the readout that wrote it is long gone, and that
+    is what it was always genuinely good at.
     """
+    if score is not None and name == getattr(score, "name", None):
+        return (score.definition, score.units)
     if name in DEFINITIONS:
         return DEFINITIONS[name]
     trailer = f" by '{source}'" if source else ""

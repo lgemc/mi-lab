@@ -1,12 +1,11 @@
-from typing import Dict, Optional, Sequence
+from typing import Any, Dict, Optional, Sequence
 
 import torch
 
 from ...core.config import ModelConfig
-from ...data.ioi import IOIDataset
+from ...data.tasks import CircuitTask
 from ...methods.circuits.attribution import Attribution
 from ...methods.circuits.patching import HeadEffects, PatchGrid
-from ...methods.circuits.roles import HeadRoles
 from ...methods.circuits.verify import CircuitReport
 from ..definitions import describe
 from ..schema.artifact import Artifact
@@ -30,19 +29,22 @@ sharing a result and sharing a claim about one.
 A common pipe could be: discover | verify | from_circuit | save
 """
 
-LOGIT_DIFFERENCE = "logit_difference"
+#: The span's `metric` is the name of the readout the study actually ran under,
+#: read off the Baselines rather than written down here. A constant was right
+#: while there was one readout and is a second opinion the moment there are two.
 
 def from_circuit(
     cfg: ModelConfig,
-    dataset: IOIDataset,
+    dataset: CircuitTask,
     attribution: Attribution,
     effects: HeadEffects,
     report: CircuitReport,
-    roles: Optional[HeadRoles] = None,
+    roles=None,
     grid: Optional[PatchGrid] = None,
     tokens: Optional[Sequence[str]] = None,
     landmarks: Optional[Dict[str, int]] = None,
     name: Optional[str] = None,
+    description: Optional[Dict[str, Any]] = None,
 ) -> Artifact:
     """Package a finished circuit study: the graph, both halves' grids, and the span
 
@@ -52,11 +54,24 @@ def from_circuit(
     who disagrees with the threshold can redo the selection from the same
     numbers instead of taking this one on trust.
 
+    `description` is what the caller wants written on the task card beyond the
+    name and size every CircuitTask has -- IOI's frame, its corruption, the two
+    names one prompt is between. It is a parameter rather than something read
+    off the dataset because this module is the format's side of the fence and
+    the fields worth quoting are the task's: an IOI dataset has an answer and a
+    distractor, a patch-grid task would have neither, and a converter that
+    reached for `.io` would be a kernel module that knows what a name is.
+
+    `roles` is left unannotated for the same reason. It is whatever the domain's
+    role classifier produced, and all that is asked of it is `assign()` mapping
+    a head to a label, plus `weights` and `roles` for the grid.
+
     edges is empty and says so. This repository measures which heads matter,
     not which head feeds which, and an artifact that left the field out would
     read as a circuit whose connections nobody thought to record.
     """
-    span = Span(metric=LOGIT_DIFFERENCE, clean=report.baselines.clean, corrupted=report.baselines.corrupted)
+    readout = report.baselines.readout
+    span = Span(metric=readout.name, clean=report.baselines.clean, corrupted=report.baselines.corrupted)
     named = roles.assign() if roles is not None else {}
     # the prompt's token strings describe the data whether or not a position map was
     # measured over them, so they are taken from wherever they are available
@@ -91,13 +106,14 @@ def from_circuit(
     rows = torch.tensor(effects.layers, dtype=torch.long)
     tensors = {
         "head_attribution": Payload(
-            values=attribution.heads.index_select(0, rows).float(), axes=["layer", "head"], units="logits"
+            values=attribution.heads.index_select(0, rows).float(), axes=["layer", "head"],
+            units=readout.units,
         ),
         "head_effects": Payload(
             values=effects.effects.float(), axes=["layer", "head"], units="recovery"
         ),
         "mlp_attribution": Payload(
-            values=attribution.mlps.index_select(0, rows).float(), axes=["layer"], units="logits"
+            values=attribution.mlps.index_select(0, rows).float(), axes=["layer"], units=readout.units,
         ),
     }
     if roles is not None:
@@ -123,30 +139,29 @@ def from_circuit(
         site=Site.at(effects.layers, cfg.n_layers or 0, component=Component.HEAD_OUT, position=Position.ALL),
         task={
             "name": dataset.name,
-            "task": "indirect object identification",
-            "frame": dataset.frame,
-            "corruption": dataset.corruption,
+            "modality": dataset.modality,
             "n": len(dataset),
-            "balance": dataset.balance,
             "tokens": positions,
             "landmarks": marks,
-            "example": {
-                "clean": dataset.examples[0].clean,
-                "corrupted": dataset.examples[0].corrupted,
-                "answer": dataset.examples[0].io,
-                "distractor": dataset.examples[0].subject,
-            } if len(dataset) else {},
+            **(description or {}),
         },
         method="direct_logit_attribution + activation_patching, greedy search",
         metrics={
-            name: Metric(value, *describe(name))
-            for name, value in (
-                ("faithfulness", report.faithfulness),
-                ("necessity", report.necessity),
-                ("n_heads", float(len(report.circuit))),
-                ("threshold", report.circuit.threshold),
-                ("attribution_remainder", attribution.residual),
-            )
+            **{
+                name: Metric(value, *describe(name, score=readout))
+                for name, value in (
+                    ("faithfulness", report.faithfulness),
+                    ("necessity", report.necessity),
+                    ("n_heads", float(len(report.circuit))),
+                    ("threshold", report.circuit.threshold),
+                )
+            },
+            # the receipt is in whatever the readout is in, so its units come off
+            # the readout rather than off a table that was written when there was
+            # only one of them
+            "attribution_remainder": Metric(
+                attribution.residual, describe("attribution_remainder")[0], readout.units
+            ),
         },
         span=span,
         # nothing here ablates this circuit against another task, so both slots ship

@@ -33,14 +33,15 @@ from functools import cache
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from ..core.metrics import degeneracy
-from ..data.translation import EvalSplit, counterfactual_prompts, default_pairs_path, eval_split, load_pairs
-from ..methods.common import components as comp
-from ..methods.knockout.ablate import Means, ablate, cached_means, preview, translate
-from ..methods.knockout.cost import CostModel
-from ..methods.knockout.quality import bleu
-from ..telemetry.observe import gpu, log, step
-from ..telemetry.results import load_state, result, root
+from ...core.metrics import degeneracy
+from ...methods.common import components as comp
+from ...methods.knockout.ablate import Means, ablate, cached_means
+from ...methods.knockout.cost import CostModel
+from ...telemetry.observe import gpu, log, step
+from ...telemetry.results import load_state, result, root
+from .analysis.generate import preview, translate
+from .analysis.quality import bleu
+from .data.translation import EvalSplit, counterfactual_prompts, default_pairs_path, eval_split, load_pairs
 
 ENV_EVAL_SENTENCES = "MI_LAB_EVAL_SENTENCES"
 DEFAULT_EVAL_SENTENCES = 200

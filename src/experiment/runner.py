@@ -2,19 +2,12 @@ from pathlib import Path
 from typing import Callable, Dict, Optional
 
 from ..core.metrics import measure
-from ..data.ioi import build_ioi
-from ..data.ioi import evaluate as evaluate_ioi
 from ..data.tasks import build_task
-from ..methods.circuits.attribution import direct_logit_attribution
 from ..methods.circuits.comparison import compare_techniques, consistency, discover_across, specificity
-from ..methods.circuits.patching import patch_heads, patch_residual
-from ..methods.circuits.roles import classify_heads
-from ..methods.circuits.search import discover
-from ..methods.circuits.verify import verify
 from ..methods.probing.probe import difference_of_means, evaluate, sweep, train_probe
 from ..model.adapter import load_adapter, require_circuits
+from ..plugins import load_domains
 from ..share import storage
-from ..share.converters.circuit import from_circuit
 from ..share.converters.comparison import from_comparison
 from .run import Run
 from .spec import ExperimentSpec, SpecError, save_spec
@@ -24,10 +17,12 @@ The runner turns a spec into a Run. It is the one place that knows the order
 of operations -- resolve the model, build the data, split it, fit, evaluate,
 write -- and every experiment type is a function registered against a kind,
 so adding one is a registration rather than an edit here. ioi_circuit is the
-proof of that: a circuit study shares none of the probing pipeline and is
-still just another entry in EXPERIMENTS. circuit_comparison is the second
-proof, and it does not even run one circuit -- it runs five techniques over
-four tasks and compares them.
+proof of that: a circuit study shares none of the probing pipeline, and it is
+registered from `domains/lm/experiments.py` without this module knowing that
+IOI exists. circuit_comparison is the second proof, and it does not even run
+one circuit -- it runs five techniques over every registered task and compares
+them, which is why it stays here: it is about the techniques, not about any
+one domain's task.
 
 Every run gets its own directory containing the resolved spec it ran, the
 run.json describing what happened, and whatever artifacts it produced. A run
@@ -115,61 +110,6 @@ def _probe_train(spec: ExperimentSpec, run: Run, directory: Path) -> None:
         chosen.save(str(directory / name))
         run.produce("probe", name)
 
-@register_experiment("ioi_circuit")
-def _ioi_circuit(spec: ExperimentSpec, run: Run, directory: Path) -> None:
-    """Replicate the IOI circuit end to end and write down what was found
-
-    The run records the headline numbers and nothing that is really a matrix.
-    The grids -- per-head attribution, per-head causal effect, the role
-    weights, the position map -- go into the artifact beside it, because a
-    metrics dict with one entry per head is a file nobody reads and a chart
-    nobody can redraw.
-
-    The artifact is the shareable half of the result: run.json says what this
-    machine did, and circuit.mia says what was found, in a form another lab
-    can load without this repository.
-    """
-    adapter = require_circuits(load_adapter(spec.model.resolve()))
-    dataset = build_ioi(
-        adapter, size=spec.ioi.size, seed=spec.seed, frame=spec.ioi.frame, corruption=spec.ioi.corruption,
-    )
-    behaviour = evaluate_ioi(adapter, dataset)
-    attribution = direct_logit_attribution(adapter, dataset)
-    effects = patch_heads(adapter, dataset)
-    roles = classify_heads(adapter, dataset)
-    circuit = discover(
-        adapter, dataset, threshold=spec.ioi.threshold, max_heads=spec.ioi.max_heads, effects=effects,
-    )
-    report = verify(adapter, dataset, circuit)
-    grid = patch_residual(adapter, dataset) if spec.ioi.residual_patch else None
-
-    run.record(
-        accuracy=behaviour.accuracy,
-        clean_logit_difference=behaviour.clean,
-        corrupted_logit_difference=behaviour.corrupted,
-        span=behaviour.span,
-        attribution_remainder=attribution.residual,
-        n_heads=len(circuit),
-        faithfulness=report.faithfulness,
-        necessity=report.necessity,
-        n_spare=len(report.spare(tolerance=spec.ioi.tolerance)),
-        n_prompts=len(dataset),
-    )
-    if grid is not None:
-        best_layer, best_position, best_recovery = grid.best()
-        run.record(best_patch_layer=best_layer, best_patch_position=best_position, best_patch_recovery=best_recovery)
-
-    name = f"circuit{storage.SUFFIX}"
-    storage.save(
-        from_circuit(
-            adapter.cfg, dataset, attribution, effects, report, roles=roles, grid=grid,
-            tokens=dataset.token_labels(adapter), landmarks=dataset.landmarks(adapter),
-            name=f"{dataset.name}-{adapter.cfg.id}",
-        ),
-        str(directory / name),
-    )
-    run.produce("artifact", name)
-
 @register_experiment("circuit_comparison")
 def _circuit_comparison(spec: ExperimentSpec, run: Run, directory: Path) -> None:
     """Ask every technique the same question on the same task, then ask whether the answer is about the task
@@ -233,7 +173,7 @@ def _circuit_comparison(spec: ExperimentSpec, run: Run, directory: Path) -> None
         from_comparison(
             adapter.cfg, task, comparison, reference=spec.compare.reference,
             consistency=recurrence, specificity=across, task_key=primary,
-            tokens=task.token_labels(adapter), landmarks=task.landmarks(adapter),
+            tokens=task.labels(adapter), landmarks=task.landmarks(adapter),
             name=f"{task.name}-comparison-{adapter.cfg.id}",
         ),
         str(directory / name),
@@ -262,6 +202,10 @@ def run_experiment(spec: ExperimentSpec, root: Optional[str] = None) -> Run:
     process killed halfway leaves a directory that says 'running' rather than
     nothing at all.
     """
+    # a domain registers its own kinds -- ioi_circuit is one -- so the table is
+    # empty until they are imported, and the lookup loads them rather than the
+    # caller remembering to (src/plugins.py)
+    load_domains()
     if spec.kind not in EXPERIMENTS:
         raise SpecError(f"unknown experiment kind '{spec.kind}'; known kinds are {sorted(EXPERIMENTS)}")
 

@@ -25,7 +25,7 @@ from typing import Dict, Sequence, Tuple
 import torch
 
 from ....core.config import ConfigError
-from ...adapter import Decomposition, Unembedding
+from ....model.adapter import Decomposition, Unembedding
 from .layout import _final_norm
 from .positions import _last_real
 

@@ -58,7 +58,7 @@ class TestAblation(ComparisonTestCase):
     def test_damage_is_a_share_of_the_clean_behaviour(self):
         clean = behaviour(self.adapter, self.task)
         result = ablate(self.adapter, self.task, [(9, 9), (10, 7)])
-        self.assertAlmostEqual(result.clean, clean.logit_difference, places=4)
+        self.assertAlmostEqual(result.clean, clean.score, places=4)
         self.assertAlmostEqual(
             result.damage, (result.clean - result.ablated) / result.clean, places=6
         )

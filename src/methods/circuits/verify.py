@@ -32,12 +32,13 @@ import random
 from dataclasses import dataclass
 from typing import Dict, List, Optional
 
+from ...core.readout import mean_score
 from ...data.tasks import CircuitTask
 from ...model.adapter import require_circuits
 from ..common.components import HeadId
 from ..common.errors import CircuitError
 from ..common.intervention import head_patch
-from ..common.span import Baselines, baselines, mean_logit_difference
+from ..common.span import Baselines, baselines
 from .patching import restore
 from .search import Circuit
 
@@ -88,7 +89,7 @@ def verify(adapter, dataset: CircuitTask, circuit: Circuit) -> CircuitReport:
     faithfulness = restore(adapter, dataset, reference, circuit.heads, clean_donors)
 
     with adapter.patch(heads=head_patch(circuit.heads, corrupted_donors)):
-        broken = mean_logit_difference(adapter, dataset.clean, reference.io, reference.subject)
+        broken = mean_score(adapter, dataset.clean, reference.readout)
 
     minimality = {}
     for head_id in circuit.heads:
@@ -187,6 +188,6 @@ def completeness(
             model_scores.append(1.0)
             continue
         with adapter.patch(heads=head_patch(removed, corrupted_donors)):
-            damaged = mean_logit_difference(adapter, dataset.clean, measured.io, measured.subject)
+            damaged = mean_score(adapter, dataset.clean, measured.readout)
         model_scores.append(measured.recovery(damaged))
     return Completeness(subsets=subsets, circuit_scores=circuit_scores, model_scores=model_scores)

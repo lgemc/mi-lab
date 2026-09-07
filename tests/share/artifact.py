@@ -26,6 +26,8 @@ from src.share.schema.version import FORMAT, VERSION
 from src.share.schema.vocabulary import Component, Kind, NodeComponent, Position
 from src.share.storage import MANIFEST, TENSORS
 
+from ..stubs.fake import Sum
+
 """
 The artifact format is tested without a checkpoint, because everything that
 can go wrong with it is structural. An artifact is wrong when its card and its
@@ -459,6 +461,24 @@ class TestMigration(TestCase):
         message = str(caught.exception)
         self.assertIn("0.1", message)
         self.assertIn("artifact upgrade", message)
+
+    def test_a_definition_comes_from_the_readout_when_there_is_one(self):
+        """A table keyed by metric name is a second opinion about what the number is
+
+        Nothing checks that the entry for a name describes the code that
+        produced this artifact's number, and the day `--faith` went from nll to
+        kl the table did not move. So a converter that holds the Score reads
+        the definition off it, and the table is what a *migration* has.
+        """
+        from src.core.readout import require_score
+        from src.share.definitions import UNKNOWN, describe
+
+        score = require_score(Sum())
+        self.assertEqual((score.definition, score.units), describe("sum", score=score))
+        # a different metric measured under the same readout still comes off the table
+        self.assertEqual(describe("faithfulness"), describe("faithfulness", score=score))
+        # and a name nobody wrote down is still an honest admission, readout or not
+        self.assertEqual(UNKNOWN, describe("homegrown", score=score)[1])
 
     def test_upgrading_recovers_the_definitions_this_lab_wrote(self):
         with tempfile.TemporaryDirectory() as directory:

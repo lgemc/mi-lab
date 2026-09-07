@@ -2,7 +2,7 @@ import re
 from types import SimpleNamespace
 from unittest import TestCase
 
-from src.data.ioi import (
+from src.domains.lm.data.ioi import (
     CORRUPTIONS,
     FRAMES,
     NAMES,
@@ -135,7 +135,7 @@ class TestLandmarks(TestCase):
     def test_the_three_mentions_and_the_end_are_found(self):
         dataset = build_ioi(self.adapter, size=2, seed=0)
         landmarks = dataset.landmarks(self.adapter)
-        tokens = dataset.token_labels(self.adapter)
+        tokens = dataset.labels(self.adapter)
         example = dataset.examples[0]
 
         self.assertEqual(tokens[landmarks["IO"]].strip(), example.io)

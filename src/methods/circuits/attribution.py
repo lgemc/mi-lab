@@ -27,10 +27,10 @@ from typing import List, Tuple
 
 import torch
 
+from ...core.readout import mean_score, require_direct
 from ...data.tasks import CircuitTask
 from ...model.adapter import require_circuits
 from ..common.components import HeadId
-from ..common.span import mean_logit_difference
 
 
 @dataclass
@@ -76,16 +76,19 @@ def direct_logit_attribution(adapter, dataset: CircuitTask, corrupted: bool = Fa
     """
     adapter = require_circuits(adapter)
     prompts = dataset.corrupted if corrupted else dataset.clean
-    io, subject = dataset.answers(adapter)
+    # a readout with no direct form is not a bad readout, it is one that cannot be
+    # split over the writes that produced it; the refusal names it rather than
+    # failing on a missing attribute inside the sum below
+    score = require_direct(dataset.readout(adapter), by="direct attribution")
     decomposition = adapter.decompose(prompts)
     unembedding = decomposition.unembedding
     return Attribution(
-        heads=unembedding.logit_difference(decomposition.heads, io, subject).mean(dim=0),
-        mlps=unembedding.logit_difference(decomposition.mlps, io, subject).mean(dim=0),
-        embedding=float(unembedding.logit_difference(decomposition.embedding, io, subject).mean()),
+        heads=score.direct(unembedding, decomposition.heads).mean(dim=0),
+        mlps=score.direct(unembedding, decomposition.mlps).mean(dim=0),
+        embedding=float(score.direct(unembedding, decomposition.embedding).mean()),
         offset=float(
-            unembedding.logit_difference(decomposition.biases, io, subject).sum(dim=1).mean()
-            + unembedding.offset(io, subject).mean()
+            score.direct(unembedding, decomposition.biases).sum(dim=1).mean()
+            + score.unattributed(unembedding).mean()
         ),
-        measured=mean_logit_difference(adapter, prompts, io, subject),
+        measured=mean_score(adapter, prompts, score),
     )

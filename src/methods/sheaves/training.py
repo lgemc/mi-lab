@@ -57,6 +57,7 @@ from ...data.tasks import CircuitTask
 from ...model.adapter import require_circuits
 from ...telemetry.journal import Journal
 from ..common.errors import SheafError
+from .faith import faith_for
 from .forward import (
     attribution,
     chunk_rows,
@@ -507,18 +508,14 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     wanted = probe_size if probe_size > 0 else batch
     probe_rows = test_rows[:max(1, min(len(test_rows), wanted))]
 
-    if faith_kind not in ("pair", "kl", "nll", "gold"):
-        raise SheafError(
-            f"unknown faith_kind '{faith_kind}'; known kinds are 'nll' (the paper's), 'kl', "
-            "'gold' (nll on the task's answer) and 'pair' (this repo's original, and too "
-            "weak -- see the docstring)")
+    faith_score = faith_for(faith_kind)
     # The reference distribution, taken once from the unmasked model. The
     # weights are frozen, so what the full model says never changes and
     # recomputing it every step would only pay for the same numbers again.
     reference = None
     if faith_kind == "gold":
         # The label is the task's, and the full model is never consulted.
-        io, _ = task.answers(adapter)
+        io = task.readout(adapter).positive
         reference = {row: torch.tensor([io[row]], device=device) for row in train_rows}
     if faith_kind in ("kl", "nll"):
         with torch.no_grad():
@@ -534,7 +531,7 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
     if attribute > 0:
         if not init_low < init:
             raise SheafError(f"init_low must be below init, got {init_low} and {init}")
-        scores = attribution(adapter, task, train_rows, originals, faith_kind, reference,
+        scores = attribution(adapter, task, train_rows, originals, faith_score, reference,
                              temperature, batch, attribute)
         init_from(scores, gates, units, init_low, init)
         del scores
@@ -580,8 +577,8 @@ def prune(adapter, task: CircuitTask, steps: int = 500, rate: float = 0.1,
         # layer band helps a great deal.
         pairs = logit_pairs(adapter, task, chunk, gates, originals, temperature,
                        edge_logits=edge_logits, edge_ids=edge_ids,
-                       whole=(faith_kind in ("kl", "nll", "gold")), noise=noise, units=units)
-        faith = faith_term(pairs, chunk, faith_kind, reference)
+                       whole=faith_score.whole, noise=noise, units=units)
+        faith = faith_term(pairs, chunk, faith_score, reference)
         # every open gate costs something, measured on the relaxed probability so
         # the term has a gradient where the hard gate does not
         if not gate_weights:

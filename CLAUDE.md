@@ -16,37 +16,38 @@ uv run python -m src.app --multirun model=gpt2-small,pythia-70m   # Hydra sweeps
 
 ### Tests
 
-Everything under `src/` is a namespace package except the three directories that need an
+Everything under `src/` is a namespace package except the four directories that need an
 `__init__.py` to run code on import: `src/cli/commands/viz/` holds its Typer app there,
-`src/model/backends/transformers/` composes its adapter and registers the backend there, and
-`src/serve/` carries a docstring. `tests/` mirrors that layout one level deep — a directory per
-package row of the table below, with `methods/` flat inside it and `tests/stubs/` holding what
-more than one of them shares. Test modules are named after the module they test
+`src/domains/lm/` imports its three registering modules, `src/domains/lm/backend/` composes its
+adapter and registers the backend, and `src/serve/` carries a docstring. `tests/` mirrors that
+layout one level deep — a directory per package row of the table below, with `methods/` and
+`domains/` flat inside them and `tests/stubs/` holding what more than one of them shares. Test modules are named after the module they test
 (`tests/experiment/spec.py`, not `tests/test_spec.py`), so **`unittest discover` does not work**.
 Name the modules explicitly:
 
 ```bash
-# everything: 690 tests, ~120s (the online half needs GPT-2 small; 26 more want `--extra serve`)
-uv run python -m unittest tests.core.config tests.core.metrics \
-    tests.data.dataset tests.data.prompts tests.data.torchdata tests.data.ioi tests.data.tasks \
+# everything: ~700 tests, ~140s (the online half needs GPT-2 small; 26 more want `--extra serve`)
+uv run python -m unittest tests.core.architecture tests.core.config tests.core.metrics \
+    tests.core.readout tests.data.dataset tests.data.prompts tests.data.torchdata tests.data.tasks \
     tests.model.adapter tests.model.passes tests.model.edges \
     tests.telemetry.journal tests.telemetry.observe tests.telemetry.results \
     tests.methods.components tests.methods.probing tests.methods.circuits \
     tests.methods.comparison tests.methods.discovery tests.methods.faithfulness \
-    tests.methods.wiring tests.methods.knockout tests.methods.cost tests.methods.quality \
+    tests.methods.wiring tests.methods.knockout tests.methods.cost tests.methods.span \
     tests.methods.neurons tests.methods.gates tests.methods.sheaves tests.methods.units \
+    tests.domains.ioi tests.domains.quality tests.domains.study \
     tests.share.artifact tests.serve.serve tests.serve.pool \
     tests.experiment.spec tests.experiment.run tests.experiment.runner \
-    tests.experiment.pipeline tests.experiment.translation_study tests.ie.ie
+    tests.experiment.pipeline tests.ie.ie
 
-# offline subset: 433 tests, no checkpoint needed, seconds
-uv run python -m unittest tests.core.config tests.core.metrics \
-    tests.data.dataset tests.data.prompts tests.data.torchdata tests.data.ioi tests.data.tasks \
+# offline subset: no checkpoint needed, seconds
+uv run python -m unittest tests.core.architecture tests.core.config tests.core.metrics \
+    tests.core.readout tests.data.dataset tests.data.prompts tests.data.torchdata tests.data.tasks \
     tests.telemetry.journal tests.telemetry.observe tests.telemetry.results \
-    tests.methods.components tests.methods.cost tests.methods.quality tests.methods.wiring \
+    tests.methods.components tests.methods.cost tests.methods.wiring tests.methods.span \
+    tests.domains.quality tests.domains.study \
     tests.share.artifact tests.serve.pool \
-    tests.experiment.spec tests.experiment.run tests.experiment.pipeline \
-    tests.experiment.translation_study
+    tests.experiment.spec tests.experiment.run tests.experiment.pipeline
 
 # one module / class / method
 uv run python -m unittest tests.experiment.spec
@@ -75,7 +76,7 @@ re-raises an OOM rather than disguising it, for that reason.
 absolute tolerance: bit-exactness across batch shapes is a CPU-only property, because cuBLAS picks
 its kernel by shape and a batch of 3 reduces in a different order than a batch of 64 (~5e-7
 relative, which is float32 noise). A real chunking bug shows up there at relative order 1. `tests/methods/discovery.py` holds the second receipt after the golden capture:
-`head_gradients` is checked against a finite difference -- perturb one head's output and the change
+`gradients` is checked against a finite difference -- perturb one head's output and the change
 in the logit difference has to be the one the gradient predicted -- because everything `eap` reports
 is that inner product, and a gradient taken at the wrong site produces a plausible wrong ranking.
 
@@ -83,10 +84,25 @@ is that inner product, and a gradient taken at the wrong site produces a plausib
 `2048`, `4096`, `5120`. It reads raw text, so **a size named in a docstring or comment fails it too** —
 if prose needs to talk about widths, say "hundreds of dimensions" rather than the number.
 
+`tests/core/architecture.py::TestKernelNamesNoModality` is the same instrument pointed at the second
+axis: it greps everything outside `src/domains/` and `src/cli/` for `token`, `prompt`, `vocab`,
+`logit`, `tokenizer`, `word` and `sentence`, and compares the result against a **frozen table**. The
+table is compared for equality, not containment — a file that starts naming a modality fails, and so
+does a file that stopped — so it only shrinks when somebody refreshes it deliberately:
+
+```bash
+uv run python -m tests.core.architecture --refresh
+```
+
+It has false positives on purpose (`methods/common/components.py` says "the component vocabulary",
+`share/schema/artifact.py` says "a sentence with a meaning") and the allow-list absorbs them, because
+narrowing the word list to dodge them would also dodge the leaks.
+
 ### Lint
 
 ```bash
 uv run ruff check .          # add --fix for the safe autofixes
+uv run lint-imports          # the two axes, from .importlinter
 ```
 
 Config lives in `[tool.ruff]` in `pyproject.toml`, with every ignore commented in place. Three
@@ -103,31 +119,63 @@ things to know before adding rules or "fixing" the ignores:
 `ruff format` has never been run over this repo. Running it reformats every file — don't do it as a
 side effect of another change.
 
+`.importlinter` holds four contracts and they are the architecture as a gate rather than a paragraph:
+the layered order is one-way, nothing in the kernel imports a domain, only `src/plugins.py` names a
+domain at all, and no domain imports another. Import Linter reads the source with an AST, so the job
+needs no torch and no checkpoint and runs beside ruff in CI.
+
 ## Architecture
 
-### The packages are a dependency order, and it is one-way
+### Two axes: what a module *is*, and what it is *about*
+
+The first axis is the layered order, and it is one-way.
 
 ```
-core        config, metrics                          imports nothing
+core        config, metrics, readout                 imports nothing
 telemetry   journal, tracking, observe, results      imports nothing
-model       adapter, passes, backends/               -> core
-data        dataset, prompts, torchdata, ioi, tasks, -> core
-            translation
+model       adapter, passes                          -> core
+data        dataset, prompts, torchdata, tasks       -> core
 methods     common/, circuits/, probing/,            -> core, model, data, telemetry
             knockout/, sheaves/                          (common/ imports nothing above it)
 share       schema/, storage, converters/      -> core, data, methods
 serve       backbones, circuits, models,         -> data, methods (optional extra `serve`)
             examples, app
-experiment  spec, run, runner, pipeline,       -> core, model, data, methods, share
-            sheaf, translation_study
+experiment  spec, run, runner, pipeline, sheaf -> core, model, data, methods, share
 viz                                            -> core
+domains     lm/                                -> everything above, never sideways
 cli                                            -> everything
 ie          app, session, stack, view, views/  -> everything, and nothing imports it
 ```
 
-Nothing imports upward and nothing imports sideways within a layer's own row. That is checkable in
-one pass over the source, and it is the property that makes the split worth having: a new module
-that cannot find a home without breaking it is a module doing two jobs.
+Nothing imports upward and nothing imports sideways within a layer's own row. `uv run lint-imports`
+is what checks it; before `.importlinter` this was a paragraph nothing enforced.
+
+The second axis is `src/domains/`, and it exists because a second modality multiplies the number of
+concepts a change needs rather than adding to it. Three rules, of which the first is the old one:
+
+1. **A layer may import only layers below it**, and never sideways within its own row.
+2. **A domain may import the kernel and itself. Never another domain.**
+3. **The kernel may not import a domain** — where *kernel* is everything not under `src/domains/`.
+
+A domain is one subject of study: a model family, its tasks, and how a number comes out of it.
+`domains/lm/` is the decoder language model — `backend/` (the transformers adapter), `tasks.py` (the
+five registered tasks), `readout.py` (the logit difference), `data/` (IOI and the translation
+corpus), `analysis/` (what is about language in particular: head roles, BLEU, generation) and
+`experiments.py` (the `ioi_circuit` kind). Every domain gets the same entries, so knowing one is
+knowing where to look in the next.
+
+Rule 3 is the load-bearing one and it is always locally convenient to break, because every registry
+here is filled by *importing* the module that registers into it. `src/plugins.py` is the one door:
+it names each domain as a **string** and imports it on demand, and `load_adapter`, `build_task` and
+`run_experiment` call it before they look. So the kernel depends on a list of names — the same thing
+`configs/*.yaml` already does when it names a backend — and not on a domain. That is checked too:
+`.importlinter` forbids every kernel package from importing `src.domains`, and forbids anything but
+`src.plugins` from naming one.
+
+What is *not* in a domain is the finding. Of the modules under `methods/`, three were domain work
+(head roles, the translation quality metrics, the generation loop) and the rest measure an
+intervention and a scalar — none of it is about text. It was pinned to text by three signatures, and
+those are what the measurement contract below unpinned.
 
 `telemetry` is the second package that imports nothing, and it is separate from `core` rather
 than inside it because `core` is closed: a journal is not a model fact or a metric definition.
@@ -136,9 +184,10 @@ see **Watching a run** below.
 
 `core` is small on purpose. It holds the two things with no dependencies of their own that every
 other package needs — what a model is, and how a number is scored — and nothing else earns a place
-there. In particular `metrics` sits below `methods` rather than inside it, because `data/ioi.py`
-scores a logit difference while `methods/circuits/` builds on `data/ioi.py`; putting metrics in
-`methods` would make `data` and `methods` import each other.
+there. In particular `metrics` sits below `methods` rather than inside it, because a task scores a
+logit difference while `methods/circuits/` builds on tasks; putting metrics in `methods` would make
+`data` and `methods` import each other. `readout` is the third thing that earns a place: it is what
+`metrics` is with the arithmetic taken out, and `data/tasks.py` has to name the type it returns.
 
 `methods` is five packages rather than fifteen modules, and the row above is a dependency order of
 its own: `common/` is the bottom (`errors` the refusal tree, `components` the component vocabulary,
@@ -150,6 +199,57 @@ The names moved but the import paths are the only thing that changed: `methods/g
 `methods/sheaves/mask.py`, `methods/discovery.py` is `methods/circuits/techniques.py`,
 `methods/knockout.py` is `methods/knockout/ablate.py`, and `methods/circuits.py` and
 `methods/sheaves.py` are the two that became packages.
+
+### The measurement contract: what `methods/` is allowed to know
+
+Everything in `methods/` consumes exactly three things: a batch of inputs, a set of addressable
+internal sites, and **one scalar per example**. The first two were already abstract. The third was a
+logit difference over two token ids, hardcoded in `methods/common/span.py` and carried on
+`Baselines` as `io: List[int]` and `subject: List[int]` into every technique downstream — and that
+one fact is what made twenty-three otherwise modality-free modules into language modules.
+
+- **`core/readout.py`** — `Score` is one number per example, in stated units, with **the definition
+  that produced it**. It also carries `select(rows)`, because every backend runs a batch in chunks
+  and a score built for the whole batch holds one answer per row; that is the same reason
+  `_Patch.select` exists. `Readout` is a `Score` a gradient can be taken through, and the marker is
+  the `differentiable` **field** rather than the empty Protocol the proposal described: a Protocol
+  with no members of its own is satisfied structurally by everything, so `isinstance(bleu, Readout)`
+  would be True and the refusal would never fire. `DirectScore` adds the form direct attribution
+  needs — score one write into the residual stream — and `require_direct` names a readout that has
+  none rather than failing on a missing attribute inside the sum.
+  It lives in `core` and not `methods/common/` because `data/tasks.py` has to name the type
+  `CircuitTask.readout` returns, and `data` sits below `methods`.
+- **`CircuitTask.readout(adapter)`** replaces `answers(adapter)` in the protocol, and `labels`
+  replaces `token_labels`. The scoring rule is the task's opinion about *this* model for exactly the
+  reason the answer ids were: they are the tokenizer's opinion, and a task carrying one is silently
+  wrong on the next model. `answers` is still on the LM tasks — the sheaf loop scores against the
+  whole vocabulary and needs the ids — it is just not something the kernel may ask for.
+- **`CircuitAdapter.outputs`** replaces `logits`, and `gradients(inputs, readout, ...)` replaces
+  `head_gradients(prompts, positive, negative, ...)`. `logits`, `single_token` and `tokens` moved to
+  **`TokenAdapter`**, with `require_tokens` beside `require_circuits`; the consumers are
+  `domains/lm/` and the parts of the CLI that print tokens, which is exactly the set that should
+  have to ask.
+- **`Baselines.readout`** replaces `io`/`subject`, and `Behaviour.score`/`Behaviour.units` replace
+  `Behaviour.logit_difference`. `span` and `recovery` are the arithmetic they always were.
+- **`register_technique(..., needs_gradient=True)`** on eap, eap_ig and mask, and `rank` refuses a
+  non-differentiable readout by name before a single forward pass. Without it the failure is a
+  `RuntimeError` about a tensor with no `grad_fn`, minutes into a run — which is what happens the
+  moment BLEU (`domains/lm/analysis/quality.py::TextQuality`) meets a gradient technique.
+- **`methods/sheaves/faith.py`** — `--faith {pair,kl,nll,gold}` was a string compared against tuples
+  of literals at four call sites. The four are objects now, each carrying the sentence that says
+  when it lies, and `whole` (does it need the whole vocabulary) is read off the object rather than
+  recomputed at each site.
+- **`share/definitions.py` is now the fallback, not the source.** `describe(name, score=...)` reads
+  the definition off the callable that computed the number; the table is what *migrating* an old
+  artifact has, since the readout that wrote it is gone. A table keyed by metric name is a second
+  opinion about what the number is, and the day `--faith` changed from `nll` to `kl` it did not move.
+  `Span.metric` is the readout's name now, and the attribution grids' units are the readout's units.
+
+Three numerical receipts had to not move, and did not: the golden capture,
+`Decomposition.remainder`/`Attribution.residual` at ~1e-6, and the finite-difference check on the
+head gradient. The last one is the argument for the whole change — it is designed to catch a
+gradient taken at the wrong site, and `gradients(readout=)` differentiates the same quantity
+`head_gradients` did.
 
 ### Two config layers, and the difference matters
 
@@ -184,23 +284,26 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   here and no architecture is named. `ModelAdapter` is a `Protocol`; backends register a factory
   under a string key via `@register_backend("name")`, and a config names that key.
   `CircuitAdapter` is a **second** protocol on top of it (`logits`, `attention`, `head_outputs`,
-  `head_gradients`, `decompose`, `patch`, `single_token`, `tokens`) — a backend behind an inference
+  `gradients`, `decompose`, `patch`) — a backend behind an inference
   API can honestly capture and steer and honestly cannot patch a head, so circuit code calls
   `require_circuits()` and gets a message naming the backend rather than an `AttributeError` halfway
-  through. `head_gradients` differentiates the logit difference at the *same* site `head_outputs`
+  through; `TokenAdapter` is the third, holding the three members that name a vocabulary, and
+  `require_tokens` is beside it. `gradients` differentiates the task's readout at the *same* site `head_outputs`
   reads and `patch` writes, and keeps the graph rather than detaching there: cutting it would delete
   every path an earlier head has to the answer through this layer's attention, leaving a gradient
   that looks fine and answers a different question.
-- `model/backends/` — one entry per implementation. `transformers/` is the only one;
-  `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not implemented, and
-  adding it is a new module here rather than an edit to `adapter.py`. All architecture knowledge is
-  quarantined in `transformers/layout.py` — `_blocks`, `_attention_projection`, `_mlp`,
+- `domains/lm/backend/` — one entry per implementation, and a backend is a domain: it knows an
+  architecture. `nnsight_vllm` is named by `configs/qwen3.5-27b.yaml` and deliberately not
+  implemented, and adding it is a new module in a domain rather than an edit to `adapter.py`. All
+  architecture knowledge is quarantined in `layout.py` — `_blocks`, `_attention_projection`, `_mlp`,
   `_attention_norm`, `_mlp_norm` and `_final_norm`, six lookup lists; teaching the backend a new
   model family is editing those and nothing else.
-  `adapter.py` imports this package **at the bottom of the file**, which is the one import in the
-  repo whose position is load-bearing: registration has to happen when `adapter` is imported, and
-  the backend imports the protocols above it, so anywhere else is a cycle.
-- `model/backends/transformers/` — one backend, one file per question it answers, assembled in
+  `adapter.py` used to import this package **at the bottom of the file**, the one import in the repo
+  whose position was load-bearing. That is now a kernel module importing a domain, so it is a string
+  in `src/plugins.py` and `load_adapter` calls `load_domains()` before it looks at `BACKENDS`. The
+  cycle argument survives the change: the import happens at *call* time, by which point `adapter` is
+  fully imported.
+- `domains/lm/backend/` — one backend, one file per question it answers, assembled in
   `__init__.py` as one mixin per file over `base.py`. The split is the two sites the backend
   addresses, taken apart: `layout` (where the sites are), `positions` (which token is the real one
   under padding), `base` (state and the plumbing more than one file needs), `capture` (the residual
@@ -213,10 +316,12 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   entry anything imports — except `tests/model/edges.py`, which reaches into `layout` for the norm it
   registers its own hook on.
 - `experiment/runner.py` — `@register_experiment("kind")` registers one function per experiment kind
-  (`probe_sweep`, `probe_train`, `ioi_circuit`, `circuit_comparison`). Adding an experiment type is a
-  registration, not an edit to `ExperimentSpec` or the runner body — `ioi_circuit` shares none of the
-  probing pipeline and is still just an entry in `EXPERIMENTS`, and `circuit_comparison` does not run
-  a circuit study at all.
+  (`probe_sweep`, `probe_train`, `circuit_comparison` here; `ioi_circuit` from
+  `domains/lm/experiments.py`). Adding an experiment type is a registration, not an edit to
+  `ExperimentSpec` or the runner body, and `ioi_circuit` is the proof twice over: it shares none of
+  the probing pipeline, and it is registered from a domain the runner never imports.
+  `circuit_comparison` stays in the kernel because it is about the *techniques* — it runs every one
+  of them over every registered task and names none.
 - `experiment/run.py` — **stdlib only, no torch import**, so a `run.json` is readable anywhere. Keep it
   that way.
 - `share/schema/` + `share/storage.py` — the shareable form of a result (`.mia`: a JSON card
@@ -240,7 +345,7 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
 - `data/torchdata.py` — map-style and streaming `Dataset`s over prompts, plus `ActivationDataset`
   over what a capture produced (which carries its model, layers and position, because a directory
   of `.pt` files identified by filename is one you will eventually mix up).
-- `data/ioi.py` — the Indirect Object Identification task (Wang et al., 2023) as data: one frame per
+- `domains/lm/data/ioi.py` — the Indirect Object Identification task (Wang et al., 2023) as data: one frame per
   dataset, single-token names, the two name orders balanced, and clean/corrupted pairs under either
   the `abc` corruption (replace the repeated name) or `swap` (exchange the two roles).
 - `methods/circuits/` — the circuit study itself, asked twice, one file per half and per question
@@ -249,8 +354,9 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   sides (restore into a corrupted run, or take away from a clean one), one forward pass per site.
   `search.py` grows a circuit greedily, `verify.py` checks it four ways, `techniques.py` is the
   registry that scores every head by any of them, `comparison.py` asks which technique to believe,
-  `faithfulness.py` measures the surface rather than a number, `roles.py` is the one module about
-  IOI in particular, and `wiring.py` reduces an edge circuit to its structural claim. **The two
+  `faithfulness.py` measures the surface rather than a number, and `wiring.py` reduces an edge
+  circuit to its structural claim. `roles.py` was the one module about IOI in particular and is
+  `domains/lm/analysis/roles.py` now, which is what the second axis is for. **The two
   halves disagree and the disagreement is the finding** — on GPT-2 small the negative name movers
   write hard against the answer and patching says the model needs them.
 
@@ -288,9 +394,13 @@ The split, by the question each module answers:
 - `methods/knockout/cost.py` — MACs per head and per MLP read off the checkpoint config with no weights
   loaded, and `matched_draw`: a random control matched to the discovered set **by cost, not by
   count**, since one MLP is worth dozens of heads.
-- `methods/knockout/quality.py` — BLEU, chrF, COMET, the paired bootstrap with FDR over the systems
+- `domains/lm/analysis/quality.py` — BLEU, chrF, COMET, the paired bootstrap with FDR over the systems
   screened, split-half `agreement`, and `survival_frontier`, whose rule is that one lucky seed
-  does not raise the ceiling.
+  does not raise the ceiling. `TextQuality` is the same two corpus metrics as a `Score` that declares
+  itself non-differentiable, which is what makes a gradient technique refuse it by name.
+  `domains/lm/analysis/generate.py` holds `translate` and `preview` — the generation loop and the
+  ten-sentences-read-by-a-person check — which came out of `methods/knockout/ablate.py` because a
+  completion is text and a mean ablation is arithmetic at a site.
 - `methods/knockout/neurons.py` — the Tang et al. activation contrast: neurons read at the input to the
   MLP down projection (the one honest "neuron"), a two-sigma `flag`, and a per-token `trace`
   that decodes from the padded batch so position `i` is the token printed at `i`.
@@ -403,9 +513,9 @@ The split, by the question each module answers:
   prompt cannot tell a bad circuit from a badly framed question. Optional extra:
   `uv sync --extra serve`; `scripts/serve.py` is the entrypoint and the `Dockerfile` the image,
   deployed from `~/m/projects/k8s/mi-lab` (`tests/serve/serve.py`).
-- `data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
+- `domains/lm/data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
   head so a pair is never both, and `counterfactual_prompts` keep the form and drop the task.
-- `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`
+- `domains/lm/study.py` — the protocol as constants and one `setup`: `ARTIFACTS`
   names every file by key, the band, the pre-registered ceiling and saturation rule, `Corpus`,
   and `score_set`, so a BLEU in one script is the same BLEU in the next.
 - `experiment/sheaf.py` — a pruning run as a *file*. Every sheaf in `results/` was launched from a
@@ -620,11 +730,19 @@ Ranking is by **absolute** score everywhere, so a selected set can restore *less
 ranking being right and faithfulness being the wrong question to ask of it.
 
 `data/tasks.py` is the matching registry for tasks, because specificity has no meaning with one.
-`CircuitTask` is a Protocol -- clean prompts, corrupted twins, two answer ids, positions, `subset` --
-and `IOIDataset` satisfied it before the module existed. Everything in `methods/circuits/` is typed
-against it now; `classify_heads` is the one exception, because it names the four attention movements
-IOI in particular is built out of. The other three tasks (`greater_than`, `induction`, `agreement`)
-are single-frame, single-token-answer, length-aligned and all above chance on GPT-2 small.
+`CircuitTask` is a Protocol -- clean inputs, corrupted twins, a `readout`, positions, `subset` -- and
+`IOIDataset` satisfied it before the module existed. The tasks themselves are in
+`domains/lm/tasks.py`: a frame is a sentence in a language and a pool is filtered by a tokenizer, so
+the registry is kernel and what fills it is not. Everything in `methods/circuits/` is typed against
+the protocol; `classify_heads` was the one exception and is in the domain now, because it names the
+four attention movements IOI in particular is built out of. The other three tasks (`greater_than`,
+`induction`, `agreement`) are single-frame, single-token-answer, length-aligned and all above chance
+on GPT-2 small.
+
+`OPTIONS`/`register_options`/`check_options` are the small registry beside it: what `ioi.corruption`
+and `ioi.frame` may be is a fact about the task, so it is declared with the task, and
+`experiment/spec.py` still refuses a bad one *before the model loads* without learning what a
+corruption is.
 
 `methods/circuits/comparison.py` asks the three questions finding a circuit does not answer:
 

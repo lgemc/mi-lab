@@ -35,6 +35,7 @@ serve = [
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.0",
     "ruff>=0.16.4",
 ]
 

@@ -16,6 +16,7 @@ from unittest import TestCase
 
 import torch
 
+from src.domains.lm.analysis.generate import translate
 from src.methods.knockout.ablate import (
     KnockoutError,
     Means,
@@ -25,7 +26,6 @@ from src.methods.knockout.ablate import (
     component_module,
     extract,
     geometry,
-    translate,
 )
 
 from ..stubs.model import shared_adapter

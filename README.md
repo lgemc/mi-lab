@@ -26,18 +26,17 @@ Three rules keep that from happening here:
 configs/            one YAML per model — the only place a model fact lives
 specs/              Hydra config groups — experiments composed from parts
 data/               datasets as plain text, one prompt per line
-src/core/           the two things nothing else can be built without
+src/core/           the three things nothing else can be built without
   config.py         what a model is; resolves depth fractions to layer indices
   metrics.py        AUC, accuracy, logit difference, and what a thing cost to run
+  readout.py        Score and Readout: one number per example, with its definition
 src/model/
   adapter.py        how to hook it; the ModelAdapter contract and backend registry
-  backends/         one entry per implementation; transformers/ is the only one
-  backends/transformers/  the HuggingFace backend, one file per question it answers
+src/plugins.py      the kernel's one door to a domain, and it is a string not an import
 src/data/
   dataset.py        prompts with binary labels, split without leaking
   prompts.py        the plain-text dataset format: parse it, write it, check it
   torchdata.py      torch Datasets and DataLoaders over prompts and over activations
-  ioi.py            the Indirect Object Identification task, as balanced clean/corrupted data
   tasks.py          the task registry: what every circuit measurement needs a task to be
 src/methods/
   common/           what every measurement shares: the refusal tree, the component
@@ -45,7 +44,7 @@ src/methods/
   probing/          linear probes as saveable artifacts, and the steering sweep over them
   circuits/         the circuit study, one file per half and per question that follows:
                     attribution, patching, ablation, search, verify, techniques,
-                    comparison, faithfulness, roles, wiring
+                    comparison, faithfulness, wiring
   knockout/         whole components taken out of a generation, what that costs, and
                     how the sentences that come back are scored
   sheaves/          DiscoGP gate training, the trained mask, and the units over it
@@ -65,6 +64,14 @@ src/cli/
   common.py         help-on-error Click customization
   commands/         one module per command group; viz/ is a package, one per chart group
 src/viz/            one chart module per subject, over a shared style
+src/domains/        the second axis: one directory per subject of study
+  lm/               the decoder language model
+    backend/        the HuggingFace backend, one file per question it answers
+    tasks.py        the five registered tasks: ioi, translation, greater_than, ...
+    readout.py      the logit difference, as a Readout bound to one model's ids
+    data/           the IOI generator and the translation corpus
+    analysis/       what is about language in particular: head roles, BLEU, generation
+    experiments.py  the ioi_circuit experiment kind
 scripts/serve.py    the circuit server entrypoint; Dockerfile builds it (see ~/m/projects/k8s/mi-lab)
 docs/
   artifact-format.md  the sharing format: what it stores and why
@@ -76,6 +83,12 @@ order is one-way: `core` imports nothing, `model` and `data` import only
 `core`, `methods` adds `model` and `data`, `share` adds `methods`, and
 `experiment` sits on top of all of them. Nothing ever imports upward. If a new
 module cannot find a home without breaking that, the module is doing two jobs.
+
+`src/domains/` is a second axis crossing that one: the layers say what kind of
+thing a module is, and a domain says what subject it is about. The kernel —
+everything outside `src/domains/` — may not import a domain, and no domain may
+import another, so the code that measures does not know what a token is.
+`uv run lint-imports` checks all of it.
 
 ## Use
 

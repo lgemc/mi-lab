@@ -9,7 +9,7 @@ before the first break rather than the luckiest intact seed anywhere.
 
 from unittest import TestCase
 
-from src.methods.knockout.quality import (
+from src.domains.lm.analysis.quality import (
     QualityError,
     agreement,
     bleu,

@@ -3,10 +3,10 @@ from typing import Optional
 
 import typer
 
-from ....data.ioi import CORRUPTIONS, FRAMES, build_ioi
+from ....domains.lm.analysis.roles import classify_heads
+from ....domains.lm.data.ioi import CORRUPTIONS, FRAMES, build_ioi
 from ....methods.circuits.attribution import direct_logit_attribution
 from ....methods.circuits.patching import patch_heads, patch_residual
-from ....methods.circuits.roles import classify_heads
 from ....methods.circuits.search import discover
 from ....methods.circuits.verify import verify
 from ....model.adapter import load_adapter, require_circuits

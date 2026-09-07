@@ -26,9 +26,9 @@ from typing import Dict, Sequence
 
 import torch
 
-from ...data.ioi import IOIDataset
-from ...model.adapter import require_circuits
-from ..common.components import HeadId
+from ....methods.common.components import HeadId
+from ....model.adapter import require_circuits
+from ..data.ioi import IOIDataset
 
 ROLES = ("name mover", "s-inhibition", "duplicate token", "induction")
 

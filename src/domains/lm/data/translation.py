@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple
 
-from .dataset import DatasetError, LabeledPrompts
-from .prompts import load_prompts
+from ....data.dataset import DatasetError, LabeledPrompts
+from ....data.prompts import load_prompts
 
 r"""
 Spanish-to-English translation as data, in the two shapes the translation
@@ -308,7 +308,7 @@ def build_translation(adapter, size: int = 16, seed: int = 0, **options):
     Both sides of every pair are filtered against the tokenizer in hand,
     leading space included, because the frame supplies no space of its own.
     """
-    from .tasks import TaskError, TaskExample, TemplateTask, require_alignment, single_tokens
+    from ..tasks import TaskError, TaskExample, TemplateTask, require_alignment, single_tokens
 
     available = load_word_pairs(adapter.cfg.id)
     kept = [

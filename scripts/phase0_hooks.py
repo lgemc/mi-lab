@@ -26,7 +26,7 @@ import torch
 
 from scripts.phase0_smoke import merge
 from src.core.config import Position
-from src.experiment import translation_study as study
+from src.domains.lm import study
 from src.model.adapter import load_adapter, require_circuits
 from src.telemetry.results import guard
 

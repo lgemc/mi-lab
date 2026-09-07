@@ -4,6 +4,7 @@ from typing import Callable, Dict, List, Optional, Sequence, Tuple
 import torch
 
 from ...core.metrics import measure
+from ...core.readout import require_score
 from ...data.tasks import CircuitTask
 from ...model.adapter import require_circuits
 from ..common.components import HeadId
@@ -124,19 +125,30 @@ class Ranking:
 
 @dataclass(frozen=True)
 class Technique:
-    """One way of finding a circuit, and what it costs to believe it"""
+    """One way of finding a circuit, and what it costs to believe it
+
+    `needs_gradient` is the one field here that can refuse a run rather than
+    describe one. A task hands back the rule that turns what the model produced
+    into a number, and some of those rules have no derivative -- BLEU is the
+    standing example, and it is a perfectly good score for an ablation, where
+    you take a component away and the sentences get worse. Under one abstract
+    Score the two halves of this repository finally meet, and without this field
+    the meeting is a RuntimeError about a tensor with no grad_fn, several minutes
+    into a run.
+    """
     find: Callable[..., Ranking]
     units: str
     description: str
     cost: str
+    needs_gradient: bool = False
 
 TECHNIQUES: Dict[str, Technique] = {}
 
-def register_technique(units: str, description: str, cost: str) -> Callable:
+def register_technique(units: str, description: str, cost: str, needs_gradient: bool = False) -> Callable:
     """Register a circuit-finding technique under a name, so a method can be named as data"""
     def decorate(find: Callable[..., Ranking]) -> Callable[..., Ranking]:
         TECHNIQUES[find.__name__.lstrip("_")] = Technique(
-            find=find, units=units, description=description, cost=cost
+            find=find, units=units, description=description, cost=cost, needs_gradient=needs_gradient,
         )
         return find
     return decorate
@@ -145,11 +157,38 @@ def technique_names() -> List[str]:
     """Every technique this module knows how to run, sorted"""
     return sorted(TECHNIQUES)
 
-def rank(method: str, adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None, **options) -> Ranking:
-    """Score every head by the named technique"""
+def techniques_for(score) -> List[str]:
+    """Every technique that can be run against this readout, sorted"""
+    differentiable = bool(getattr(score, "differentiable", False))
+    return sorted(name for name, entry in TECHNIQUES.items() if differentiable or not entry.needs_gradient)
+
+def require_technique(method: str, adapter, task: CircuitTask):
+    """Refuse a technique this task's readout cannot support, before a single pass is run
+
+    The check costs one pass over the examples to build the readout and no
+    forward pass at all, so it lands in seconds rather than minutes in. It is
+    the `require_circuits` shape applied to the other half of the contract: a
+    backend that cannot patch a head and a readout that cannot be
+    differentiated are the same kind of honest refusal, and both name what is
+    missing rather than failing on an attribute halfway through.
+    """
     if method not in TECHNIQUES:
         raise DiscoveryError(f"unknown technique '{method}'; known techniques are {technique_names()}")
-    return TECHNIQUES[method].find(adapter, task, layers=layers, **options)
+    entry = TECHNIQUES[method]
+    score = require_score(task.readout(adapter))
+    if entry.needs_gradient and not score.differentiable:
+        gradient_free = techniques_for(score)
+        raise DiscoveryError(
+            f"{method} needs a gradient through the score, and the readout for task '{task.name}' is "
+            f"'{score.name}', which has none. Techniques that work with this readout: "
+            f"{', '.join(gradient_free)}. Techniques that need a differentiable readout: "
+            f"{', '.join(sorted(set(technique_names()) - set(gradient_free)))}."
+        )
+    return entry
+
+def rank(method: str, adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None, **options) -> Ranking:
+    """Score every head by the named technique"""
+    return require_technique(method, adapter, task).find(adapter, task, layers=layers, **options)
 
 def _sweep(adapter, layers: Optional[Sequence[int]]) -> List[int]:
     """The layers a technique will cover, defaulting to all of them"""
@@ -220,7 +259,7 @@ def _ablation(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None
         for row, layer in enumerate(chosen):
             for head in range(adapter.cfg.n_heads):
                 with adapter.patch(heads={layer: {head: donors[:, row, head]}}):
-                    damaged = behaviour(adapter, task).logit_difference
+                    damaged = behaviour(adapter, task).score
                 scores[row, head] = 1.0 - reference.recovery(damaged)
     return Ranking(
         scores=scores, method="ablation", units="recovery", layers=chosen,
@@ -231,6 +270,7 @@ def _ablation(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None
     units="recovery (first order)",
     description="a gradient estimate of what patching each head would have recovered",
     cost="one backward pass and four forward passes, whatever the model's size",
+    needs_gradient=True,
 )
 def _eap(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None, **options) -> Ranking:
     """Rank heads by attribution patching: patching's first-order expansion, at constant cost
@@ -256,7 +296,7 @@ def _eap(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None, **o
     with measure(items=1) as cost:
         clean = adapter.head_outputs(task.clean, layers=chosen)
         corrupted = adapter.head_outputs(task.corrupted, layers=chosen)
-        gradients = adapter.head_gradients(task.corrupted, reference.io, reference.subject, layers=chosen)
+        gradients = adapter.gradients(task.corrupted, reference.readout, layers=chosen)
         estimate = ((clean - corrupted) * gradients).sum(dim=(3, 4)).mean(dim=0)
     return Ranking(
         scores=estimate / reference.span, method="eap", units="recovery (first order)", layers=chosen,
@@ -269,6 +309,7 @@ IG_STEPS = 5
     units="recovery (integrated)",
     description="eap with the gradient integrated along the path from corrupted to clean, not taken at a point",
     cost="IG_STEPS backward passes and four forward passes, whatever the model's size",
+    needs_gradient=True,
 )
 def _eap_ig(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
             steps: int = IG_STEPS, **options) -> Ranking:
@@ -320,8 +361,8 @@ def _eap_ig(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
         corrupted = adapter.head_outputs(task.corrupted, layers=chosen)
         gradients = None
         for step in range(1, steps + 1):
-            partial = adapter.head_gradients(
-                task.corrupted, reference.io, reference.subject, layers=chosen,
+            partial = adapter.gradients(
+                task.corrupted, reference.readout, layers=chosen,
                 toward=task.clean, alpha=step / steps,
             )
             gradients = partial if gradients is None else gradients + partial
@@ -339,6 +380,7 @@ MASK_SPARSITY = 0.03
     units="gate",
     description="a per-head gate learned by gradient descent under a sparsity penalty, not a score per head",
     cost="MASK_STEPS forward-and-backward passes, independent of how many heads there are",
+    needs_gradient=True,
 )
 def _mask(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
           steps: int = MASK_STEPS, rate: float = MASK_RATE, sparsity: float = MASK_SPARSITY,
@@ -402,8 +444,8 @@ def _mask(adapter, task: CircuitTask, layers: Optional[Sequence[int]] = None,
         donor = adapter.head_outputs(task.corrupted, layers=chosen)
         gates = torch.ones(len(chosen), adapter.cfg.n_heads)
         for _ in range(steps):
-            value, gradient = adapter.head_gate_gradients(
-                task.clean, donor, reference.io, reference.subject, gates, layers=chosen
+            value, gradient = adapter.gate_gradients(
+                task.clean, donor, reference.readout, gates, layers=chosen
             )
             # d(deviation^2)/d(gate), where deviation is how far the gated model has
             # drifted from the clean one in span units. Descend on that, and pay

@@ -44,7 +44,6 @@ from typing import List, Optional, Sequence, Tuple
 
 import torch
 
-from ...core.metrics import logit_difference
 from ...data.tasks import CircuitTask
 from ...model.adapter import require_circuits
 from ..common.components import HeadId
@@ -109,13 +108,13 @@ class Faithfulness:
                 f"median {self.median:>6.3f}  IQR [{low:>6.3f}, {high:>6.3f}]  worst {self.worst:>7.3f}")
 
 def _differences(adapter, prompts: Sequence[str], reference: Baselines) -> torch.Tensor:
-    """Per-example logit difference, not the batch mean
+    """The readout per example, not the batch mean
 
     The mean is what every existing helper here returns and it cannot express
     either of the two aggregation orders, because mean(F)/mean(M) and
     mean(F/M) need the vector to tell apart.
     """
-    return logit_difference(adapter.logits(list(prompts)), reference.io, reference.subject).float().cpu()
+    return reference.readout(adapter.outputs(list(prompts))).float().cpu()
 
 def _off_value(value: str, clean: torch.Tensor, corrupted: torch.Tensor,
                layer: int, head: int) -> torch.Tensor:

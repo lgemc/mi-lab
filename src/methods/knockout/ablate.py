@@ -23,7 +23,7 @@ MLP output. Both are the residual-stream write of the component, and both are
 replaced in place under a hook that is removed whether or not the pass
 finishes.
 
-A common pipe could be: capture_means | Means.save | ablate | translate | preview
+A common pipe could be: capture_means | Means.save | ablate | generate
 A common pipe could be: candidate | extract | torch.save
 """
 
@@ -34,8 +34,6 @@ from typing import Any, Dict, Iterable, Iterator, List, Optional, Sequence, Tupl
 
 import torch
 
-from ...core.metrics import degeneracy
-from ...data.translation import clean_completion
 from ...model.passes import attention_of, forward_batches, hooked
 from ...telemetry.observe import Progress, log
 from ..common import components as comp
@@ -43,11 +41,7 @@ from ..common.errors import KnockoutError
 
 MEANS_BATCH = 32          # a capture holds every hooked layer's activations at once
 MEANS_MAX_LENGTH = 256    # the counterfactual prompts are few-shot and short
-GENERATION_CHUNK = 100    # sentences per progress tick when translating
-MAX_NEW_TOKENS = 64       # a WMT sentence, with room to spare
 
-PREVIEW_SAMPLES = 3
-PREVIEW_WIDTH = 96
 
 def geometry(adapter) -> Dict[str, Any]:
     """What a mean is a mean *of*, so a cache cannot be read onto the wrong model"""
@@ -246,48 +240,6 @@ def ablate(adapter, means: Means, components: Iterable[str]) -> Iterator[None]:
         handles.append(adapter.mlps[layer].register_forward_hook(mlp_hook(layer)))
     with hooked(handles):
         yield
-
-def translate(adapter, prompts: Sequence[str], label: str = "translate", chunk: int = GENERATION_CHUNK,
-              max_new_tokens: int = MAX_NEW_TOKENS) -> List[str]:
-    """Generate one completion per prompt, chunked here rather than in the adapter so the pass reports progress
-
-    `adapter.generate` batches internally and returns only when every prompt
-    is done, which makes a 200-sentence pass a single silent minute. Chunking
-    at this level produces the same completions in the same order and lets
-    the loop say where it is.
-    """
-    chunks = [prompts[start : start + chunk] for start in range(0, len(prompts), chunk)]
-    bar = Progress(len(chunks), label, indent=2)
-    done: List[str] = []
-    for piece in chunks:
-        done.extend(clean_completion(text) for text in adapter.generate(list(piece), max_new_tokens=max_new_tokens))
-        bar.tick(f"{len(done)}/{len(prompts)} sentences")
-    return done
-
-def preview(hypotheses: Sequence[str], label: str = "sample", count: int = PREVIEW_SAMPLES,
-            indent: int = 1) -> float:
-    """Log a few actual generations, because a metric cannot show you a broken model
-
-    Not optional and not behind a flag. The checklist item is "read ten
-    generations at the largest ablation and stop if they are not language",
-    and the run that skipped it reported a threshold pass by a factor of 32 on
-    a model emitting a single repeated token. Returns the degeneracy share so
-    the caller can record it beside the score.
-    """
-    if not hypotheses:
-        log(f"{label}: no generations at all -- the pass produced nothing", indent=indent)
-        return 1.0
-    for index, text in enumerate(hypotheses[:count]):
-        shown = text if len(text) <= PREVIEW_WIDTH else text[:PREVIEW_WIDTH - 1] + "…"
-        log(f"{label}[{index}]: {shown!r}", indent=indent)
-    empty = sum(1 for text in hypotheses if not text.strip())
-    if empty:
-        log(f"{label}: {empty}/{len(hypotheses)} generations are empty", indent=indent)
-    broken = degeneracy(hypotheses)
-    if broken:
-        log(f"{label}: DEGENERACY {broken:.1%} of generations are repeated tokens, not language -- "
-            "this is a broken model, not an ablated one", indent=indent)
-    return broken
 
 def component_module(adapter, cid: str) -> torch.nn.Module:
     """The module whose parameters a whole-layer component names

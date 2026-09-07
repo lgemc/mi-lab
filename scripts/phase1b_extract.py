@@ -39,7 +39,7 @@ import sys
 
 import torch
 
-from src.experiment import translation_study as study
+from src.domains.lm import study
 from src.methods.common import components as comp
 from src.methods.knockout.ablate import extract
 from src.telemetry.observe import banner, log, set_log_file

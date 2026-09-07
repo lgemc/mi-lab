@@ -38,7 +38,7 @@ from pathlib import Path
 
 import torch
 
-from src.data.ioi import WANG_HEADS
+from src.domains.lm.data.ioi import WANG_HEADS
 from src.methods.circuits.wiring import against, reduce
 from src.methods.sheaves.mask import GateError, circuit_path, load_circuit, masked_weights, summary
 from src.model.adapter import load_adapter, require_circuits

@@ -40,8 +40,8 @@ import random
 import sys
 from typing import Any, Dict, List
 
-from src.experiment import translation_study as study
-from src.methods.knockout.quality import agreement
+from src.domains.lm import study
+from src.domains.lm.analysis.quality import agreement
 from src.telemetry.observe import Budget, banner, duration, log, set_log_file
 from src.telemetry.results import guard, load_state, save_state
 

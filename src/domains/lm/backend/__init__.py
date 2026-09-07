@@ -37,7 +37,7 @@ A common pipe could be: load_adapter | capture | head_outputs | patch
 """
 
 from ....core.config import ModelConfig
-from ...adapter import DTYPES, ModelAdapter, register_backend, resolve_device
+from ....model.adapter import DTYPES, ModelAdapter, register_backend, resolve_device
 from .base import AdapterBase
 from .capture import CaptureMixin
 from .decompose import DecomposeMixin

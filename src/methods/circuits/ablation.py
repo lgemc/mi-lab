@@ -115,7 +115,7 @@ def ablate(
     reference = clean if clean is not None else behaviour(adapter, dataset)
     if not chosen:
         return Ablation(
-            heads=[], clean=reference.logit_difference, ablated=reference.logit_difference,
+            heads=[], clean=reference.score, ablated=reference.score,
             accuracy=reference.accuracy, clean_accuracy=reference.accuracy, donor=donor,
         )
 
@@ -123,6 +123,6 @@ def ablate(
     with adapter.patch(heads=head_patch(chosen, bank)):
         after = behaviour(adapter, dataset)
     return Ablation(
-        heads=chosen, clean=reference.logit_difference, ablated=after.logit_difference,
+        heads=chosen, clean=reference.score, ablated=after.score,
         accuracy=after.accuracy, clean_accuracy=reference.accuracy, donor=donor,
     )

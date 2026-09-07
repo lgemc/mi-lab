@@ -68,8 +68,8 @@ from pathlib import Path
 
 import torch
 
-from src.data.tasks import single_tokens
-from src.data.translation import WORD_FRAME, pool_path
+from src.domains.lm.data.translation import WORD_FRAME, pool_path
+from src.domains.lm.tasks import single_tokens
 from src.model.adapter import load_adapter
 from src.telemetry.observe import Progress, banner, log
 
