@@ -36,8 +36,7 @@ import json
 from pathlib import Path
 
 from src.data.tasks import build_task
-from src.methods.circuits import require_circuits
-from src.methods.gates import (
+from src.methods.sheaves.mask import (
     GateError,
     circuit_loaded,
     circuit_path,
@@ -46,7 +45,7 @@ from src.methods.gates import (
     open_count,
     ranking,
 )
-from src.model.adapter import load_adapter
+from src.model.adapter import load_adapter, require_circuits
 from src.telemetry.observe import banner, log
 
 

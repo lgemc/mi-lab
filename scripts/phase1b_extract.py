@@ -7,7 +7,7 @@ the two come apart: a set the model needs can still be a set that reproduces
 none of the behaviour by itself, which is the difference between "the engine
 needs its spark plugs" and "the spark plugs are the engine".
 
-src/methods/circuits.py already measures both for IOI (faithfulness, necessity,
+src/methods/circuits/ already measures both for IOI (faithfulness, necessity,
 minimality). The translation sweep implements only the middle one. This closes
 that asymmetry with the machinery already here: ablating the *complement* of a
 circuit is running the circuit alone, and `knockout.ablate` takes any
@@ -40,8 +40,8 @@ import sys
 import torch
 
 from src.experiment import translation_study as study
-from src.methods import components as comp
-from src.methods.knockout import extract
+from src.methods.common import components as comp
+from src.methods.knockout.ablate import extract
 from src.telemetry.observe import banner, log, set_log_file
 from src.telemetry.results import guard
 

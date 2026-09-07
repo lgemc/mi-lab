@@ -17,8 +17,8 @@ from dataclasses import replace
 
 from src.core.config import load_config
 from src.experiment import translation_study as study
-from src.methods import components as comp
-from src.methods.cost import CostModel, read_dimensions, report
+from src.methods.common import components as comp
+from src.methods.knockout.cost import CostModel, read_dimensions, report
 from src.telemetry.results import guard
 
 DEFAULT_CONTEXT = 160    # tokens per few-shot eval prompt, measured on the WMT shortlist

@@ -25,7 +25,7 @@ from scripts.phase1a_neuron_scan import DEFAULT_TOKENS, TOP
 from scripts.phase1a_neuron_scan import RESULTS as PHASE1A_RESULTS
 from src.data.translation import default_pairs_path, load_pairs
 from src.experiment import translation_study as study
-from src.methods import neurons
+from src.methods.knockout import neurons
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard, result
 

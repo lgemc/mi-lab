@@ -39,10 +39,9 @@ from pathlib import Path
 import torch
 
 from src.data.ioi import WANG_HEADS
-from src.methods.circuits import require_circuits
-from src.methods.gates import GateError, circuit_path, load_circuit, masked_weights, summary
-from src.methods.wiring import against, reduce
-from src.model.adapter import load_adapter
+from src.methods.circuits.wiring import against, reduce
+from src.methods.sheaves.mask import GateError, circuit_path, load_circuit, masked_weights, summary
+from src.model.adapter import load_adapter, require_circuits
 from src.telemetry.observe import banner, log
 
 TOP_HEADS = 10

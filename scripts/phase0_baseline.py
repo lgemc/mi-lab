@@ -24,8 +24,8 @@ import torch
 from scripts.phase0_smoke import merge
 from src.data.translation import SHOTS, default_pairs_path, load_pairs, translation_prompt
 from src.experiment import translation_study as study
-from src.methods.knockout import translate
-from src.methods.quality import Comet, bleu, bleu_signature, chrf
+from src.methods.knockout.ablate import translate
+from src.methods.knockout.quality import Comet, bleu, bleu_signature, chrf
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard, load_state, result, save_state
 

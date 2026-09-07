@@ -17,7 +17,7 @@ import sys
 from scripts.phase0_smoke import merge
 from src.data.translation import SHOTS, clean_completion, default_pairs_path, load_pairs, translation_prompt
 from src.experiment import translation_study as study
-from src.methods.quality import bleu
+from src.methods.knockout.quality import bleu
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard
 
