@@ -90,6 +90,27 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
         "ceiling that was found",
         "mean activation norms",
     ),
+    "delta_relative": (
+        "Frobenius norm of the difference between one weight tensor in two checkpoints, over that "
+        "tensor's norm in the first; scale-free, so tensors of different widths compare",
+        "share",
+    ),
+    "stable_rank": (
+        "squared Frobenius norm of that difference over its squared largest singular value; one "
+        "dominant direction gives 1 and an equal spread gives the smaller side of the shape, so it "
+        "says how many directions the change used and nothing about how large it was",
+        "directions",
+    ),
+    "top_k_energy": (
+        "share of the difference's squared Frobenius norm held by its leading singular directions, "
+        "with k recorded beside it; the claim that a fine-tune is a handful of directions, as a number",
+        "share",
+    ),
+    "rank_for_half": (
+        "how many leading singular directions of the difference are needed to reach half of its "
+        "squared Frobenius norm; the same curve as top_k_energy without a k fixed in advance",
+        "directions",
+    ),
 }
 
 UNKNOWN = "unspecified"
