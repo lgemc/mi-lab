@@ -111,6 +111,24 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
         "squared Frobenius norm; the same curve as top_k_energy without a k fixed in advance",
         "directions",
     ),
+    "fvu": (
+        "squared error of a dictionary's reconstruction of one layer's MLP output over the variance "
+        "of that output around its own mean across token positions; 1.0 is what predicting the mean "
+        "everywhere would score, and the figure is meaningless over few positions because the "
+        "denominator is the spread across them",
+        "share",
+    ),
+    "uncentred_error": (
+        "the same squared error over the squared norm of the output rather than its variance; smaller "
+        "than fvu whenever the output has a large mean, and reported beside it because neither is "
+        "'the' reconstruction error",
+        "share",
+    ),
+    "l0": (
+        "active dictionary features per token position per layer; multiply by the layer count for the "
+        "whole-model figure a transcoder release usually quotes",
+        "features",
+    ),
 }
 
 UNKNOWN = "unspecified"

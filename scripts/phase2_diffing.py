@@ -26,6 +26,7 @@ in well under.
 
 Run: uv run python -m scripts.phase2_diffing qwen3-1.7b-base qwen3-1.7b check
      uv run python -m scripts.phase2_diffing qwen3-1.7b-base qwen3-1.7b weights
+     uv run python -m scripts.phase2_diffing qwen3-1.7b-base qwen3-1.7b dictionary
      uv run python -m scripts.phase2_diffing qwen3-1.7b-base qwen3-1.7b summarise
 """
 
@@ -35,11 +36,13 @@ from typing import Any, Dict, List
 
 from src.core.config import load_config
 from src.methods import diffing
+from src.model.replacement import load_replacement
 from src.telemetry.observe import Progress, banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, result, save_state
 
 ARTIFACTS = {
     "weights": "phase2-weight-diff.json",
+    "dictionary": "phase2-dictionary-fit.json",
 }
 LOG = result("phase2-diffing.log")
 
@@ -151,7 +154,108 @@ def stage_summarise(options: Dict[str, Any]) -> None:
             log(f"{name}: {why}", indent=1)
 
 
-STAGES = {"check": stage_check, "weights": stage_weights, "summarise": stage_summarise}
+def passages(count: int, min_chars: int = 1200) -> List[str]:
+    """Long stretches of ordinary prose, for measuring a variance over
+
+    Wikitext rather than this study's translation corpus, and long rather than
+    short, for two different reasons. Long because FVU divides by the spread of
+    a layer's MLP output across positions, and over a six-token prompt there is
+    barely any spread to divide by -- the same dictionary reports an FVU half
+    again as large on short prompts as on these. Neutral prose because the two
+    checkpoints being compared are a base model and an instruction-tuned one,
+    and any text shaped like an instruction is text one of them was trained on
+    and the other was not.
+
+    It lives in this script because one stage uses it. A second caller moves it
+    to `src/data/`.
+    """
+    from datasets import load_dataset
+
+    rows = load_dataset("wikitext", "wikitext-103-raw-v1", split="test")["text"]
+    return [row for row in rows if len(row) > min_chars][:count]
+
+
+def measure_fit(config: str, release: str, texts: List[str], options: Dict[str, Any]):
+    """One checkpoint's fit under one dictionary, loaded and then dropped again"""
+    import torch
+
+    cfg = load_config(config)
+    model, backend = load_replacement(
+        cfg.hf_name,
+        release,
+        dtype=cfg.dtype,
+        backend=options["backend"],
+        note=lambda message: log(message, indent=1),
+        wrap=step,
+    )
+    with step(f"measuring dictionary fit on {config}") as facts:
+        report = diffing.dictionary_fit(model, texts, label=config, release=release)
+        facts["backend"] = backend
+        facts["fvu"] = round(report.fvu, 4)
+        facts["gpu"] = gpu()
+    # Dropped before the second checkpoint loads: two of these plus two copies
+    # of the dictionary's encoders do not need to be resident at once.
+    del model
+    torch.cuda.empty_cache()
+    return report
+
+
+def stage_dictionary(options: Dict[str, Any]) -> None:
+    """Does the dictionary fitted for `pre` still describe `post`?
+
+    The gate on every strategy that reads features rather than weights. One
+    dictionary -- whichever `pre`'s config names -- applied to both checkpoints
+    over identical text, reported per layer.
+
+    There is deliberately no config pairing `post`'s weights with this
+    dictionary. A config's `transcoder:` block records what was fitted *for that
+    checkpoint*, and inventing one that claims otherwise would file the
+    experiment's question as though it were an answer.
+    """
+    before = load_config(options["pre"])
+    if before.transcoder is None:
+        raise DiffingRunError(
+            f"'{options['pre']}' names no transcoder, and this stage transfers one. "
+            "configs/qwen3-1.7b-base.yaml is the config in this repo that has a dictionary"
+        )
+    release = before.transcoder.release
+    texts = passages(options["passages"])
+    log(f"{len(texts)} passages, dictionary {release} held fixed across both checkpoints")
+
+    reports = {
+        side: measure_fit(options[side], release, texts, options) for side in ("pre", "post")
+    }
+    shift = diffing.fit_shift(reports["pre"], reports["post"])
+
+    save_state(artifact("dictionary"), {
+        "release": release,
+        "passages": len(texts),
+        "pre_config": options["pre"],
+        "post_config": options["post"],
+        "pre": reports["pre"].as_dict(),
+        "post": reports["post"].as_dict(),
+        "shift": shift,
+        "recorded_variance_unexplained": before.transcoder.variance_unexplained,
+    })
+
+    for side in ("pre", "post"):
+        log(str(reports[side]))
+    log(
+        f"mean fvu {reports['pre'].fvu:.3f} -> {reports['post'].fvu:.3f} "
+        f"({reports['post'].fvu - reports['pre'].fvu:+.3f}), "
+        f"and {before.transcoder.variance_unexplained} is what the release records for {options['pre']}"
+    )
+    log(f"{'layer':>6}{'pre':>9}{'post':>9}{'delta':>9}", indent=1)
+    for row in sorted(shift, key=lambda item: item["layer"]):
+        log(f"{row['layer']:>6}{row['before']:>9.3f}{row['after']:>9.3f}{row['delta']:>+9.3f}", indent=1)
+
+
+STAGES = {
+    "check": stage_check,
+    "weights": stage_weights,
+    "dictionary": stage_dictionary,
+    "summarise": stage_summarise,
+}
 
 
 def parse(argv: List[str]) -> Dict[str, Any]:
@@ -167,6 +271,8 @@ def parse(argv: List[str]) -> Dict[str, Any]:
         "post": positional[1] if len(positional) > 1 else "qwen3-1.7b",
         "stage": positional[2] if len(positional) > 2 else "check",
         "device": flags.get("device", "cuda" if _accelerated() else "cpu"),
+        "backend": flags.get("backend", "transformerlens"),
+        "passages": int(flags.get("passages", 8)),
         "estimate": "estimate" in flags,
     }
 

@@ -48,7 +48,7 @@ A common pipe could be: index | checkpoint_delta | DeltaReport.profile | table
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, Iterator, List, Optional, Tuple
+from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 import torch
 from safetensors import safe_open
@@ -416,6 +416,184 @@ def checkpoint_delta(
         if on_tensor is not None:
             on_tensor(delta)
     return report
+
+# -------------------------------------------------- does the dictionary still fit
+
+@dataclass
+class LayerFit:
+    """How much of one layer's MLP output a dictionary failed to reconstruct
+
+    `fvu` divides by the variance of the true output around its own mean over
+    positions; `uncentred` divides by its squared norm. Both are reported
+    because they answer the same question with different denominators and a
+    reader cannot tell from one number which was meant. Where they disagree,
+    say so rather than picking.
+    """
+    layer: int
+    fvu: float
+    uncentred: float
+    l0: float
+
+    def __str__(self) -> str:
+        return f"layer {self.layer:>3}  fvu {self.fvu:.3f}  uncentred {self.uncentred:.3f}  l0 {self.l0:.1f}"
+
+@dataclass
+class FitReport:
+    """A dictionary's fit on a checkpoint, per layer and over all of them
+
+    `positions` is here because this is a variance, and a variance over a
+    handful of token positions is not one: measured over six-token prompts the
+    same dictionary reports an FVU half again as large as it does over long
+    passages, because the denominator is the spread across positions and there
+    is barely any. Anything reading this report should refuse a small number
+    here rather than average it.
+    """
+    checkpoint: str
+    release: str
+    layers: List[LayerFit] = field(default_factory=list)
+    positions: int = 0
+    prompts: int = 0
+
+    @property
+    def fvu(self) -> float:
+        """The mean across layers, which weights every layer equally on purpose"""
+        return sum(layer.fvu for layer in self.layers) / len(self.layers)
+
+    @property
+    def uncentred(self) -> float:
+        return sum(layer.uncentred for layer in self.layers) / len(self.layers)
+
+    @property
+    def l0(self) -> float:
+        """Active features per position per layer; multiply by layers for the usual figure"""
+        return sum(layer.l0 for layer in self.layers) / len(self.layers)
+
+    @property
+    def worst(self) -> Optional[LayerFit]:
+        return max(self.layers, key=lambda layer: layer.fvu) if self.layers else None
+
+    def as_dict(self) -> Dict[str, object]:
+        return {
+            "checkpoint": self.checkpoint,
+            "release": self.release,
+            "positions": self.positions,
+            "prompts": self.prompts,
+            "fvu": self.fvu,
+            "uncentred": self.uncentred,
+            "l0_per_layer": self.l0,
+            "layers": [
+                {"layer": f.layer, "fvu": f.fvu, "uncentred": f.uncentred, "l0": f.l0} for f in self.layers
+            ],
+        }
+
+    def __str__(self) -> str:
+        if not self.layers:
+            return f"{self.checkpoint}: nothing measured"
+        worst = self.worst
+        return (
+            f"{self.checkpoint} under {self.release}: fvu {self.fvu:.3f} over {self.positions} positions, "
+            f"worst layer {worst.layer} at {worst.fvu:.3f}"
+        )
+
+def unexplained(truth: torch.Tensor, error: torch.Tensor) -> Tuple[float, float]:
+    """Fraction of variance, and of squared norm, that `error` accounts for
+
+    Takes the error rather than the reconstruction because that is what the
+    caller has: circuit-tracer computes `mlp_out - reconstruction` itself and
+    turns exactly this residual into a graph's error nodes, so measuring it here
+    measures the thing the graphs will show rather than a second opinion about
+    it.
+    """
+    residual = (error.float() ** 2).sum().item()
+    centred = ((truth.float() - truth.float().mean(0, keepdim=True)) ** 2).sum().item()
+    total = (truth.float() ** 2).sum().item()
+    return (residual / centred if centred else float("nan"), residual / total if total else float("nan"))
+
+def dictionary_fit(
+    model,
+    prompts: Sequence[str],
+    skip_first: int = 1,
+    label: Optional[str] = None,
+    release: Optional[str] = None,
+) -> FitReport:
+    """Run a loaded replacement model's own dictionary over prompts and report the miss
+
+    `model` is a `circuit_tracer.ReplacementModel`, already carrying whichever
+    dictionary the caller paired with it -- including one fitted on a different
+    checkpoint, which is the transfer question this exists to answer.
+
+    `skip_first` drops leading positions, one by default: the replacement model
+    zeroes its features at position 0, so the reconstruction there is empty by
+    construction and counting it would report the first token as unexplained
+    variance.
+
+    Nothing about this is specific to a diff, but it lives here rather than in a
+    dictionary module because the only question it has been asked so far is a
+    diff: the same dictionary over two checkpoints.
+    """
+    totals: Dict[int, List[Tuple[float, float, float]]] = {}
+    positions = 0
+
+    for prompt in prompts:
+        inputs, input_hooks, _ = model.get_caching_hooks(lambda name: model.feature_input_hook in name)
+        outputs, output_hooks, _ = model.get_caching_hooks(lambda name: model.feature_output_hook in name)
+        tokens = model.ensure_tokenized(prompt)
+        model.run_with_hooks(tokens, fwd_hooks=input_hooks + output_hooks)
+
+        feature_input = torch.cat(list(inputs.values()), dim=0)
+        feature_output = torch.cat(list(outputs.values()), dim=0)
+        components = model.transcoders.compute_attribution_components(feature_input, model.zero_positions)
+        residual = feature_output - components["reconstruction"]
+        activations = components["activation_matrix"]
+        activations = activations.to_dense() if activations.is_sparse else activations
+
+        for layer in range(feature_output.shape[0]):
+            truth = feature_output[layer, skip_first:]
+            fvu, raw = unexplained(truth, residual[layer, skip_first:])
+            active = (activations[layer, skip_first:] > 0).float().sum(-1).mean().item()
+            totals.setdefault(layer, []).append((fvu, raw, active))
+        positions += feature_output.shape[1] - skip_first
+
+    # Both names come from the caller when it has them. A replacement model does
+    # not reliably carry which dictionary was loaded into it -- `scan_name` is
+    # optional and this release leaves it unset -- and a report headed "unknown"
+    # is a report that cannot be read a week later.
+    report = FitReport(
+        checkpoint=label or getattr(getattr(model, "cfg", None), "model_name", "unknown"),
+        release=release or getattr(model.transcoders, "scan_name", None) or "unknown",
+        positions=positions,
+        prompts=len(prompts),
+    )
+    for layer, seen in sorted(totals.items()):
+        n = len(seen)
+        report.layers.append(
+            LayerFit(
+                layer=layer,
+                fvu=sum(row[0] for row in seen) / n,
+                uncentred=sum(row[1] for row in seen) / n,
+                l0=sum(row[2] for row in seen) / n,
+            )
+        )
+    return report
+
+def fit_shift(before: FitReport, after: FitReport) -> List[Dict[str, object]]:
+    """Per-layer change in dictionary fit between two checkpoints under one dictionary
+
+    The number that decides whether a dictionary transfers. Read it per layer
+    rather than as a mean: a uniform rise of a few points and the same rise
+    concentrated in the layers an attribution graph reads out are the same
+    average and different answers.
+    """
+    return [
+        {
+            "layer": one.layer,
+            "before": one.fvu,
+            "after": two.fvu,
+            "delta": two.fvu - one.fvu,
+            "delta_uncentred": two.uncentred - one.uncentred,
+        }
+        for one, two in zip(before.layers, after.layers, strict=True)
+    ]
 
 # ------------------------------------------------------------- how it is read
 

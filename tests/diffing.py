@@ -24,14 +24,18 @@ from src.methods.diffing import (
     TOP_K,
     DeltaReport,
     DiffingError,
+    FitReport,
+    LayerFit,
     checkpoint_delta,
     classify,
     duplicates,
+    fit_shift,
     index,
     read,
     shapes,
     table,
     tensor_delta,
+    unexplained,
 )
 
 ROWS, COLUMNS = 12, 8
@@ -170,6 +174,65 @@ class TestFiles(TestCase):
             })
             found = duplicates(index(root), ["lm_head.weight", "other.weight"])
             self.assertEqual(found, {"lm_head.weight": "model.embed_tokens.weight"})
+
+
+class TestUnexplained(TestCase):
+    def test_a_perfect_reconstruction_leaves_nothing(self):
+        truth = torch.randn(ROWS, COLUMNS)
+        fvu, raw = unexplained(truth, torch.zeros_like(truth))
+        self.assertEqual((fvu, raw), (0.0, 0.0))
+
+    def test_reconstructing_the_mean_leaves_exactly_the_variance(self):
+        # Predicting each column's mean everywhere is the standard baseline FVU
+        # is defined against, so it has to come out at 1.0 by construction.
+        truth = torch.randn(ROWS, COLUMNS)
+        error = truth - truth.mean(0, keepdim=True)
+        fvu, _ = unexplained(truth, error)
+        self.assertAlmostEqual(fvu, 1.0, places=5)
+
+    def test_the_two_denominators_differ_when_the_mean_is_not_zero(self):
+        truth = torch.ones(ROWS, COLUMNS) * 3 + 0.1 * torch.randn(ROWS, COLUMNS)
+        error = 0.1 * torch.randn(ROWS, COLUMNS)
+        fvu, raw = unexplained(truth, error)
+        # A large offset inflates the squared norm and not the variance, so the
+        # uncentred figure is the smaller of the two and calling either "the"
+        # FVU without saying which would be a different number each time.
+        self.assertGreater(fvu, raw)
+
+    def test_a_flat_signal_has_no_variance_to_explain(self):
+        truth = torch.ones(ROWS, COLUMNS)
+        fvu, raw = unexplained(truth, torch.zeros_like(truth))
+        self.assertTrue(fvu != fvu)  # nan: the question is undefined, not zero
+        self.assertEqual(raw, 0.0)
+
+
+class TestFitShift(TestCase):
+    def build(self, first, second):
+        return (
+            FitReport(checkpoint="a", release="r", layers=[LayerFit(i, v, v, 4.0) for i, v in enumerate(first)]),
+            FitReport(checkpoint="b", release="r", layers=[LayerFit(i, v, v, 4.0) for i, v in enumerate(second)]),
+        )
+
+    def test_the_shift_is_per_layer_and_signed(self):
+        before, after = self.build([0.2, 0.3, 0.1], [0.25, 0.9, 0.05])
+        shift = fit_shift(before, after)
+        self.assertEqual([row["layer"] for row in shift], [0, 1, 2])
+        self.assertAlmostEqual(shift[1]["delta"], 0.6, places=6)
+        self.assertLess(shift[2]["delta"], 0)
+
+    def test_a_mean_hides_where_the_dictionary_failed(self):
+        # The reason fit_shift returns rows: these two have the same mean shift
+        # and only one of them has a layer that stopped being described at all.
+        spread, spiked = self.build([0.3] * 4, [0.4] * 4)[1], self.build([0.3] * 4, [0.3, 0.3, 0.3, 0.7])[1]
+        base = self.build([0.3] * 4, [0.3] * 4)[0]
+        self.assertAlmostEqual(spread.fvu, spiked.fvu, places=6)
+        self.assertLess(max(row["delta"] for row in fit_shift(base, spread)), 0.2)
+        self.assertGreater(max(row["delta"] for row in fit_shift(base, spiked)), 0.3)
+
+    def test_two_reports_of_different_depth_will_not_be_compared(self):
+        before, after = self.build([0.2, 0.3], [0.2, 0.3, 0.4])
+        with self.assertRaises(ValueError):
+            fit_shift(before, after)
 
 
 class TestCheckpointDelta(TestCase):
