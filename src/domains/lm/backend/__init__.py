@@ -20,6 +20,7 @@ method lives is where its question is answered:
     graph       the residual stream as a graph, and which edges exist in it
     edge_patch  one edge ablated toward a counterfactual run
     edge_gate   one edge scaled by a differentiable gate, for pruning
+    loading     the weights put on the device file by file, with no host copy
 
 Two sites carry every operation. The residual stream is read and written at a
 decoder block's output; heads are read and written at the input to the
@@ -45,6 +46,7 @@ from .edge_gate import EdgeGateMixin
 from .edge_patch import EdgePatchMixin
 from .graph import GraphMixin
 from .heads import HeadMixin
+from .loading import stream
 from .outputs import OutputMixin
 from .patching import PatchMixin
 
@@ -81,14 +83,15 @@ def _build_transformers(cfg: ModelConfig) -> ModelAdapter:
     if tokenizer.pad_token is None:
         # GPT-2 and friends ship no pad token, and batching needs one
         tokenizer.pad_token = tokenizer.eos_token
-    # Weights go straight to the device, shard by shard. Loading to the CPU and
-    # then calling `.to()` holds two full copies at the peak, and on the GB10
-    # both copies come out of the same 121 GB of unified memory: a 27B in
-    # bfloat16 is 54 GB twice, and that run took the machine down on the OOM
-    # killer. Streaming keeps the peak at one copy plus one shard.
-    model = AutoModelForCausalLM.from_pretrained(
-        cfg.hf_name, dtype=DTYPES[cfg.dtype], device_map=resolve_device(cfg.device)
-    )
+    # On an accelerator the weights are streamed in by `loading.stream`, one
+    # file at a time, with no host copy: `from_pretrained` stages one even with
+    # a device_map, and on the GB10's unified memory that staging copy is the
+    # difference between a 27B loading and the machine going down. On the CPU
+    # there is only one pool either way, and from_pretrained is the reference.
+    device = resolve_device(cfg.device)
+    model = stream(cfg.hf_name, DTYPES[cfg.dtype], device) if device != "cpu" else None
+    if model is None:
+        model = AutoModelForCausalLM.from_pretrained(cfg.hf_name, dtype=DTYPES[cfg.dtype], device_map=device)
     model.eval()
 
     return TransformersAdapter(cfg, model, tokenizer)

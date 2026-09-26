@@ -1,6 +1,21 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from src.domains.lm.analysis.lens import ItemScore, matches, normalize, report, score_item
+import torch
+
+from src.domains.lm.analysis.lens import (
+    ItemScore,
+    JacobianLens,
+    logit_lens,
+    matches,
+    normalize,
+    report,
+    score_bank,
+    score_item,
+)
+
+from ..stubs.model import shared_adapter
 
 """
 The scorers are where a readout result is quietly made too good, so they are
@@ -100,8 +115,9 @@ class TestLensAgreesAtTheTop(TestCase):
 
     @classmethod
     def setUpClass(cls):
-        from src.model.adapter import load_adapter
-        cls.adapter = load_adapter("gpt2-small")
+        cls.adapter = shared_adapter()
+        if cls.adapter is None:
+            raise cls.skipTest(cls, "gpt2-small is not available")
 
     def test_the_last_layer_is_the_models_own_next_token(self):
         from src.domains.lm.analysis.lens import logit_lens
@@ -119,3 +135,82 @@ class TestLensAgreesAtTheTop(TestCase):
             self.assertEqual(5, len(row.tokens))
             self.assertEqual(sorted(row.scores, reverse=True), row.scores)
             self.assertTrue(all(0.0 <= score <= 1.0 for score in row.scores))
+
+
+class TestJacobianLens(TestCase):
+    """The J-lens is the logit lens with a matrix in front, so it is tested against it"""
+
+    PROMPTS = ("The Eiffel Tower is in the city of", "Two plus two is")
+
+    @classmethod
+    def setUpClass(cls):
+        cls.adapter = shared_adapter()
+        if cls.adapter is None:
+            raise cls.skipTest(cls, "gpt2-small is not available")
+        cls.width = cls.adapter.cfg.d_model
+
+    def lens(self, matrix_for):
+        layers = range(self.adapter.cfg.n_layers - 1)
+        return JacobianLens({layer: matrix_for(layer) for layer in layers}, n_prompts=3)
+
+    def test_an_identity_lens_is_the_logit_lens(self):
+        """With J = I everywhere the transport is a no-op, and any difference is the plumbing"""
+        lens = self.lens(lambda layer: torch.eye(self.width, dtype=torch.float16))
+        plain = logit_lens(self.adapter, self.PROMPTS, top_k=5)
+        through = logit_lens(self.adapter, self.PROMPTS, top_k=5, transport=lens.transport)
+        for row_plain, row_through in zip(plain, through, strict=True):
+            self.assertEqual([r.tokens for r in row_plain], [r.tokens for r in row_through])
+
+    def test_the_transport_is_h_times_j_transposed(self):
+        torch.manual_seed(0)
+        matrix = torch.randn(4, 4)
+        lens = JacobianLens({0: matrix})
+        residual = torch.randn(2, 4)
+        torch.testing.assert_close(residual @ matrix.T, lens.transport(residual, 0))
+
+    def test_a_layer_without_a_matrix_passes_through(self):
+        """The last layer's Jacobian onto itself is the identity, and the reference fits none"""
+        lens = JacobianLens({0: torch.eye(4)})
+        residual = torch.randn(2, 4)
+        self.assertIs(residual, lens.transport(residual, 3))
+
+    def test_a_scrambling_lens_changes_the_readout(self):
+        """The check above would pass if transport were never called; this one would not"""
+        generator = torch.Generator().manual_seed(0)
+        lens = self.lens(lambda layer: torch.randn(self.width, self.width, generator=generator).half())
+        plain = logit_lens(self.adapter, self.PROMPTS, layers=[3], top_k=5)
+        through = logit_lens(self.adapter, self.PROMPTS, layers=[3], top_k=5, transport=lens.transport)
+        self.assertNotEqual(plain[0][0].tokens, through[0][0].tokens)
+
+    def test_the_reference_file_format_round_trips(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "lens.pt"
+            torch.save({"J": {0: torch.eye(4), 1: 2 * torch.eye(4)}, "n_prompts": 7,
+                        "source_layers": [0, 1], "d_model": 4}, path)
+            lens = JacobianLens.load(path)
+        self.assertEqual(([0, 1], 7, 4), (lens.layers, lens.n_prompts, lens.d_model))
+
+    def test_a_file_without_jacobians_is_refused(self):
+        with TemporaryDirectory() as directory:
+            path = Path(directory) / "not-a-lens.pt"
+            torch.save({"weights": torch.eye(4)}, path)
+            with self.assertRaisesRegex(ValueError, "not a Jacobian lens"):
+                JacobianLens.load(path)
+
+    def test_a_lens_for_another_width_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "wide"):
+            JacobianLens({0: torch.eye(self.width + 1)}).check(self.adapter)
+
+    def test_reused_answers_are_not_generated_again(self):
+        """Answers depend on the model and not on the readout, so a second method reuses them"""
+        items = [{"name": "a", "prompt": self.PROMPTS[0], "intermediates": ["Paris"]}]
+        original = self.adapter.generate
+
+        def refuse(*args, **kwargs):
+            raise AssertionError("generated although every answer was given")
+        self.adapter.generate = refuse
+        try:
+            scores = score_bank(self.adapter, items, answers={"a": " Paris, France"})
+        finally:
+            self.adapter.generate = original
+        self.assertTrue(scores[0].leaked)

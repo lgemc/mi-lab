@@ -51,7 +51,8 @@ uv run python -m unittest tests.core.architecture tests.core.config tests.core.m
     tests.share.artifact tests.serve.serve tests.serve.pool \
     tests.experiment.spec tests.experiment.run tests.experiment.runner \
     tests.experiment.pipeline tests.ie.ie \
-    tests.domains.workspacebench tests.domains.diffing tests.domains.attribution tests.domains.lens tests.hybrid
+    tests.domains.workspacebench tests.domains.diffing tests.domains.attribution tests.domains.lens \
+    tests.domains.leaderboard tests.model.loading tests.hybrid
 
 # offline subset: no checkpoint needed, seconds
 uv run python -m unittest tests.core.architecture tests.core.config tests.core.metrics \
@@ -328,9 +329,16 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   head-level operation goes through `_projection(i)` (`base.py`), which refuses a linear block by
   name. Their heads are a different shape from the model's, so splitting them by `n_heads` would be
   a plausible wrong number. Residual-stream operations work on every block; sizes come from
-  `config.get_text_config()` because a multimodal checkpoint nests them. Weights load with
-  `device_map` straight to the device (`__init__.py`) — `.to()` after a CPU load held two copies,
-  which on the GB10's unified memory is the whole machine. `tests/hybrid.py` checks all of it on a
+  `config.get_text_config()` because a multimodal checkpoint nests them.
+  **Weights are streamed, not `from_pretrained`-ed, on an accelerator** (`loading.py`): the model is
+  built from its config on the device and each safetensors file is opened *on the device*, copied in,
+  and dropped from the page cache. `from_pretrained(device_map=...)` stages a full host copy on the
+  way (4.3 GB of host memory for the 1.7B's 3.2 GB), and on the GB10 host and device are one pool:
+  the 27B's load went ~50 → ~100 GB and came within 7 GB of the OOM killer; streamed, it holds at the
+  model's 50 GB and loads in ~35 s instead of ~4 min. It refuses a model tensor the checkpoint lacks
+  or a shape that disagrees rather than leave it random, and is checked bit-identical to
+  `from_pretrained` (`tests/model/loading.py`, and `tests/hybrid.py` for the nested layout). On the
+  CPU, and for a checkpoint that is not safetensors, it falls back to `from_pretrained`. `tests/hybrid.py` checks all of it on a
   four-block Qwen3.5 built from its config.
   `adapter.py` used to import this package **at the bottom of the file**, the one import in the repo
   whose position was load-bearing. That is now a kernel module importing a domain, so it is a string
@@ -659,6 +667,42 @@ over every gate. `history` stays at its six entries — it is the summary inside
 
 `uv run python -m scripts.watch` reads the newest journal under `MI_LAB_JOURNALS` (`--list`,
 `--follow`, `--rows`). It only reads, so pointing it at a run in flight cannot disturb it.
+
+### WorkspaceBench readouts and the leaderboard
+
+`scripts/wsbench_baseline.py` runs token readouts over WorkspaceBench's single-token banks
+(`readable()` in `domains/lm/data/workspacebench.py`), and `scripts/wsbench_leaderboard.py` ranks
+everything that has run. The methods differ **only** in how a layer's residual reaches the
+unembedding, and all of them go through one `lens.logit_lens(..., transport=)` and one
+`score_bank` — which is what makes their numbers comparable:
+
+| `--method` | transport | lens file |
+|---|---|---|
+| `logit-lens` | none | — |
+| `jlens` | `h · J_ℓᵀ`, the reference `anthropics/jacobian-lens` fit | `neuronpedia/jacobian-lens` (27B: n=1000 wikitext) |
+| `jlens-paired` | same estimator, the benchmark authors' recipe | `camilablank/workspace-lenses` `j-lens` (n=25 pile-10k, target n−2) |
+| `rlens` | RelP: LN, identity and half rules in the backward pass | `camilablank/workspace-lenses` `r-lens`, matched to `jlens-paired` |
+
+Things to know:
+
+- **Nothing is fitted here.** Fitting a lens is a backward pass per output dimension through the
+  model — 80–120 GB on the 27B, the regime that took the GB10 down once. Every lens above is
+  published and downloaded on first use; a new one is `LENSES` plus a file, or `--lens <file>`.
+- **The lens site is the output of block ℓ** (what `capture` reads), decoded through the final
+  norm and unembedding, and the last layer passes through untransported (its Jacobian onto itself is
+  the identity). `JacobianLens.load` uses `weights_only=True` — every published file loads that way,
+  and one that needs more is running someone's pickle.
+- **`jlens-paired` vs `rlens` is the fair J-vs-R comparison** (same prompts, target, forward
+  pass); `jlens` vs `jlens-paired` is what the fitting recipe alone moves.
+- **Answers are reused.** The model's continuation does not depend on the readout, so a method
+  run after another on the same config takes its answers from that file (by item name) instead of
+  generating: ~40 s a bank on the 27B instead of ~2m20s. `--method a,b` loads the model once for all.
+- **Results**: `results/wsbench/<method>-<config>.json` — every item's hit layers, best token,
+  answer and leak flag, the lens and its provenance (corpus, target layer, RelP rules). The
+  leaderboard pools by counting items, ranks by **clean** hit rate within a model, and marks a run
+  missing any of the eleven banks `incomplete` instead of ranking it. It is a string match over
+  the top 10 tokens at any layer — **not** WorkspaceBench's official LLM-judged score, and the page
+  says so.
 
 ### Every run is traced in MLflow — this is a rule, not an option
 

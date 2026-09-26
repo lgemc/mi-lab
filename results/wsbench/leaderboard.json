@@ -1,0 +1,386 @@
+[
+  {
+    "method": "jlens",
+    "config": "qwen3-1.7b",
+    "lens": "hf://neuronpedia/jacobian-lens/qwen3-1.7b/jlens/Salesforce-wikitext/Qwen3-1.7B_jacobian_lens.pt",
+    "banks": [
+      "association",
+      "multihop"
+    ],
+    "items": 16,
+    "hit_rate": 0.375,
+    "clean_hit_rate": 0.16666666666666666,
+    "leak_rate": 0.25,
+    "median_first_hit_layer": 22,
+    "per_bank": {
+      "association": {
+        "items": 8,
+        "hit_rate": 0.0,
+        "clean_hit_rate": 0.0
+      },
+      "multihop": {
+        "items": 8,
+        "hit_rate": 0.75,
+        "clean_hit_rate": 0.5
+      }
+    },
+    "rank": null,
+    "complete": false
+  },
+  {
+    "method": "logit-lens",
+    "config": "qwen3-1.7b",
+    "lens": "",
+    "banks": [
+      "association",
+      "multihop"
+    ],
+    "items": 16,
+    "hit_rate": 0.375,
+    "clean_hit_rate": 0.25,
+    "leak_rate": 0.25,
+    "median_first_hit_layer": 21,
+    "per_bank": {
+      "association": {
+        "items": 8,
+        "hit_rate": 0.0,
+        "clean_hit_rate": 0.0
+      },
+      "multihop": {
+        "items": 8,
+        "hit_rate": 0.75,
+        "clean_hit_rate": 0.75
+      }
+    },
+    "rank": null,
+    "complete": false
+  },
+  {
+    "method": "rlens",
+    "config": "qwen3.6-27b",
+    "lens": "hf://camilablank/workspace-lenses/qwen3.6-27b/r-lens/lens.pt",
+    "banks": [
+      "association",
+      "basic_readout",
+      "basic_readout_mt",
+      "multihop",
+      "multihop_mt",
+      "multilingual",
+      "multilingual_mt",
+      "multilingual_multihop",
+      "multilingual_typo",
+      "typo",
+      "typo_mt"
+    ],
+    "items": 1098,
+    "hit_rate": 0.5892531876138434,
+    "clean_hit_rate": 0.5588558855885588,
+    "leak_rate": 0.1721311475409836,
+    "median_first_hit_layer": 44,
+    "per_bank": {
+      "association": {
+        "items": 100,
+        "hit_rate": 0.48,
+        "clean_hit_rate": 0.4607
+      },
+      "basic_readout": {
+        "items": 100,
+        "hit_rate": 0.97,
+        "clean_hit_rate": 0.95
+      },
+      "basic_readout_mt": {
+        "items": 100,
+        "hit_rate": 0.58,
+        "clean_hit_rate": 0.5652
+      },
+      "multihop": {
+        "items": 100,
+        "hit_rate": 0.87,
+        "clean_hit_rate": 0.871
+      },
+      "multihop_mt": {
+        "items": 100,
+        "hit_rate": 0.33,
+        "clean_hit_rate": 0.3438
+      },
+      "multilingual": {
+        "items": 100,
+        "hit_rate": 0.98,
+        "clean_hit_rate": 0.9796
+      },
+      "multilingual_mt": {
+        "items": 100,
+        "hit_rate": 0.75,
+        "clean_hit_rate": 0.7475
+      },
+      "multilingual_multihop": {
+        "items": 98,
+        "hit_rate": 0.1327,
+        "clean_hit_rate": 0.134
+      },
+      "multilingual_typo": {
+        "items": 100,
+        "hit_rate": 0.11,
+        "clean_hit_rate": 0.0886
+      },
+      "typo": {
+        "items": 100,
+        "hit_rate": 0.87,
+        "clean_hit_rate": 0.8706
+      },
+      "typo_mt": {
+        "items": 100,
+        "hit_rate": 0.4,
+        "clean_hit_rate": 0.369
+      }
+    },
+    "rank": 1,
+    "complete": true
+  },
+  {
+    "method": "jlens-paired",
+    "config": "qwen3.6-27b",
+    "lens": "hf://camilablank/workspace-lenses/qwen3.6-27b/j-lens/lens.pt",
+    "banks": [
+      "association",
+      "basic_readout",
+      "basic_readout_mt",
+      "multihop",
+      "multihop_mt",
+      "multilingual",
+      "multilingual_mt",
+      "multilingual_multihop",
+      "multilingual_typo",
+      "typo",
+      "typo_mt"
+    ],
+    "items": 1098,
+    "hit_rate": 0.5801457194899818,
+    "clean_hit_rate": 0.5478547854785478,
+    "leak_rate": 0.1721311475409836,
+    "median_first_hit_layer": 49,
+    "per_bank": {
+      "association": {
+        "items": 100,
+        "hit_rate": 0.51,
+        "clean_hit_rate": 0.4944
+      },
+      "basic_readout": {
+        "items": 100,
+        "hit_rate": 0.97,
+        "clean_hit_rate": 0.95
+      },
+      "basic_readout_mt": {
+        "items": 100,
+        "hit_rate": 0.56,
+        "clean_hit_rate": 0.5362
+      },
+      "multihop": {
+        "items": 100,
+        "hit_rate": 0.87,
+        "clean_hit_rate": 0.871
+      },
+      "multihop_mt": {
+        "items": 100,
+        "hit_rate": 0.3,
+        "clean_hit_rate": 0.3125
+      },
+      "multilingual": {
+        "items": 100,
+        "hit_rate": 0.99,
+        "clean_hit_rate": 0.9898
+      },
+      "multilingual_mt": {
+        "items": 100,
+        "hit_rate": 0.73,
+        "clean_hit_rate": 0.7273
+      },
+      "multilingual_multihop": {
+        "items": 98,
+        "hit_rate": 0.1327,
+        "clean_hit_rate": 0.134
+      },
+      "multilingual_typo": {
+        "items": 100,
+        "hit_rate": 0.1,
+        "clean_hit_rate": 0.0759
+      },
+      "typo": {
+        "items": 100,
+        "hit_rate": 0.86,
+        "clean_hit_rate": 0.8471
+      },
+      "typo_mt": {
+        "items": 100,
+        "hit_rate": 0.35,
+        "clean_hit_rate": 0.3214
+      }
+    },
+    "rank": 2,
+    "complete": true
+  },
+  {
+    "method": "logit-lens",
+    "config": "qwen3.6-27b",
+    "lens": "",
+    "banks": [
+      "association",
+      "basic_readout",
+      "basic_readout_mt",
+      "multihop",
+      "multihop_mt",
+      "multilingual",
+      "multilingual_mt",
+      "multilingual_multihop",
+      "multilingual_typo",
+      "typo",
+      "typo_mt"
+    ],
+    "items": 1098,
+    "hit_rate": 0.5428051001821493,
+    "clean_hit_rate": 0.504950495049505,
+    "leak_rate": 0.1721311475409836,
+    "median_first_hit_layer": 55,
+    "per_bank": {
+      "association": {
+        "items": 100,
+        "hit_rate": 0.34,
+        "clean_hit_rate": 0.3146
+      },
+      "basic_readout": {
+        "items": 100,
+        "hit_rate": 0.98,
+        "clean_hit_rate": 0.95
+      },
+      "basic_readout_mt": {
+        "items": 100,
+        "hit_rate": 0.56,
+        "clean_hit_rate": 0.5362
+      },
+      "multihop": {
+        "items": 100,
+        "hit_rate": 0.8,
+        "clean_hit_rate": 0.7957
+      },
+      "multihop_mt": {
+        "items": 100,
+        "hit_rate": 0.25,
+        "clean_hit_rate": 0.2604
+      },
+      "multilingual": {
+        "items": 100,
+        "hit_rate": 0.96,
+        "clean_hit_rate": 0.9592
+      },
+      "multilingual_mt": {
+        "items": 100,
+        "hit_rate": 0.71,
+        "clean_hit_rate": 0.7172
+      },
+      "multilingual_multihop": {
+        "items": 98,
+        "hit_rate": 0.1122,
+        "clean_hit_rate": 0.1134
+      },
+      "multilingual_typo": {
+        "items": 100,
+        "hit_rate": 0.1,
+        "clean_hit_rate": 0.0759
+      },
+      "typo": {
+        "items": 100,
+        "hit_rate": 0.73,
+        "clean_hit_rate": 0.7059
+      },
+      "typo_mt": {
+        "items": 100,
+        "hit_rate": 0.42,
+        "clean_hit_rate": 0.4048
+      }
+    },
+    "rank": 3,
+    "complete": true
+  },
+  {
+    "method": "jlens",
+    "config": "qwen3.6-27b",
+    "lens": "hf://neuronpedia/jacobian-lens/qwen3.6-27b/jlens/Salesforce-wikitext/Qwen3.6-27B_jacobian_lens_n1000.pt",
+    "banks": [
+      "association",
+      "basic_readout",
+      "basic_readout_mt",
+      "multihop",
+      "multihop_mt",
+      "multilingual",
+      "multilingual_mt",
+      "multilingual_multihop",
+      "multilingual_typo",
+      "typo",
+      "typo_mt"
+    ],
+    "items": 1098,
+    "hit_rate": 0.5072859744990893,
+    "clean_hit_rate": 0.46974697469746973,
+    "leak_rate": 0.1721311475409836,
+    "median_first_hit_layer": 55,
+    "per_bank": {
+      "association": {
+        "items": 100,
+        "hit_rate": 0.38,
+        "clean_hit_rate": 0.3708
+      },
+      "basic_readout": {
+        "items": 100,
+        "hit_rate": 0.98,
+        "clean_hit_rate": 1.0
+      },
+      "basic_readout_mt": {
+        "items": 100,
+        "hit_rate": 0.56,
+        "clean_hit_rate": 0.5507
+      },
+      "multihop": {
+        "items": 100,
+        "hit_rate": 0.88,
+        "clean_hit_rate": 0.8925
+      },
+      "multihop_mt": {
+        "items": 100,
+        "hit_rate": 0.31,
+        "clean_hit_rate": 0.3125
+      },
+      "multilingual": {
+        "items": 100,
+        "hit_rate": 0.97,
+        "clean_hit_rate": 0.9694
+      },
+      "multilingual_mt": {
+        "items": 100,
+        "hit_rate": 0.7,
+        "clean_hit_rate": 0.7071
+      },
+      "multilingual_multihop": {
+        "items": 98,
+        "hit_rate": 0.102,
+        "clean_hit_rate": 0.1031
+      },
+      "multilingual_typo": {
+        "items": 100,
+        "hit_rate": 0.09,
+        "clean_hit_rate": 0.0759
+      },
+      "typo": {
+        "items": 100,
+        "hit_rate": 0.4,
+        "clean_hit_rate": 0.3294
+      },
+      "typo_mt": {
+        "items": 100,
+        "hit_rate": 0.2,
+        "clean_hit_rate": 0.1667
+      }
+    },
+    "rank": 4,
+    "complete": true
+  }
+]

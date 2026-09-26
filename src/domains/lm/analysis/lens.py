@@ -1,6 +1,7 @@
 import unicodedata
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence
+from pathlib import Path
+from typing import Callable, Dict, List, Optional, Sequence
 
 import torch
 
@@ -36,7 +37,17 @@ The scorers are deliberately three, and they disagree on purpose:
 - `degeneracy`, whether the generations are still language. A lens run against
   a model that is producing mush is measuring the mush.
 
-A common pipe could be: WorkspaceBench | logit_lens | score_bank | report
+A Jacobian lens (J-lens; Anthropic, "Verbalizable Representations Form a
+Global Workspace in Language Models", 2026) is the same readout with one
+matrix in front: the residual at layer L is carried into the final layer's
+basis by J_L = E[d h_final / d h_L], averaged over a web-text corpus, and
+then decoded exactly as the logit lens decodes. `JacobianLens` reads the
+reference implementation's fitted file (`anthropics/jacobian-lens`, published
+per model under `neuronpedia/jacobian-lens`) and `transport` is the whole of
+the difference, so every method here is scored by the same code on the same
+items -- which is what makes a leaderboard of them mean anything.
+
+A common pipe could be: WorkspaceBench | logit_lens(transport=lens.transport) | score_bank | report
 """
 
 # A token this short matching by prefix is a coincidence: 'a' prefixes almost
@@ -94,12 +105,75 @@ def matches(token: str, target: str) -> bool:
         return True
     return len(right) >= PREFIX_FLOOR and right in left
 
+class JacobianLens:
+    """A fitted Jacobian lens: one [d_model, d_model] matrix per source layer
+
+    The file is the reference implementation's own `save()` -- `J` keyed by
+    layer, plus `n_prompts`, `source_layers` and `d_model` -- read as it is
+    written rather than converted, so the lens scored here is the published
+    one. The site is the one `capture` reads: the output of block L.
+
+    The last layer has no matrix and needs none: its Jacobian onto itself is
+    the identity, and the J-lens there *is* the logit lens. `transport`
+    passes it through, so a J-lens run reads every layer a logit-lens run does.
+
+    An R-lens (RelP lens) is the same file with different matrices: the
+    Jacobian taken through an LRP-modified backward graph -- RMSNorm scale,
+    the SiLU gate's sigmoid and half of the SwiGLU product detached -- with the
+    forward pass unchanged. Its rules and fitting recipe (corpus, target layer,
+    prompt count) arrive in `provenance` and are recorded with every result.
+    """
+
+    def __init__(self, jacobians: Dict[int, torch.Tensor], n_prompts: int = 0, source: str = "",
+                 provenance: Optional[Dict] = None):
+        if not jacobians:
+            raise ValueError("a Jacobian lens needs at least one layer's matrix")
+        self.jacobians = jacobians
+        self.n_prompts = n_prompts
+        self.source = source
+        self.provenance = provenance or {}
+        self.d_model = next(iter(jacobians.values())).shape[-1]
+        self._device: Dict[int, torch.Tensor] = {}
+
+    @classmethod
+    def load(cls, path, source: str = "") -> "JacobianLens":
+        state = torch.load(Path(path), map_location="cpu", weights_only=True)
+        if "J" not in state:
+            raise ValueError(f"{path} is not a Jacobian lens: it has no 'J' ({sorted(state)})")
+        # weights_only: a lens is tensors and plain data, and a file that needs more than that to load
+        # is running code from whoever published it. The R-lens pairs load this way too.
+        return cls({int(layer): matrix for layer, matrix in state["J"].items()},
+                   n_prompts=int(state.get("n_prompts", 0)), source=source or str(path),
+                   provenance=dict(state.get("provenance") or {}))
+
+    @property
+    def layers(self) -> List[int]:
+        return sorted(self.jacobians)
+
+    def check(self, adapter) -> None:
+        """Refuse a lens fitted on another model, which would transport into the wrong basis silently"""
+        if self.d_model != adapter.cfg.d_model:
+            raise ValueError(f"lens is {self.d_model} wide and '{adapter.cfg.id}' is {adapter.cfg.d_model}")
+        beyond = [layer for layer in self.layers if layer >= adapter.cfg.n_layers]
+        if beyond:
+            raise ValueError(f"lens has layers {beyond} and '{adapter.cfg.id}' has {adapter.cfg.n_layers}")
+
+    def transport(self, residual: torch.Tensor, layer: int) -> torch.Tensor:
+        """h @ J_L^T in float32, as the reference does; the identity where no matrix was fitted"""
+        if layer not in self.jacobians:
+            return residual
+        if layer not in self._device:
+            # one layer resident at a time: a 27B's lens is several GB and only one is used per step
+            self._device = {layer: self.jacobians[layer].to(residual.device, torch.float32)}
+        return residual.float() @ self._device[layer].T
+
 def logit_lens(
     adapter,
     prompts: Sequence[str],
     layers: Optional[Sequence[int]] = None,
     position: Position = Position.LAST,
     top_k: int = 10,
+    transport: Optional[Callable[[torch.Tensor, int], torch.Tensor]] = None,
 ) -> List[List[LensReadout]]:
     """Decode every layer's residual stream through the final norm and unembedding
 
@@ -111,6 +185,11 @@ def logit_lens(
     Scores are probabilities, not logits. Logits from an early layer are not
     on the same scale as logits from a late one, and a table of both invites
     a comparison that means nothing.
+
+    `transport` maps a layer's residual before it is decoded -- a
+    `JacobianLens.transport` makes this a J-lens. It runs in float32 on the
+    model's device and the result is cast back, as the reference casts to the
+    model's dtype before its final norm.
     """
     if not prompts:
         raise ValueError("a lens needs at least one prompt")
@@ -124,8 +203,10 @@ def logit_lens(
     readouts: List[List[LensReadout]] = [[] for _ in prompts]
     with torch.no_grad():
         for index, layer in enumerate(layers):
-            hidden = residual[:, index].to(device=device, dtype=dtype)
-            logits = norm(hidden) @ unembedding.T
+            hidden = residual[:, index].to(device=device)
+            if transport is not None:
+                hidden = transport(hidden, layer)
+            logits = norm(hidden.to(dtype)) @ unembedding.T
             probabilities = torch.softmax(logits.float(), dim=-1)
             scores, ids = probabilities.topk(top_k, dim=-1)
             for row in range(len(prompts)):
@@ -136,6 +217,10 @@ def logit_lens(
                 ))
     return readouts
 
+def item_name(item: Dict) -> str:
+    """The key an item is stored and matched under across runs"""
+    return str(item.get("name") or item.get("id") or "?")
+
 def score_item(item: Dict, readouts: Sequence[LensReadout], answer: str, family: str) -> ItemScore:
     """Judge one item's readouts against the intermediates it was built around
 
@@ -145,7 +230,7 @@ def score_item(item: Dict, readouts: Sequence[LensReadout], answer: str, family:
     better read.
     """
     targets = [str(target) for target in item.get("intermediates", [])]
-    score = ItemScore(name=str(item.get("name") or item.get("id") or "?"), family=family, intermediates=targets)
+    score = ItemScore(name=item_name(item), family=family, intermediates=targets)
     score.answer = answer
     score.leaked = any(normalize(target) in normalize(answer) for target in targets if target)
     for readout in readouts:
@@ -158,13 +243,21 @@ def score_item(item: Dict, readouts: Sequence[LensReadout], answer: str, family:
     return score
 
 def score_bank(adapter, items: Sequence[Dict], family: str = "?", layers: Optional[Sequence[int]] = None,
-               top_k: int = 10, max_new_tokens: Optional[int] = None) -> List[ItemScore]:
+               top_k: int = 10, max_new_tokens: Optional[int] = None,
+               transport: Optional[Callable[[torch.Tensor, int], torch.Tensor]] = None,
+               answers: Optional[Dict[str, str]] = None) -> List[ItemScore]:
     """Run the lens and the model over a bank's items, in batches, and score each one
 
     Items rather than a WorkspaceBench, because what is scored is always a
     filtered subset -- `readable()` drops what a one-token readout cannot be
     asked -- and a function taking the whole bank would invite scoring the
     items it cannot answer.
+
+    `answers` are the model's own continuations from an earlier run, by item
+    name. They depend on the model and the generation settings and not on the
+    readout, so a second method on the same model reuses them rather than
+    generating again -- which is half the cost of a run. An item missing from
+    them is generated as usual.
     """
     items = list(items)
     prompts = [item["prompt"] for item in items]
@@ -173,10 +266,14 @@ def score_bank(adapter, items: Sequence[Dict], family: str = "?", layers: Option
     size = max(1, adapter.cfg.batch_size)
     for start in range(0, len(items), size):
         chunk, texts = items[start:start + size], prompts[start:start + size]
-        readouts = logit_lens(adapter, texts, layers=layers, top_k=top_k)
-        answers = adapter.generate(texts, max_new_tokens=max_new_tokens)
+        readouts = logit_lens(adapter, texts, layers=layers, top_k=top_k, transport=transport)
+        names = [item_name(item) for item in chunk]
+        if answers is not None and all(name in answers for name in names):
+            said = [answers[name] for name in names]
+        else:
+            said = adapter.generate(texts, max_new_tokens=max_new_tokens)
         scores.extend(score_item(item, rows, answer, family)
-                      for item, rows, answer in zip(chunk, readouts, answers, strict=True))
+                      for item, rows, answer in zip(chunk, readouts, said, strict=True))
     return scores
 
 def report(scores: Sequence[ItemScore]) -> Dict:

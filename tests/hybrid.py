@@ -85,3 +85,33 @@ class TestHybrid(TestCase):
     def test_edges_are_refused_rather_than_listing_heads_that_do_not_exist(self):
         with self.assertRaisesRegex(ConfigError, "linear attention"):
             self.adapter.edges()
+
+
+class TestStreamingANestedCheckpoint(TestCase):
+    """Qwen3.6-27B is saved as a multimodal model: the text stack under `model.language_model.*`,
+    beside a vision tower and an MTP head the text class has no use for"""
+
+    def test_it_loads_the_text_model_and_leaves_the_rest(self):
+        from pathlib import Path
+        from tempfile import TemporaryDirectory
+
+        from safetensors.torch import save_file
+
+        from src.domains.lm.backend.loading import stream
+
+        adapter = tiny_hybrid()
+        if adapter is None:
+            self.skipTest("transformers has no qwen3_5 (needs the `hybrid` group) or gpt2 is unreachable")
+        original = adapter.model
+        with TemporaryDirectory() as directory:
+            original.config.save_pretrained(directory)
+            tensors = {(f"model.language_model.{key[len('model.'):]}" if key.startswith("model.") else key):
+                       value.contiguous() for key, value in original.state_dict().items()}
+            tensors["model.visual.blocks.0.attn.qkv.weight"] = torch.zeros(2, 2)
+            tensors["mtp.fc.weight"] = torch.zeros(2, 2)
+            save_file(tensors, Path(directory) / "model.safetensors", metadata={"format": "pt"})
+            streamed = stream(directory, torch.float32, "cpu")
+        ours, theirs = streamed.state_dict(), original.state_dict()
+        self.assertEqual(set(theirs), set(ours))
+        for key in theirs:
+            self.assertTrue(torch.equal(theirs[key], ours[key]), key)
