@@ -166,6 +166,37 @@ refuses a group that is not exactly one of each. The registered `translation` *t
 thing on purpose: single-token word pairs in one frame, because patching needs aligned positions
 and two FLORES sentences never tokenize to one length.
 
+### WorkspaceBench (activation-readout evals)
+
+Blank, Bhatia, Ong and Nanda's banks of prompts whose intermediates the model computes but never
+writes, each with the `gate` a judge scores a readout against. No download step: `WorkspaceBench`
+fetches one bank from GitHub at construction, pinned to `COMMIT`, and holds it in memory.
+
+```python
+from src.data.workspacebench import FAMILIES, WorkspaceBench, item_loader
+
+bank = WorkspaceBench("association")        # or any of the 26 in FAMILIES; limit= to take a few
+bank.gate                                   # what a judge scores a readout against
+bank[0]                                     # the item as the dict it is in the bank
+
+for items in item_loader(bank, batch_size=8):   # collate_items keeps them dicts
+    ...
+```
+
+```
+WorkspaceBench('association', n=100, ref=92d763e)
+```
+
+`notebooks/workspacebench.ipynb` runs all of this end to end — the gate, an item, the 26 schemas
+side by side, every bank by size, and a batch. It needs no kernel of its own:
+`uv run --with jupyter jupyter lab notebooks/workspacebench.ipynb`.
+
+An item is not converted and the banks are not made to agree: association carries
+`prompt`/`intermediates`/`readout`, `moral_rationale` `stimulus`/`question`, `agentic_misalignment`
+`system`/`text`. The items are Qwen3.6-27B's, and MIT only for the in-house banks —
+`jailbreak_recognition`, `hallucination`, `agentic_misalignment` and the jlens seeds mirror
+third-party data whose terms are in the repo's `NOTICE.md`.
+
 ### What the sweep looks like on 1496 examples
 
 ```bash
