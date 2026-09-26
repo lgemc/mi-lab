@@ -26,25 +26,28 @@ Three rules keep that from happening here:
 configs/            one YAML per model — the only place a model fact lives
 specs/              Hydra config groups — experiments composed from parts
 data/               datasets as plain text, one prompt per line
-src/core/           the two things nothing else can be built without
+src/core/           the three things nothing else can be built without
   config.py         what a model is; resolves depth fractions to layer indices
   metrics.py        AUC, accuracy, logit difference, and what a thing cost to run
+  readout.py        Score and Readout: one number per example, with its definition
 src/model/
   adapter.py        how to hook it; the ModelAdapter contract and backend registry
-  backends/         one module per implementation; transformers.py is the only one
+src/plugins.py      the kernel's one door to a domain, and it is a string not an import
 src/data/
   dataset.py        prompts with binary labels, split without leaking
   prompts.py        the plain-text dataset format: parse it, write it, check it
   torchdata.py      torch Datasets and DataLoaders over prompts and over activations
-  ioi.py            the Indirect Object Identification task, as balanced clean/corrupted data
   tasks.py          the task registry: what every circuit measurement needs a task to be
 src/methods/
-  probing.py        linear probes as self-contained, saveable artifacts
-  steering.py       the steering sweep: effect against fluency, with a random control
-  circuits.py       the circuit study: attribution, patching, discovery and four checks
-  discovery.py      the techniques for finding a circuit, as a registry: the thing under test
-  attribution.py    EAP on the translation lattice: gradient x delta instead of a knockout sweep
-  comparison.py     do the techniques agree, is it the same circuit twice, is it about the task
+  common/           what every measurement shares: the refusal tree, the component
+                    vocabulary, the clean behaviour and the span a corruption opened
+  probing/          linear probes as saveable artifacts, and the steering sweep over them
+  circuits/         the circuit study, one file per half and per question that follows:
+                    attribution, patching, ablation, search, verify, techniques,
+                    comparison, faithfulness, wiring
+  knockout/         whole components taken out of a generation, what that costs, and
+                    how the sentences that come back are scored
+  sheaves/          DiscoGP gate training, the trained mask, and the units over it
 src/share/
   artifact.py       the shareable form of a result: a JSON card plus one safetensors file
   sharing.py        converters between what this lab measures and that format
@@ -61,6 +64,15 @@ src/cli/
   common.py         help-on-error Click customization
   commands/         one module per command group; viz/ is a package, one per chart group
 src/viz/            one chart module per subject, over a shared style
+src/domains/        the second axis: one directory per subject of study
+  lm/               the decoder language model
+    backend/        the HuggingFace backend, one file per question it answers
+    tasks.py        the five registered tasks: ioi, translation, greater_than, ...
+    readout.py      the logit difference, as a Readout bound to one model's ids
+    data/           the IOI generator and the translation corpus
+    analysis/       what is about language in particular: head roles, BLEU, generation,
+                    the logit lens (lens.py), gradient attribution on the translation lattice
+    experiments.py  the ioi_circuit experiment kind
 scripts/serve.py    the circuit server entrypoint; Dockerfile builds it (see ~/m/projects/k8s/mi-lab)
 docs/
   artifact-format.md  the sharing format: what it stores and why
@@ -72,6 +84,12 @@ order is one-way: `core` imports nothing, `model` and `data` import only
 `core`, `methods` adds `model` and `data`, `share` adds `methods`, and
 `experiment` sits on top of all of them. Nothing ever imports upward. If a new
 module cannot find a home without breaking that, the module is doing two jobs.
+
+`src/domains/` is a second axis crossing that one: the layers say what kind of
+thing a module is, and a domain says what subject it is about. The kernel —
+everything outside `src/domains/` — may not import a domain, and no domain may
+import another, so the code that measures does not know what a token is.
+`uv run lint-imports` checks all of it.
 
 ## Use
 
@@ -131,7 +149,7 @@ From Python the same objects are one import away:
 ```python
 from src.model.adapter import load_adapter
 from src.data.dataset import synthetic
-from src.methods.probing import train_probe, evaluate
+from src.methods.probing.probe import train_probe, evaluate
 
 adapter = load_adapter("gpt2-small")
 train, test = synthetic(200).split(test_frac=0.3)
@@ -240,7 +258,7 @@ in the file.
 ```python
 from src.model.adapter import load_adapter
 from src.data.prompts import load_prompts
-from src.methods.probing import evaluate, train_probe
+from src.methods.probing.probe import evaluate, train_probe
 from src.data.torchdata import ActivationDataset, capture_dataset
 
 adapter = load_adapter("gpt2-small")
@@ -352,11 +370,12 @@ templated sentiment is largely a bag-of-words task.
 ## Tests
 
 ```bash
-python -m unittest tests.config tests.dataset tests.prompts tests.torchdata
-python -m unittest tests.adapter          # downloads GPT-2 small
+python -m unittest tests.core.config tests.data.dataset tests.data.prompts tests.data.torchdata
+python -m unittest tests.model.adapter          # downloads GPT-2 small
 ```
 
-`tests.adapter` includes the golden capture: four frozen prompts through
+`tests/` mirrors the package layout of `src/`, one directory per package.
+`tests.model.adapter` includes the golden capture: four frozen prompts through
 GPT-2 small, compared against a stored tensor. It exists so that when you ask
 whether quantization changed a model's internals, you can rule out that your
 own capture code changed instead.

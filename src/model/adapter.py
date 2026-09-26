@@ -1,10 +1,12 @@
 from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Callable, Dict, Iterator, List, Optional, Protocol, Sequence, runtime_checkable
+from typing import Any, Callable, Dict, Iterator, List, Optional, Protocol, Sequence, runtime_checkable
 
 import torch
 
 from ..core.config import ConfigError, ModelConfig, Position, load_config
+from ..core.readout import Readout
+from ..plugins import load_domains
 
 """
 Adapter is the one interface every experiment in this framework is written
@@ -13,11 +15,11 @@ activations and to generate text; it never learns whether the activations came
 out of HuggingFace hooks, TransformerLens or nnsight-over-vLLM.
 
 This module is the contract and nothing else. No model library is imported
-here and no architecture is named -- that lives in backends/, one module per
-implementation, each registering itself under the string key a config names.
-The split is what the registry is for: `configs/qwen3.5-27b.yaml` asks for a
-backend that does not exist yet, and adding it should be a new file next to
-the existing one rather than an edit to this one.
+here and no architecture is named -- that lives in `domains/*/backend/`, one
+per implementation, each registering itself under the string key a config
+names. The split is what the registry is for: `configs/qwen3.5-27b.yaml` asks
+for a backend that does not exist yet, and adding it should be a new module in
+a domain rather than an edit to this one.
 
 Backends are swappable, semantics are not: two backends holding the same
 checkpoint must return the same shapes with the same meaning. Only d_model
@@ -184,16 +186,27 @@ class Decomposition:
 
 @runtime_checkable
 class CircuitAdapter(ModelAdapter, Protocol):
-    """The extra surface circuit work needs: heads, attention, logits and patching
+    """The extra surface circuit work needs: heads, attention, outputs and patching
 
     Everything here addresses a site *inside* a block, which is why it is a
     separate contract. A backend that can only hand back hidden states can
     still be a ModelAdapter and probe fine; it cannot answer which head moved
     the name.
+
+    And everything here addresses a *site* rather than a word. What a model
+    produces comes back as `outputs`, unindexed, for a Score to interpret; the
+    three members that named a vocabulary are on TokenAdapter below.
     """
 
-    def logits(self, prompts: Sequence[str]) -> torch.Tensor:
-        """Next-token logits at each prompt's final real token, as [batch, vocab]"""
+    def outputs(self, inputs: Sequence[Any]) -> torch.Tensor:
+        """Whatever this model produces for these inputs, in the form its readout expects
+
+        For a decoder: next-token logits at each input's final real token, as
+        [batch, vocab]. The measurement layer never indexes this -- only a Score
+        does -- which is the whole of what stops `methods/` from having a
+        vocabulary in it. `TokenAdapter.logits` is the same tensor under the name
+        that says what it is, for the code that is allowed to know.
+        """
 
     def attention(self, prompts: Sequence[str], layers: Optional[Sequence[int]] = None) -> torch.Tensor:
         """Attention weights as [batch, layer, head, query, key]"""
@@ -201,25 +214,29 @@ class CircuitAdapter(ModelAdapter, Protocol):
     def head_outputs(self, prompts: Sequence[str], layers: Optional[Sequence[int]] = None) -> torch.Tensor:
         """Each head's output before the projection that mixes them, as [batch, layer, head, seq, d_head]"""
 
-    def head_gradients(
+    def gradients(
         self,
-        prompts: Sequence[str],
-        positive: Sequence[int],
-        negative: Sequence[int],
+        inputs: Sequence[Any],
+        readout: Readout,
         layers: Optional[Sequence[int]] = None,
-        toward: Optional[Sequence[str]] = None,
+        toward: Optional[Sequence[Any]] = None,
         alpha: float = 1.0,
     ) -> torch.Tensor:
-        """d(logit(positive) - logit(negative)) / d(head output), as [batch, layer, head, seq, d_head]
+        """d readout(outputs(inputs)) / d(head output), as [batch, layer, head, seq, d_head]
 
         The same site head_outputs reads and patch writes, differentiated
-        rather than recorded. One backward pass answers for every head at
-        once, which is what makes a gradient-based approximation of patching
-        cost a constant number of passes instead of one per site.
+        rather than recorded, and the graph is kept through the block rather
+        than detached -- cutting it deletes every path an earlier head has to
+        the answer through this layer's attention, leaving a gradient that
+        looks fine and answers a different question. One backward pass answers
+        for every head at once, which is what makes a gradient-based
+        approximation of patching cost a constant number of passes instead of
+        one per site.
 
-        The token ids index the batch the way logit_difference's do: one pair
-        per prompt, because a two-answer task asks about a different pair in
-        every row.
+        What is differentiated is the readout in hand rather than a fixed logit
+        difference. The readout is narrowed with `select` for each chunk the
+        backend runs, because a score built for the whole batch holds one
+        answer per row and a chunk is a slice of those rows.
         """
 
     def decompose(self, prompts: Sequence[str]) -> Decomposition:
@@ -233,19 +250,57 @@ class CircuitAdapter(ModelAdapter, Protocol):
     ) -> Iterator[None]:
         """Overwrite activations with values from another run, for the duration of the block"""
 
+@runtime_checkable
+class TokenAdapter(CircuitAdapter, Protocol):
+    """The three members that name a vocabulary, kept where a vocabulary is allowed
+
+    `logits`, `single_token` and `tokens` were on CircuitAdapter, and they were
+    the leak: a model scored by cosine similarity to an embedding, or by return
+    over a rollout, cannot satisfy them and has no reason to want to. Every
+    other member of CircuitAdapter addresses a *site* rather than a word, which
+    is why the rest of that protocol survived the split unchanged.
+    """
+
     def single_token(self, text: str) -> int:
         """The id of a string that is exactly one token on this model"""
 
     def tokens(self, prompt: str) -> List[str]:
         """The prompt as the strings the model actually sees, for labelling an axis"""
 
+    def logits(self, prompts: Sequence[str]) -> torch.Tensor:
+        """Next-token logits at each prompt's final real token, as [batch, vocab]
+
+        The same tensor `outputs` returns, named for what it is. Two names for
+        one call rather than two implementations: a caller that has already
+        decided it is holding a language model should say so, and a caller in
+        `methods/` should not have to know.
+        """
+
+
 def require_circuits(adapter: ModelAdapter) -> CircuitAdapter:
     """Assert that this backend exposes the circuit surface, naming it if it does not"""
     if not isinstance(adapter, CircuitAdapter):
         raise ConfigError(
             f"backend '{adapter.cfg.backend}' does not implement the circuit surface "
-            "(logits, attention, head_outputs, head_gradients, decompose, patch); "
+            "(outputs, attention, head_outputs, gradients, decompose, patch); "
             "circuit experiments need a backend that does"
+        )
+    return adapter
+
+
+def require_tokens(adapter: ModelAdapter) -> "TokenAdapter":
+    """Assert that this backend has a tokenizer to answer about, naming it if it does not
+
+    Beside `require_circuits` and for the same reason. A vocabulary is a fact
+    about one modality, so the three members that name one moved out of the
+    circuit surface and into a protocol the code allowed to know about tokens
+    asks for by name -- which is `domains/lm/` and the parts of the CLI that
+    print them, and is exactly the set that should have to ask.
+    """
+    if not isinstance(adapter, TokenAdapter):
+        raise ConfigError(
+            f"backend '{adapter.cfg.backend}' does not implement the token surface "
+            "(single_token, tokens, logits); this needs a backend over a tokenizer"
         )
     return adapter
 
@@ -261,6 +316,12 @@ def register_backend(name: str) -> Callable[[BackendFactory], BackendFactory]:
 def load_adapter(reference) -> ModelAdapter:
     """Build the adapter a config asks for, from a preset name, a file path or a ModelConfig"""
     cfg = reference if isinstance(reference, ModelConfig) else load_config(reference)
+    # BACKENDS is empty until a domain fills it, and a caller should never have to
+    # remember to import a backend by hand. This used to be an import of
+    # backends/transformers at the bottom of this file; it is a string in
+    # src/plugins.py now, because a backend is a domain and the kernel may not
+    # import one. See the note there for why a string is the honest form of it.
+    load_domains()
     if cfg.backend not in BACKENDS:
         raise ConfigError(
             f"config '{cfg.id}' asks for backend '{cfg.backend}', which is not registered; "
@@ -269,10 +330,3 @@ def load_adapter(reference) -> ModelAdapter:
     if cfg.dtype not in DTYPES:
         raise ConfigError(f"unknown dtype '{cfg.dtype}'; known dtypes are {sorted(DTYPES)}")
     return BACKENDS[cfg.backend](cfg)
-
-# Imported for its side effect, and imported last on purpose. Registration has to
-# happen when this module does -- BACKENDS is empty until something fills it, and a
-# caller should never have to remember to import a backend by hand -- while the
-# backend itself imports the protocols above. Anywhere but the bottom of this file
-# and that is a cycle.
-from .backends import transformers as _transformers  # noqa: E402, F401

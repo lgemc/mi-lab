@@ -7,7 +7,7 @@ experiment would not use:
 - attention heads: head_outputs() at every layer,
 - MLPs: decompose(), whose `remainder` is the receipt that the recorded head,
   MLP, bias and embedding writes really sum to the residual stream the model
-  produced (the check tests/circuits.py runs on GPT-2, here on the new model),
+  produced (the check tests/methods/circuits.py runs on GPT-2, here on the new model),
 - round trip: capture a run, patch the same values back in, and demand the
   logits do not move -- a patch that writes back what was read is exactly a
   no-op, and every causal number later is a difference against that no-op.
@@ -26,7 +26,7 @@ import torch
 
 from scripts.phase0_smoke import merge
 from src.core.config import Position
-from src.experiment import translation_study as study
+from src.domains.lm import study
 from src.model.adapter import load_adapter, require_circuits
 from src.telemetry.results import guard
 from src.telemetry.results import root as results_root
@@ -53,7 +53,7 @@ def main() -> None:
     # bf16 keeps ~8 mantissa bits, and Qwen3's residual stream carries
     # massive-activation coordinates in the hundreds-to-thousands, where one
     # bf16 ulp is already 4-8 -- so the honest zero here is relative, not
-    # absolute the way GPT-2's float32 ~1e-6 is in tests/circuits.py.
+    # absolute the way GPT-2's float32 ~1e-6 is in tests/methods/circuits.py.
     relative_remainder = float(
         (decomposition.remainder.norm(dim=-1) / decomposition.residual.norm(dim=-1)).max()
     )

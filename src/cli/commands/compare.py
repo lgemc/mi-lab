@@ -4,9 +4,9 @@ from typing import Optional
 import typer
 
 from ...data.tasks import TASKS, build_task, task_names
-from ...methods.circuits import behaviour
-from ...methods.comparison import compare_techniques, consistency, discover_across, specificity
-from ...methods.discovery import TECHNIQUES, technique_names
+from ...methods.circuits.comparison import compare_techniques, consistency, discover_across, specificity
+from ...methods.circuits.techniques import TECHNIQUES, technique_names
+from ...methods.common.span import behaviour
 from ...model.adapter import load_adapter, require_circuits
 from ...share import storage
 from ...share.converters.comparison import from_comparison
@@ -86,8 +86,8 @@ def show_tasks(
         clean = behaviour(adapter, task)
         corrupted = behaviour(adapter, task, prompts=task.corrupted)
         typer.echo(
-            f"{name:<14}{len(task):>4}{clean.accuracy:>9.0%}{clean.logit_difference:>+9.2f}"
-            f"{corrupted.logit_difference:>+11.2f}{clean.logit_difference - corrupted.logit_difference:>+8.2f}"
+            f"{name:<14}{len(task):>4}{clean.accuracy:>9.0%}{clean.score:>+9.2f}"
+            f"{corrupted.score:>+11.2f}{clean.score - corrupted.score:>+8.2f}"
         )
         typer.echo(f"  {task.clean[0]}")
 
@@ -221,7 +221,7 @@ def show_specificity(
         artifact = from_comparison(
             adapter.cfg, built[primary], comparison, consistency=recurrence, specificity=found,
             task_key=primary,
-            tokens=built[primary].token_labels(adapter), landmarks=built[primary].landmarks(adapter),
+            tokens=built[primary].labels(adapter), landmarks=built[primary].landmarks(adapter),
         )
         storage.save(artifact, str(save))
         typer.echo(f"\nwrote {save}: {artifact}")

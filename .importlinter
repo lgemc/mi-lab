@@ -1,0 +1,69 @@
+# The two axes, as a gate rather than a paragraph.
+#
+# The layered order was described in CLAUDE.md as "checkable in one pass over
+# the source" and nothing checked it. The second axis -- which *subject* a
+# module is about -- was not written down at all, and it is the one that decays
+# silently: `vision` importing `lm.readout` "just for the logit difference" is a
+# five-second edit that quietly makes two domains one.
+#
+# All three contracts read the source with an AST rather than importing it, so
+# they need no torch and no checkpoint and run in the lint job beside ruff.
+#
+#     uv run lint-imports
+
+[importlinter]
+root_packages =
+    src
+include_external_packages = False
+
+[importlinter:contract:layers]
+name = The dependency order is one-way
+type = layers
+layers =
+    src.ie
+    src.cli
+    src.domains
+    src.experiment
+    src.serve
+    src.share
+    src.methods
+    src.data | src.model
+    src.telemetry | src.core
+
+[importlinter:contract:kernel-knows-no-domain]
+name = Nothing in the kernel may import a domain
+type = forbidden
+source_modules =
+    src.core
+    src.telemetry
+    src.model
+    src.data
+    src.methods
+    src.share
+    src.serve
+    src.experiment
+    src.viz
+forbidden_modules =
+    src.domains
+
+# The kernel's one door to a domain, and it is a string rather than an import.
+# src/plugins.py names each domain as text and imports it on demand, so the
+# registries a domain fills are not empty and this contract still holds. See the
+# note in that module for why that is the honest form of it rather than a way
+# around the check.
+[importlinter:contract:the-plugin-door-is-the-only-one]
+name = Only src.plugins knows a domain by name
+type = forbidden
+source_modules =
+    src.plugins
+forbidden_modules =
+    src.domains
+
+# The contract with no equivalent in prose today. There is one domain, so it
+# passes vacuously; it is here now because the day there are two is the day it
+# starts mattering and the last day anybody thinks to add it.
+[importlinter:contract:domains-are-independent]
+name = A domain may not import another domain
+type = independence
+modules =
+    src.domains.lm

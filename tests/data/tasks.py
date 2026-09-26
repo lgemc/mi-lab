@@ -1,0 +1,280 @@
+import re
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest import TestCase, mock
+
+from src.core.readout import require_score
+from src.data.dataset import DatasetError
+from src.data.tasks import TASKS, TaskError, build_task, check_options, task_names
+from src.domains.lm.data.ioi import build_ioi
+from src.domains.lm.data.translation import WORD_FRAME, WORD_PAIRS, load_word_pairs, pool_path
+from src.domains.lm.tasks import TaskExample, TemplateTask, require_alignment, single_tokens
+
+"""
+The task registry is tested against a stub tokenizer, for the same reason IOI
+is: everything that can go wrong with a task is structural. A corruption that
+changes two things at once, an answer that is also the distractor, prompts
+whose twins tokenize to different lengths -- none of those need a checkpoint
+to be wrong, and every one of them is invisible in the numbers that come out
+the far end.
+
+The stub splits one token per word with the leading space attached, which is
+close enough to a BPE for the alignment checks to mean what they mean. What it
+cannot check is whether GPT-2 actually keeps ' windows' whole; that is what
+the pools are filtered against a real tokenizer for, and what tests/discovery
+runs on a checkpoint.
+"""
+
+class StubAdapter:
+    """A tokenizer-shaped stand-in: one token per word, leading space included"""
+
+    def __init__(self, multi_token=()):
+        self.cfg = SimpleNamespace(id="stub", n_layers=4, n_heads=2)
+        self.multi_token = set(multi_token)
+
+    def tokens(self, prompt):
+        return re.findall(r"\s*[\w']+|\s*[^\w\s]", prompt)
+
+    def single_token(self, text):
+        if text.strip() in self.multi_token or len(self.tokens(text)) != 1:
+            raise ValueError(f"'{text}' is not a single token")
+        return abs(hash(text)) % 50000
+
+class TestRegistry(TestCase):
+    def setUp(self):
+        self.adapter = StubAdapter()
+
+    def test_every_registered_task_builds(self):
+        for name in task_names():
+            with self.subTest(task=name):
+                self.assertEqual(len(build_task(name, self.adapter, size=6, seed=0)), 6)
+
+    def test_every_registered_task_builds_a_readout(self):
+        """The third thing CircuitTask promises, checked for all five
+
+        A task that hands back prompts and twins and no scoring rule is a task
+        every technique will fail on halfway through, with a message about an
+        attribute rather than about the task.
+        """
+        for name in task_names():
+            with self.subTest(task=name):
+                task = build_task(name, self.adapter, size=6, seed=0)
+                score = require_score(task.readout(self.adapter))
+                self.assertEqual(6, len(score.positive))
+                self.assertEqual(6, len(score.negative))
+                self.assertTrue(score.differentiable)
+                self.assertEqual("stub", score.model)
+
+    def test_every_registered_task_says_what_its_inputs_are(self):
+        """`modality` is what a reader of the .mia card has to tell two artifacts apart by"""
+        for name in task_names():
+            with self.subTest(task=name):
+                self.assertEqual("text", build_task(name, self.adapter, size=2, seed=0).modality)
+
+    def test_an_option_the_task_cannot_build_is_refused_before_the_model_loads(self):
+        """The values live with the task; experiment/spec.py checks against them without knowing them"""
+        check_options("ioi", corruption="abc")
+        with self.assertRaises(TaskError) as caught:
+            check_options("ioi", corruption="mangle")
+        self.assertIn("ioi.corruption", str(caught.exception))
+        with self.assertRaises(TaskError):
+            check_options("ioi", frame=99)
+        # an option nothing registered is not this table's business
+        check_options("ioi", size=1000)
+        check_options("induction", length=3)
+
+    def test_every_task_is_reproducible_from_its_seed(self):
+        for name in task_names():
+            with self.subTest(task=name):
+                first = build_task(name, self.adapter, size=6, seed=3)
+                second = build_task(name, self.adapter, size=6, seed=3)
+                self.assertEqual(first.clean, second.clean)
+                self.assertEqual(first.corrupted, second.corrupted)
+
+    def test_every_task_lines_up_position_for_position(self):
+        """Patching reads position i of one run into position i of another"""
+        for name in task_names():
+            with self.subTest(task=name):
+                task = build_task(name, self.adapter, size=8, seed=1)
+                lengths = {len(self.adapter.tokens(text)) for text in task.clean + task.corrupted}
+                self.assertEqual(len(lengths), 1, f"'{name}' produced prompts of {sorted(lengths)} lengths")
+
+    def test_the_corruption_actually_corrupts(self):
+        for name in task_names():
+            with self.subTest(task=name):
+                task = build_task(name, self.adapter, size=8, seed=1)
+                for clean, corrupted in zip(task.clean, task.corrupted, strict=True):
+                    self.assertNotEqual(clean, corrupted)
+
+    def test_the_answer_is_never_the_distractor(self):
+        for name in task_names():
+            with self.subTest(task=name):
+                task = build_task(name, self.adapter, size=8, seed=1)
+                answer, distractor = task.answers(self.adapter)
+                self.assertTrue(all(left != right for left, right in zip(answer, distractor, strict=True)))
+
+    def test_every_task_carries_a_description(self):
+        for name in task_names():
+            self.assertTrue(TASKS[name].description.strip(), f"'{name}' is registered without a description")
+
+    def test_an_unknown_task_names_the_ones_that_exist(self):
+        with self.assertRaises(TaskError) as raised:
+            build_task("sentiment", self.adapter)
+        self.assertIn("ioi", str(raised.exception))
+
+    def test_a_task_of_no_examples_is_refused(self):
+        with self.assertRaises(TaskError):
+            build_task("ioi", self.adapter, size=0)
+
+class TestTemplates(TestCase):
+    def setUp(self):
+        self.adapter = StubAdapter()
+
+    def test_greater_than_puts_the_answer_above_the_start_and_the_distractor_below(self):
+        task = build_task("greater_than", self.adapter, size=12, seed=0)
+        for example in task.examples:
+            start = int(example.clean.split("year 17")[1][:2])
+            self.assertGreater(int(example.answer), start)
+            self.assertLess(int(example.distractor), start)
+
+    def test_greater_than_corrupts_only_the_start_year(self):
+        """The noun is drawn once per example: a pair differing in two things measures neither"""
+        task = build_task("greater_than", self.adapter, size=8, seed=0)
+        for example in task.examples:
+            self.assertEqual(
+                example.clean.split(" lasted")[0], example.corrupted.split(" lasted")[0]
+            )
+            self.assertIn("year 1701 to", example.corrupted)
+
+    def test_induction_repeats_the_first_word_and_the_corruption_does_not(self):
+        task = build_task("induction", self.adapter, size=8, seed=0)
+        for example in task.examples:
+            words = example.clean.removeprefix("Words:").split()
+            self.assertEqual(words[0], words[-1])
+            self.assertEqual(f" {words[1]}", example.answer)
+            corrupted = example.corrupted.removeprefix("Words:").split()
+            self.assertNotIn(corrupted[-1], corrupted[:-1])
+
+    def test_agreement_alternates_the_two_numbers(self):
+        """A task all in one number measures the number, not the agreement"""
+        task = build_task("agreement", self.adapter, size=10, seed=0)
+        self.assertEqual(task.variants, {"plural": 5, "singular": 5})
+
+    def test_agreement_puts_the_attractor_in_the_opposite_number(self):
+        task = build_task("agreement", self.adapter, size=8, seed=0)
+        for example in task.examples:
+            self.assertNotEqual(example.answer, example.distractor)
+            # the corruption flips the subject, so the clean answer becomes the wrong one
+            self.assertNotEqual(example.clean, example.corrupted)
+
+class TestSubsets(TestCase):
+    def setUp(self):
+        self.adapter = StubAdapter()
+
+    def test_a_subset_keeps_the_frame_and_cuts_the_examples(self):
+        task = build_task("induction", self.adapter, size=8, seed=0)
+        one = task.subset([3])
+        self.assertEqual(len(one), 1)
+        self.assertEqual(one.clean, [task.clean[3]])
+        self.assertEqual(one.frame, task.frame)
+
+    def test_an_ioi_subset_keeps_its_corruption(self):
+        dataset = build_ioi(self.adapter, size=8, seed=0, corruption="swap")
+        one = dataset.subset([0, 1])
+        self.assertEqual(one.corruption, "swap")
+        self.assertEqual(one.clean, dataset.clean[:2])
+
+    def test_an_index_the_task_does_not_have_is_an_error(self):
+        task = build_task("ioi", self.adapter, size=4, seed=0)
+        with self.assertRaises(ValueError):
+            task.subset([9])
+
+class TestAlignment(TestCase):
+    def setUp(self):
+        self.adapter = StubAdapter()
+
+    def test_prompts_of_unequal_length_are_refused(self):
+        task = TemplateTask(
+            examples=[
+                TaskExample(clean="one two", corrupted="one three", answer=" a", distractor=" b"),
+                TaskExample(clean="one two three", corrupted="one two four", answer=" a", distractor=" b"),
+            ],
+            name="ragged",
+        )
+        with self.assertRaises(TaskError) as raised:
+            require_alignment(self.adapter, task)
+        self.assertIn("line up position for position", str(raised.exception))
+
+    def test_a_pool_is_filtered_against_the_tokenizer_in_hand(self):
+        adapter = StubAdapter(multi_token={"lantern"})
+        kept = single_tokens(adapter, (" apple", " lantern"))
+        self.assertEqual(kept, [" apple"])
+
+    def test_the_frame_ends_where_the_answer_token_goes(self):
+        """The answer carries its own space and follows the frame's last token directly
+
+        The frame used to read `The Spanish word X means`, and at that position
+        the model's next token is an opening quote: the answer came one token
+        later, past everything the loss and the ranking look at. The frame
+        has to end on the token before the answer, with no trailing space or
+        quote for the answer token to collide with.
+        """
+        prompt = WORD_FRAME.format(source=" gato", answer="")
+        self.assertFalse(prompt.endswith((" ", '"')), prompt)
+        self.assertEqual("Spanish: gato\nEnglish: cat", prompt + " cat")
+        self.assertNotIn("means", WORD_FRAME)
+
+    def test_a_pool_too_small_to_fill_the_frame_is_an_error(self):
+        adapter = StubAdapter(multi_token={f"{value:02d}" for value in range(1, 99)})
+        with self.assertRaises(TaskError) as raised:
+            build_task("greater_than", adapter, size=4)
+        self.assertIn("single-token", str(raised.exception))
+
+class TestWordPool(TestCase):
+    """The pool the translation task draws on, which was forty typed pairs
+
+    Twenty-five of them survived Qwen3-1.7B's tokenizer, so a 75/25 split gave
+    eighteen training prompts, and a whole-model sheaf put 28M open gates
+    against those eighteen and memorized them. `load_word_pairs` prefers a
+    derived pool when one has been built; these are the ways that goes wrong.
+    """
+
+    def setUp(self):
+        self.temporary = TemporaryDirectory()
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+
+    def _write(self, config, body):
+        path = self.root / f"es-en-words-{config}.tsv"
+        path.write_text(body, encoding="utf-8")
+        patch = mock.patch("src.domains.lm.data.translation.pool_path", lambda name: self.root /
+                           f"es-en-words-{name}.tsv")
+        patch.start()
+        self.addCleanup(patch.stop)
+        return path
+
+    def test_no_pool_file_falls_back_to_the_built_in_list(self):
+        self._write("other-model", "a\tb\n")
+        self.assertEqual(WORD_PAIRS, load_word_pairs("qwen3-1.7b"))
+
+    def test_a_built_pool_is_preferred(self):
+        self._write("qwen3-1.7b", "# a comment\n\ngato\tcat\nperro\tdog\n")
+        self.assertEqual((("gato", "cat"), ("perro", "dog")), load_word_pairs("qwen3-1.7b"))
+
+    def test_a_malformed_pool_raises_rather_than_falling_back(self):
+        """Falling back to 25 pairs while the caller believes it has 500 is the
+        failure this whole file exists to remove"""
+        self._write("qwen3-1.7b", "gato\tcat\nthis line has no tab\n")
+        with self.assertRaises(DatasetError) as raised:
+            load_word_pairs("qwen3-1.7b")
+        self.assertIn("build_translation_pool", str(raised.exception))
+
+    def test_an_empty_pool_raises(self):
+        self._write("qwen3-1.7b", "# only comments\n\n")
+        with self.assertRaises(DatasetError):
+            load_word_pairs("qwen3-1.7b")
+
+    def test_the_pool_path_is_per_model(self):
+        self.assertNotEqual(pool_path("gpt2-small"), pool_path("qwen3-1.7b"))
+        self.assertIn("qwen3-1.7b", pool_path("qwen3-1.7b").name)

@@ -21,9 +21,9 @@ Run: uv run python -m scripts.phase1a_neuron_scan qwen3-8b 5000
 import json
 import sys
 
-from src.data.translation import SHOTS, default_pairs_path, load_pairs, translation_prompt
-from src.experiment import translation_study as study
-from src.methods import neurons
+from src.domains.lm import study
+from src.domains.lm.data.translation import SHOTS, default_pairs_path, load_pairs, translation_prompt
+from src.methods.knockout import neurons
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard, result
 from src.telemetry.results import root as results_root

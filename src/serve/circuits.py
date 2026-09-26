@@ -39,7 +39,7 @@ from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 import torch
 
 from ..data.tasks import frame_for, framed_tasks, task_names
-from ..methods.sheaves import gateable
+from ..methods.sheaves.gateable import gateable
 from .backbones import Backbone, BackboneError, Host, Spec, backbone_for, detect
 
 FULL = "full"

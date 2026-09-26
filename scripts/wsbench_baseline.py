@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from src.data.workspacebench import SINGLE_TOKEN_BANKS, WorkspaceBench, readable
-from src.methods.readout import report, score_bank
+from src.domains.lm.analysis.lens import report, score_bank
 from src.model.adapter import load_adapter
 from src.telemetry.observe import banner, duration, gpu, log
 from src.telemetry.tracking import Tracker, track

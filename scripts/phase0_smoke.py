@@ -16,8 +16,8 @@ import time
 
 import torch
 
-from src.data.translation import default_pairs_path, load_pairs, translation_prompt
-from src.experiment import translation_study as study
+from src.domains.lm import study
+from src.domains.lm.data.translation import default_pairs_path, load_pairs, translation_prompt
 from src.model.adapter import load_adapter
 from src.telemetry.observe import host_memory_gib
 from src.telemetry.results import guard, merge_section, result

@@ -4,7 +4,7 @@ from typing import Optional
 import torch
 
 from ...core.config import ModelConfig
-from ...methods.probing import LinearProbe
+from ...methods.probing.probe import LinearProbe
 from ..definitions import describe
 from ..schema.artifact import Artifact
 from ..schema.metric import Metric

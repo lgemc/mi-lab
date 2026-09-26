@@ -3,8 +3,8 @@ from typing import List, Optional
 
 import typer
 
-from ....methods.probing import LinearProbe, difference_of_means
-from ....methods.steering import random_control, strength_sweep
+from ....methods.probing.probe import LinearProbe, difference_of_means
+from ....methods.probing.steering import random_control, strength_sweep
 from ....model.adapter import load_adapter
 from ....viz import steering as steer_viz
 from ...common import HelpfulCommand, HelpfulGroup

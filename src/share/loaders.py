@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ..methods.probing import LinearProbe
+from ..methods.probing.probe import LinearProbe
 from . import storage
 from .converters.probe import to_probe
 

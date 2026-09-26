@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from src.methods.readout import ItemScore, matches, normalize, report, score_item
+from src.domains.lm.analysis.lens import ItemScore, matches, normalize, report, score_item
 
 """
 The scorers are where a readout result is quietly made too good, so they are
@@ -45,7 +45,7 @@ class TestScoreItem(TestCase):
     ITEM = {"name": "fe", "prompt": "atomic number 26 is ", "intermediates": ["iron"]}
 
     def _readouts(self, *per_layer):
-        from src.methods.readout import LensReadout
+        from src.domains.lm.analysis.lens import LensReadout
         return [LensReadout(layer=index, tokens=list(tokens), scores=[0.5] * len(tokens))
                 for index, tokens in enumerate(per_layer)]
 
@@ -104,7 +104,7 @@ class TestLensAgreesAtTheTop(TestCase):
         cls.adapter = load_adapter("gpt2-small")
 
     def test_the_last_layer_is_the_models_own_next_token(self):
-        from src.methods.readout import logit_lens
+        from src.domains.lm.analysis.lens import logit_lens
         top = self.adapter.cfg.n_layers - 1
         readout = logit_lens(self.adapter, [self.PROMPT], layers=[top], top_k=1)[0][0]
         expected = self.adapter.tokenizer.decode([int(self.adapter.logits([self.PROMPT])[0].argmax())])
@@ -112,7 +112,7 @@ class TestLensAgreesAtTheTop(TestCase):
         self.assertEqual(top, readout.layer)
 
     def test_every_layer_answers_with_a_distribution(self):
-        from src.methods.readout import logit_lens
+        from src.domains.lm.analysis.lens import logit_lens
         rows = logit_lens(self.adapter, [self.PROMPT], layers=[0, 6, 11], top_k=5)[0]
         self.assertEqual([0, 6, 11], [row.layer for row in rows])
         for row in rows:

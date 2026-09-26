@@ -20,8 +20,8 @@ from unittest import TestCase
 import torch
 
 from src.core.metrics import spearman
-from src.methods import attribution as attr
-from src.methods.knockout import ablate, capture_means
+from src.domains.lm.analysis import attribution as attr
+from src.methods.knockout.ablate import ablate, capture_means
 from src.model.passes import encode, scored_positions, teacher_forced
 
 from .stubs.model import shared_adapter

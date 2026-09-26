@@ -1,0 +1,253 @@
+import re
+from pathlib import Path
+from unittest import TestCase
+
+from src.core.config import (
+    CONFIG_DIR,
+    ConfigError,
+    ModelConfig,
+    from_mapping,
+    load_config,
+    presets,
+)
+
+"""
+Config carries the one invariant the whole framework rests on: a depth
+fraction resolves to the same *place* in any model. These tests need no
+checkpoint, so they are the ones that must never be slow or skipped.
+"""
+
+def _cfg(**overrides) -> ModelConfig:
+    fields = {"id": "test", "backend": "transformers", "hf_name": "gpt2", "n_layers": 12, "d_model": 768}
+    fields.update(overrides)
+    return ModelConfig(**fields)
+
+class TestLayerResolution(TestCase):
+    def test_two_thirds_depth_is_the_same_place_in_both_models(self):
+        self.assertEqual(8, _cfg(n_layers=12).layer(0.65))
+        self.assertEqual(42, _cfg(n_layers=64).layer(0.65))
+
+    def test_defaults_to_the_configs_own_probe_fraction(self):
+        self.assertEqual(_cfg(probe_layer_frac=0.5).layer(), _cfg().layer(0.5))
+
+    def test_full_depth_clamps_to_the_last_layer(self):
+        self.assertEqual(11, _cfg(n_layers=12).layer(1.0))
+        self.assertEqual(0, _cfg(n_layers=12).layer(0.0))
+
+    def test_layers_keeps_order_and_drops_duplicates(self):
+        self.assertEqual([1, 8, 11], _cfg().layers([0.1, 0.65, 1.0]))
+        self.assertEqual([8], _cfg().layers([0.65, 0.66]))
+
+    def test_sweep_spans_the_whole_depth(self):
+        self.assertEqual([0, 3, 6, 9, 11], _cfg().sweep(5))
+        self.assertEqual([6], _cfg().sweep(1))
+
+    def test_unresolved_config_refuses_to_guess(self):
+        with self.assertRaises(ConfigError):
+            _cfg(n_layers=None).layer(0.65)
+
+class TestConfigValidation(TestCase):
+    def test_an_absolute_index_in_the_fraction_field_is_rejected(self):
+        with self.assertRaises(ConfigError):
+            _cfg(probe_layer_frac=8)
+
+    def test_batch_size_must_be_usable(self):
+        with self.assertRaises(ConfigError):
+            _cfg(batch_size=0)
+
+    def test_sizes_that_disagree_with_the_checkpoint_are_an_error(self):
+        with self.assertRaises(ConfigError):
+            _cfg(d_model=512).with_sizes(n_layers=12, d_model=768)
+
+    def test_sizes_are_stamped_in_when_the_config_left_them_open(self):
+        resolved = _cfg(n_layers=None, d_model=None).with_sizes(n_layers=6, d_model=512)
+        self.assertTrue(resolved.is_resolved)
+        self.assertEqual(4, resolved.layer(0.65))
+
+    def test_a_mistyped_key_is_not_silently_dropped(self):
+        with self.assertRaises(ConfigError):
+            from_mapping({"id": "x", "backend": "transformers", "hf_name": "gpt2", "batchsize": 4})
+
+    def test_id_falls_back_to_the_file_name(self):
+        cfg = from_mapping({"backend": "transformers", "hf_name": "gpt2"}, default_id="from-file")
+        self.assertEqual("from-file", cfg.id)
+
+class TestDictionaryBlocks(TestCase):
+    """A config may name a dictionary for a model; a typo in one is an error like any other key"""
+
+    def base(self, **blocks):
+        return {"id": "x", "backend": "transformers", "hf_name": "gpt2", **blocks}
+
+    def test_a_transcoder_block_is_parsed_into_its_own_type(self):
+        cfg = from_mapping(self.base(transcoder={
+            "source": "bluelightai", "release": "bluelightai/clt-qwen3-1.7b-base-20k",
+            "kind": "cross-layer", "variance_unexplained": 0.23,
+        }))
+        self.assertEqual("cross-layer", cfg.transcoder.kind)
+        self.assertAlmostEqual(0.23, cfg.transcoder.variance_unexplained)
+        self.assertIsNone(cfg.sae)
+
+    def test_a_mistyped_key_inside_a_block_is_not_silently_dropped(self):
+        with self.assertRaises(ConfigError):
+            from_mapping(self.base(transcoder={"source": "a", "release": "b", "kindd": "per-layer"}))
+        with self.assertRaises(ConfigError):
+            from_mapping(self.base(sae={"source": "a", "release": "b", "activation": "relu"}))
+
+    def test_a_transcoder_kind_outside_the_two_that_exist_is_refused(self):
+        with self.assertRaises(ConfigError) as caught:
+            from_mapping(self.base(transcoder={"source": "a", "release": "b", "kind": "residual"}))
+        self.assertIn("cross-layer", str(caught.exception))
+
+    def test_unexplained_variance_is_a_fraction(self):
+        with self.assertRaises(ConfigError):
+            from_mapping(self.base(transcoder={"source": "a", "release": "b", "variance_unexplained": 23}))
+
+    def test_both_blocks_can_be_absent_and_usually_are(self):
+        self.assertIsNone(from_mapping(self.base()).transcoder)
+
+
+class TestShippedConfigs(TestCase):
+    def test_every_shipped_config_parses(self):
+        self.assertTrue(presets(), f"no configs found in {CONFIG_DIR}")
+        for name in presets():
+            with self.subTest(name):
+                cfg = load_config(name)
+                self.assertEqual(name, cfg.id)
+                self.assertTrue(0.0 <= cfg.probe_layer_frac <= 1.0)
+
+    def test_a_config_can_also_be_given_as_a_path(self):
+        path = CONFIG_DIR / "gpt2-small.yaml"
+        self.assertEqual(load_config("gpt2-small"), load_config(str(path)))
+
+    def test_no_shipped_config_hardcodes_a_size(self):
+        for name in presets():
+            with self.subTest(name):
+                cfg = load_config(name)
+                self.assertIsNone(cfg.n_layers)
+                self.assertIsNone(cfg.d_model)
+
+    def test_an_unknown_name_says_what_is_available(self):
+        with self.assertRaises(ConfigError) as caught:
+            load_config("gpt2-enormous")
+        self.assertIn("gpt2-small", str(caught.exception))
+
+class TestNoHardcodedModelFacts(TestCase):
+    # 1024 is deliberately absent: it is a plausible d_model, but it is also the
+    # divisor in every KiB conversion, and a check that cries wolf gets deleted.
+    SIZE_LITERALS = ("768", "1600", "2048", "4096", "5120")
+
+    def test_the_source_never_names_a_size(self):
+        """The check from Module 0: grep for 768 and 5120, expect nothing
+
+        Sizes live in checkpoints and get stamped into configs. A literal one
+        in the source is how an experiment silently fuses to one model.
+        """
+        for path in Path("src").rglob("*.py"):
+            source = path.read_text()
+            for number in self.SIZE_LITERALS:
+                with self.subTest(path=str(path), number=number):
+                    self.assertIsNone(re.search(rf"\b{number}\b", source))
+
+class TestPackageLayering(TestCase):
+    """The package split is only worth having if it is checked
+
+    src/ is ordered: core depends on nothing, and every package below it may
+    import the ones above and never the reverse. Written down in CLAUDE.md and
+    enforced here, because a layering that is only documented is one that holds
+    until the first hurried import.
+    """
+
+    # viz sits above the packages that measure and below cli, which drives it, so the
+    # one order covers every package and needs no exceptions. domains is above all of
+    # them and below the two front ends: a domain imports patching, patching never
+    # imports a domain. ie is last because it is a second front end: it may reach for
+    # anything, and nothing may reach for it.
+    #
+    # `.importlinter` is the stronger form of this and covers the packages the dot
+    # counting below skips. This stays because it needs nothing installed, and the two
+    # must not disagree: a package added to one belongs in the other.
+    ORDER = ("core", "model", "data", "methods", "share", "experiment", "viz", "domains", "cli", "ie")
+
+    def _imports(self):
+        """Every (importer, imported) package pair, read off the relative imports"""
+        rank = {name: index for index, name in enumerate(self.ORDER)}
+        for path in Path("src").rglob("*.py"):
+            if len(path.parts) < 3:
+                continue
+            own = path.parts[1]
+            if own not in rank:
+                continue
+            # a module at src/pkg/mod.py reaches a sibling package with '..', and one at
+            # src/pkg/sub/mod.py with '...', so the dot count says what the import escaped
+            depth = len(path.parts) - 2
+            for dots, target in re.findall(r"from (\.+)([a-z_]+)[. ]", path.read_text()):
+                if target in rank and len(dots) == depth + 1 and target != own:
+                    yield own, target, str(path)
+
+    def test_no_package_imports_one_at_or_below_its_own_level(self):
+        rank = {name: index for index, name in enumerate(self.ORDER)}
+        for importer, imported, path in self._imports():
+            with self.subTest(path=path, imports=imported):
+                self.assertLess(
+                    rank[imported], rank[importer],
+                    f"{path} imports '{imported}', which is not below '{importer}'",
+                )
+
+    def test_core_depends_on_nothing(self):
+        """The bottom of the order has to actually be the bottom"""
+        for importer, imported, path in self._imports():
+            if importer == "core":
+                self.fail(f"{path} imports '{imported}'; core is what everything else rests on")
+
+class TestMethodsLayering(TestCase):
+    """`methods` has an order of its own, and the same argument applies to it
+
+    Four method packages over one shared foundation. `common` is what they all
+    need and what needs none of them -- the error tree, the component
+    vocabulary, the task span, the intervention contract -- and the four sit
+    side by side above it and never reach across.
+
+    The shape this replaces is the reason to check it: `CircuitError` used to
+    live in `circuits.py`, so `cost`, `knockout`, `neurons`, `components`,
+    `gates` and `sheaves` each imported the largest module in the package to
+    get a class with no behaviour in it. That is invisible in a flat directory
+    and obvious the moment the directory has an order, which is most of what
+    the split buys.
+    """
+
+    METHODS = ("probing", "circuits", "sheaves", "knockout")
+    FOUNDATION = "common"
+
+    def _crossings(self):
+        """Every (importer package, imported package, path) inside src/methods"""
+        known = {*self.METHODS, self.FOUNDATION}
+        for path in Path("src/methods").rglob("*.py"):
+            own = path.parts[2]
+            if own not in known:
+                continue
+            # a module at src/methods/pkg/mod.py reaches a sibling package with '..'
+            for target in re.findall(r"from \.\.([a-z_]+)[. ]", path.read_text()):
+                if target in known and target != own:
+                    yield own, target, str(path)
+
+    def test_the_foundation_imports_none_of_the_methods(self):
+        """`common` is the bottom, so nothing above it may be underneath it"""
+        for importer, imported, path in self._crossings():
+            if importer == self.FOUNDATION:
+                self.fail(f"{path} imports '{imported}'; common is what the methods rest on")
+
+    def test_no_method_package_imports_another(self):
+        """A module that cannot find a home without crossing is a module doing two jobs"""
+        for _, imported, path in self._crossings():
+            with self.subTest(path=path, imports=imported):
+                self.assertEqual(
+                    self.FOUNDATION, imported,
+                    f"{path} imports '{imported}'; the method packages are siblings and share "
+                    f"only '{self.FOUNDATION}'",
+                )
+
+    def test_every_method_package_is_actually_there(self):
+        """A rule over a list of names is only a rule while the names exist"""
+        for package in (*self.METHODS, self.FOUNDATION):
+            with self.subTest(package=package):
+                self.assertTrue(Path("src/methods", package).is_dir())

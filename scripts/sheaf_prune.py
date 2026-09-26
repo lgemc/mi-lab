@@ -1,6 +1,6 @@
 """Run DiscoGP weight pruning on a task, which until now had no way to be run.
 
-`methods/sheaves.py` has been exercised only from the test suite and a REPL, on
+`methods/sheaves/` has been exercised only from the test suite and a REPL, on
 GPT-2 small and on IOI, and both of those were accidents of what was cheap
 rather than choices. `prune` takes any `CircuitTask`, so translation was always
 one argument away; this is that argument, plus the bookkeeping that makes a run
@@ -42,16 +42,9 @@ import torch
 
 from src.data.tasks import build_task, task_names
 from src.experiment.sheaf import SheafError, SheafSpec
-from src.methods.gates import (
-    BEST_MASK_FILE,
-    GATES_FILE,
-    MASK_FILE,
-    UNITS_FILE,
-    pack,
-    parse_layers,
-    run_budget,
-)
-from src.methods.sheaves import load_bearing, prune, span
+from src.methods.sheaves.gateable import span
+from src.methods.sheaves.mask import BEST_MASK_FILE, GATES_FILE, MASK_FILE, UNITS_FILE, pack, parse_layers, run_budget
+from src.methods.sheaves.training import load_bearing, prune
 from src.model.adapter import load_adapter
 from src.telemetry.journal import Journal, env_root, run_id
 from src.telemetry.observe import banner, host_memory_gib, log, set_log_file, step

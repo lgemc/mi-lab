@@ -38,8 +38,8 @@ import sys
 import time
 from typing import Any, Dict, List, Optional
 
-from src.experiment import translation_study as study
-from src.methods import attribution as attr
+from src.domains.lm import study
+from src.domains.lm.analysis import attribution as attr
 from src.telemetry.observe import banner, duration, log, set_log_file, step
 from src.telemetry.results import guard, load_state, merge_section, save_state
 from src.telemetry.results import root as results_root

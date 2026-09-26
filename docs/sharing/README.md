@@ -80,7 +80,7 @@ flowchart TD
     LOAD["share/loaders.py<br/>one door, either form"] --> CONV
     CONV["share/converters/<br/>knows both sides"] --> ART
     CONV --> METH["methods: circuits, probing"]
-    CONV --> DATA["data/ioi.py"]
+    CONV --> DATA["domains/lm/data/ioi.py"]
     CONV --> CORE["core/config.py"]
     ART["share/schema/ + storage.py<br/>the envelope"] --> STD["json, safetensors, torch"]
     ART --> PROV["share/provenance.py<br/>git, torch version"]

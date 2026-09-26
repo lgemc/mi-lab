@@ -44,7 +44,7 @@ import time
 from typing import Any, Dict, List, Optional
 
 from src.core.config import load_config
-from src.experiment import translation_study as study
+from src.domains.lm import study
 from src.model.replacement import load_replacement as load_with_backend
 from src.telemetry.observe import banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, result, save_state

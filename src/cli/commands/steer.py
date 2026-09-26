@@ -2,7 +2,7 @@ from typing import List, Optional
 
 import typer
 
-from ...methods.probing import difference_of_means
+from ...methods.probing.probe import difference_of_means
 from ...model.adapter import load_adapter
 from ...share.loaders import open_probe
 from ..common import HelpfulCommand, HelpfulGroup

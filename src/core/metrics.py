@@ -142,8 +142,14 @@ def logit_difference(
             f"{values.shape[0]} rows of logits but {len(positive)} positive and "
             f"{len(negative)} negative token ids; they index the same batch"
         )
-    rows = torch.arange(values.shape[0])
-    return values[rows, torch.as_tensor(list(positive))] - values[rows, torch.as_tensor(list(negative))]
+    # index tensors on the values' device: this is now the objective a gradient is
+    # taken through as well as the number that gets reported, and the gradient path
+    # runs on whatever device the model is on rather than on the CPU copy `outputs`
+    # hands back.
+    rows = torch.arange(values.shape[0], device=values.device)
+    ids = (torch.as_tensor(list(positive), device=values.device),
+           torch.as_tensor(list(negative), device=values.device))
+    return values[rows, ids[0]] - values[rows, ids[1]]
 
 def recovery(patched: float, clean: float, corrupted: float) -> float:
     """Where a patched run sits between the corrupted and the clean baseline, as 0 to 1

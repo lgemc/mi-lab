@@ -3,8 +3,8 @@ from unittest import TestCase
 import torch
 
 from src.core.config import ConfigError, ModelConfig
-from src.methods.readout import logit_lens
-from src.model.backends.transformers import TransformersAdapter
+from src.domains.lm.analysis.lens import logit_lens
+from src.domains.lm.backend import TransformersAdapter
 
 """
 A hybrid stack -- linear-attention blocks between softmax-attention ones -- on

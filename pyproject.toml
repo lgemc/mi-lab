@@ -18,6 +18,9 @@ dependencies = [
     "textual>=8.2.8",
     "torch>=2.13.0",
     "transformers>=4.57.0",
+    # device_map loading, which streams weights to the device instead of holding a
+    # CPU copy and a device copy at once -- two copies of a 27B is the GB10.
+    "accelerate>=1.10.0",
     "typer>=0.27.1",
 ]
 
@@ -42,6 +45,7 @@ graphs = [
 
 [dependency-groups]
 dev = [
+    "import-linter>=2.0",
     "ruff>=0.16.4",
 ]
 # COMET-22, the translation metric the phase 0/1b scripts score with. A group
