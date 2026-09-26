@@ -1,0 +1,271 @@
+{
+  "config": "qwen3-1.7b",
+  "banks": {
+    "association": {
+      "summary": {
+        "items": 8,
+        "hit_rate": 0.0,
+        "clean_hit_rate": 0.0,
+        "leak_rate": 0.0,
+        "degeneracy": 0.125,
+        "median_first_hit_layer": null,
+        "hit_rate_by_layer": {},
+        "seconds": 3.1
+      },
+      "gate": "Qwen3.6-27B behavioral: >=8/10 correct at temp 0.7 (greedy-verified first); association scored against association_aliases.json (phrase-aware, echo-guarded); poetry scored by committed rhyme",
+      "items": [
+        {
+          "name": "pt-carnaval",
+          "family": "association",
+          "intermediates": [
+            "carnaval"
+          ],
+          "answer": " O que está sendo descrito aqui? A) A festa de aniversário de um dos amigos. B) A festa de aniversário de um dos pais. C) A festa de aniversário de um dos irmãos. D) A festa de aniversário de um dos",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "chess",
+          "family": "association",
+          "intermediates": [
+            "chess"
+          ],
+          "answer": " She looked up, and he was still staring at the clock. She looked at him, and he was still staring at the clock. She looked at him, and he was still staring at the clock. She looked at him, and he was still staring at the clock. She looked at him, and he was still",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "child-h",
+          "family": "association",
+          "intermediates": [
+            "child"
+          ],
+          "answer": " The fridge was a bit of a mess, but the most important thing was that the fridge was still working. The only thing that was missing was the person who had made the drawings. The fridge had been a bit of a mess, but the most important thing was that the most important thing was that the fridge was still",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "death-h",
+          "family": "association",
+          "intermediates": [
+            "death"
+          ],
+          "answer": " The room was still, the only sound being the soft, steady breathing of the woman in the bed. She was asleep, and the only thing that had changed was the color of the room. It was now a deep, dark blue, and the light was dimmed to a soft, blue glow. The woman was",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "film-h",
+          "family": "association",
+          "intermediates": [
+            "film"
+          ],
+          "answer": " The room was full of people, but they were all in the same place, and they were all in the same time. They were all in the same room, and they were all in the same time. They were all in the same room, and they were all in the same time. They were all in the",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "lie",
+          "family": "association",
+          "intermediates": [
+            "lie"
+          ],
+          "answer": "  He was what?  A. confused  B. angry  C. sad  D. lonely  E. lonely  F. sad  G. confused  H. angry\nThe answer is A. confused.  But why?  Let me think.  The sentence says he couldn't meet her eyes",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "nasa",
+          "family": "association",
+          "intermediates": [
+            "NASA"
+          ],
+          "answer": " She was in the middle of the ocean, far from the land she had left behind. She had no idea how long she had been out there, but the silence was not the kind that came from the deep. It was the kind that came from the inside, from the place where the world had stopped and the world",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "neighbors",
+          "family": "association",
+          "intermediates": [
+            "neighbors"
+          ],
+          "answer": " She was a woman of few words, but she had a way of making the most ordinary things feel like they were worth the effort of getting to. She was the one who had made the decision to get the bins out, and she had done it without any of the usual fuss. She was the one who had made",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        }
+      ]
+    },
+    "multihop": {
+      "summary": {
+        "items": 8,
+        "hit_rate": 0.75,
+        "clean_hit_rate": 0.75,
+        "leak_rate": 0.5,
+        "degeneracy": 0.0,
+        "median_first_hit_layer": 21,
+        "hit_rate_by_layer": {
+          "15": 0.125,
+          "19": 0.125,
+          "20": 0.125,
+          "21": 0.125,
+          "22": 0.375,
+          "23": 0.625,
+          "24": 0.625,
+          "25": 0.5,
+          "26": 0.375,
+          "27": 0.25
+        },
+        "seconds": 2.0
+      },
+      "gate": "Qwen3.6-27B behavioral: >=8/10 correct at temp 0.7 (greedy-verified first); association scored against association_aliases.json (phrase-aware, echo-guarded); poetry scored by committed rhyme",
+      "items": [
+        {
+          "name": "atomic-26-symbol",
+          "family": "multihop",
+          "intermediates": [
+            "iron"
+          ],
+          "answer": " Fe.  The chemical symbol for the element with atomic number 27 is  Co.  The chemical symbol for the element with atomic number 28 is  Ni.  The chemical symbol for the element with atomic number 29 is  Cu.  The chemical symbol for the element with atomic number ",
+          "hit_layers": [
+            15,
+            22,
+            23,
+            24
+          ],
+          "best_layer": 15,
+          "best_token": "iron",
+          "leaked": false
+        },
+        {
+          "name": "atomic-79-symbol",
+          "family": "multihop",
+          "intermediates": [
+            "gold"
+          ],
+          "answer": "79Se.  What is the correct answer to the question: \"What is the chemical symbol for the element with atomic number 79?\"\n\nThe chemical symbol for the element with atomic number 79 is 79Se.\nThe chemical symbol for the element with atomic number 79 is 79",
+          "hit_layers": [
+            23
+          ],
+          "best_layer": 23,
+          "best_token": " gold",
+          "leaked": false
+        },
+        {
+          "name": "birthstone-emerald-month",
+          "family": "multihop",
+          "intermediates": [
+            "May"
+          ],
+          "answer": "3 of the Gregorian calendar.  What is the birthstone for the month of April?\n\nThe answer is: Diamond\nHere's the thought process:\nThe Gregorian calendar has 12 months. The months are numbered from 1 to 12. The birthstone for each month is as follows: January",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": false
+        },
+        {
+          "name": "chem-bones-Z",
+          "family": "multihop",
+          "intermediates": [
+            "calcium"
+          ],
+          "answer": "27.\n\nWhat is the correct scientific name of the metal in question?\n\nThe atomic number of the metal most abundant in human bones is 27. What is the correct scientific name of the metal in question?\n\nA. Aluminum\nB. Magnesium\nC. Iron\nD. Copper\nE. Zinc\n\n",
+          "hit_layers": [
+            19,
+            23,
+            24,
+            25
+          ],
+          "best_layer": 19,
+          "best_token": " Calcium",
+          "leaked": false
+        },
+        {
+          "name": "chem-organic-Z",
+          "family": "multihop",
+          "intermediates": [
+            "carbon"
+          ],
+          "answer": "6.  What is the element?  The answer is...  A. Carbon B. Oxygen C. Nitrogen D. Sulfur\nThe answer is A.\nThe given statement is a bit of a trick question.  The atomic number of carbon is 6.  Carbon is present in all organic compounds",
+          "hit_layers": [
+            21,
+            22,
+            23,
+            24,
+            25,
+            26
+          ],
+          "best_layer": 21,
+          "best_token": " carbon",
+          "leaked": true
+        },
+        {
+          "name": "chem-photosynthesis-Z",
+          "family": "multihop",
+          "intermediates": [
+            "oxygen"
+          ],
+          "answer": "16.  Inference: The gas is oxygen.  What kind of logical reasoning is this? This is an example of what type of reasoning?\n\nThe question is asking about the type of logical reasoning used in the inference that the gas released by plants during photosynthesis is oxygen, given that the atomic number of the",
+          "hit_layers": [],
+          "best_layer": null,
+          "best_token": "",
+          "leaked": true
+        },
+        {
+          "name": "dbl-altitude-antonym",
+          "family": "multihop",
+          "intermediates": [
+            "high"
+          ],
+          "answer": "low\" or \"high\" in terms of the altitude.\n\nAnother fact: The antonym of how you would describe an airplane's cruising altitude is \"low\" or \"high\" in terms of the altitude.\n\nDo these two facts support the hypothesis that \"The antonym of how you would describe an airplane's cruising altitude",
+          "hit_layers": [
+            20,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27
+          ],
+          "best_layer": 20,
+          "best_token": "high",
+          "leaked": true
+        },
+        {
+          "name": "double-dice-faces",
+          "family": "multihop",
+          "intermediates": [
+            "6",
+            "six"
+          ],
+          "answer": "21. \n\nFact: A standard die has 6 faces.\n\nWhat's the relationship between the two facts?\n\nThe first fact is a restatement of the second fact.\nThe first fact is a restatement of the second fact.\nThe first fact is a restatement of the second fact.\nThe first fact is a",
+          "hit_layers": [
+            24,
+            25,
+            26,
+            27
+          ],
+          "best_layer": 24,
+          "best_token": "6",
+          "leaked": true
+        }
+      ]
+    }
+  }
+}

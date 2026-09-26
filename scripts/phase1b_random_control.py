@@ -54,6 +54,8 @@ from src.methods.cost import MATCH_TOLERANCE, matched_draw
 from src.methods.quality import survival_frontier
 from src.telemetry.observe import Budget, banner, duration, log, set_log_file
 from src.telemetry.results import guard, load_state, save_state
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 PROGRESS = study.artifact("control_progress")
 CONTROL = study.artifact("control")
@@ -349,4 +351,4 @@ def main() -> None:
         raise SystemExit(f"unknown stage '{stage}'; stages are run, frontier, frontier-report, report")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

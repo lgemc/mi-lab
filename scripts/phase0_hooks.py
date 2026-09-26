@@ -29,6 +29,8 @@ from src.core.config import Position
 from src.experiment import translation_study as study
 from src.model.adapter import load_adapter, require_circuits
 from src.telemetry.results import guard
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 PROMPTS = [
     "El gato duerme al sol. The cat sleeps in the sun.",
@@ -94,4 +96,4 @@ def main() -> None:
           "| head noop", float((head_replay - baseline).abs().max()))
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

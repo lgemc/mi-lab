@@ -43,6 +43,7 @@ src/methods/
   steering.py       the steering sweep: effect against fluency, with a random control
   circuits.py       the circuit study: attribution, patching, discovery and four checks
   discovery.py      the techniques for finding a circuit, as a registry: the thing under test
+  attribution.py    EAP on the translation lattice: gradient x delta instead of a knockout sweep
   comparison.py     do the techniques agree, is it the same circuit twice, is it about the task
 src/share/
   artifact.py       the shareable form of a result: a JSON card plus one safetensors file

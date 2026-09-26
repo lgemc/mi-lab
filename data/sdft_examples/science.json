@@ -1,0 +1,189 @@
+{
+  "dataset": "science",
+  "split": "eval",
+  "note": "Held out: these are from the science eval split, which training never reads. `prompt` is what the student is asked, verbatim. `gold` is the correct option letter, which the model should put in an <answer> block.",
+  "split_size": 507,
+  "seed": 0,
+  "examples": [
+    {
+      "index": 432,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nWhat is the correct octanol/water distribution coefficient logD under the circumstance of pH 7.4 for the molecule \"CCN(CC)Cc1cc(Nc2ccnc3cc(Cl)ccc23)ccc1O\" ?\n\nA: 2.04\nB: 2.9\nC: 0.84\nD: 3.92",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "What is the correct octanol/water distribution coefficient logD under the circumstance of pH 7.4 for the molecule \"CCN(CC)Cc1cc(Nc2ccnc3cc(Cl)ccc23)ccc1O\" ?\n\nA: 2.04\nB: 2.9\nC: 0.84\nD: 3.92"
+        }
+      ],
+      "gold": "B"
+    },
+    {
+      "index": 197,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nBelow is a list of chemical reactants and reagents separated by \".\":\nCCCCc1nc2c(N)nc3ccccc3c2n1CCCN(Cc1ccc(CC(=O)O)cc1)C1CCN(C)CC1.CO.O=S(=O)(O)O\nWhich of the following SMILES formulas corresponds to the expected product of this chemical reaction?\n\nA: CCCCc1nc2c(N)nc3ccccc3c2n1CCCN(Cc1ccc(CC(=O)OC)cc1)C1CCN(C)CC1\nB: CCCCc1nc2c(N)nc3cccnc3c2n1CCNC(=O)C1CCCCC1\nC: Cc1oc(-c2ccccn2)cc1C(Oc1ccc(C(=O)O)cc1)C1CCCCC1\nD: CCOCc1nc2c(N)nc3ccccc3c2n1CCN1C(C)=NOC12CCCC2",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "Below is a list of chemical reactants and reagents separated by \".\":\nCCCCc1nc2c(N)nc3ccccc3c2n1CCCN(Cc1ccc(CC(=O)O)cc1)C1CCN(C)CC1.CO.O=S(=O)(O)O\nWhich of the following SMILES formulas corresponds to the expected product of this chemical reaction?\n\nA: CCCCc1nc2c(N)nc3ccccc3c2n1CCCN(Cc1ccc(CC(=O)OC)cc1)C1CCN(C)CC1\nB: CCCCc1nc2c(N)nc3cccnc3c2n1CCNC(=O)C1CCCCC1\nC: Cc1oc(-c2ccccn2)cc1C(Oc1ccc(C(=O)O)cc1)C1CCCCC1\nD: CCOCc1nc2c(N)nc3ccccc3c2n1CCN1C(C)=NOC12CCCC2"
+        }
+      ],
+      "gold": "A"
+    },
+    {
+      "index": 388,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nWhat is the molar weight (g/mol) of the molecule with the canonical SMILES representation 'C1C(C(OC1N2C=CC3=C2N=C(NC3=O)N)COP(=O)(O)OP(=O)(O)OP(=O)(O)O)O'?\n\nA: 506.190\nB: 502.170\nC: 622.800\nD: 582.600",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "What is the molar weight (g/mol) of the molecule with the canonical SMILES representation 'C1C(C(OC1N2C=CC3=C2N=C(NC3=O)N)COP(=O)(O)OP(=O)(O)OP(=O)(O)O)O'?\n\nA: 506.190\nB: 502.170\nC: 622.800\nD: 582.600"
+        }
+      ],
+      "gold": "A"
+    },
+    {
+      "index": 455,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nHere is a chemical reaction reactants and reagents which are separated by \".\":\nCC1(C)OCC(=O)Nc2ccc(-c3cc(F)cc(F)c3)cc21.COc1ccc(P2(=S)SP(=S)(c3ccc(OC)cc3)S2)cc1\nPlease choose the correct SMILES notation for the product:\n\nA: CC1=C(CO)CCCc2ccc(NC(=O)c3ccc(F)cn3)cc21\nB: CC(C)C1(c2cccs2)OCC(=S)Nc2ccc(-c3cc(F)cc(C#N)c3)cc21\nC: CC1(C)OCC(=S)Nc2ccc(-c3cc(F)cc(F)c3)cc21\nD: CC(C)(C)OC(=O)n1ccc2c(-c3nc(CBr)co3)cccc21",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "Here is a chemical reaction reactants and reagents which are separated by \".\":\nCC1(C)OCC(=O)Nc2ccc(-c3cc(F)cc(F)c3)cc21.COc1ccc(P2(=S)SP(=S)(c3ccc(OC)cc3)S2)cc1\nPlease choose the correct SMILES notation for the product:\n\nA: CC1=C(CO)CCCc2ccc(NC(=O)c3ccc(F)cn3)cc21\nB: CC(C)C1(c2cccs2)OCC(=S)Nc2ccc(-c3cc(F)cc(C#N)c3)cc21\nC: CC1(C)OCC(=S)Nc2ccc(-c3cc(F)cc(F)c3)cc21\nD: CC(C)(C)OC(=O)n1ccc2c(-c3nc(CBr)co3)cccc21"
+        }
+      ],
+      "gold": "C"
+    },
+    {
+      "index": 215,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nHow many hydrogen bond donors are there in the molecule with the canonical SMILES representation 'C1=CN(C(=O)N=C1N)C2C(C(C(O2)COP(=O)(O)OC3C(OC(C3O)N4C=CC(=O)NC4=O)COP(=O)(O)OC5C(OC(C5O)N6C=CC(=O)NC6=O)COP(=O)(O)OC7C(OC(C7O)N8C=NC9=C8N=C(NC9=O)N)COP(=O)(O)OC1C(OC(C1O)N1C=CC(=O)NC1=O)CO)O)O'?\n\nA: 34\nB: 13\nC: 1\nD: 17",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "How many hydrogen bond donors are there in the molecule with the canonical SMILES representation 'C1=CN(C(=O)N=C1N)C2C(C(C(O2)COP(=O)(O)OC3C(OC(C3O)N4C=CC(=O)NC4=O)COP(=O)(O)OC5C(OC(C5O)N6C=CC(=O)NC6=O)COP(=O)(O)OC7C(OC(C7O)N8C=NC9=C8N=C(NC9=O)N)COP(=O)(O)OC1C(OC(C1O)N1C=CC(=O)NC1=O)CO)O)O'?\n\nA: 34\nB: 13\nC: 1\nD: 17"
+        }
+      ],
+      "gold": "D"
+    },
+    {
+      "index": 20,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nWhat is the molar weight (g/mol) of the molecule with the canonical SMILES representation 'C1CC(N(C1)C2=NS(=O)(=O)C3=CC=CC=C32)C(=O)NC4=CC=CC(=C4)C(=O)NC5=CC(=CC=C5)F'?\n\nA: 492.500\nB: 580.700\nC: 554.700\nD: 594.500",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "What is the molar weight (g/mol) of the molecule with the canonical SMILES representation 'C1CC(N(C1)C2=NS(=O)(=O)C3=CC=CC=C32)C(=O)NC4=CC=CC(=C4)C(=O)NC5=CC(=CC=C5)F'?\n\nA: 492.500\nB: 580.700\nC: 554.700\nD: 594.500"
+        }
+      ],
+      "gold": "A"
+    },
+    {
+      "index": 132,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nWhat is the molar weight (g/mol) of the molecule with the canonical SMILES representation 'C1=CC=C(C=C1)CC(C(=O)O)NC(=O)CNC(=O)CNC(=O)C2=CC=C(C=C2)S(=O)(=O)N'?\n\nA: 503.500\nB: 481.600\nC: 462.500\nD: 489.600",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "What is the molar weight (g/mol) of the molecule with the canonical SMILES representation 'C1=CC=C(C=C1)CC(C(=O)O)NC(=O)CNC(=O)CNC(=O)C2=CC=C(C=C2)S(=O)(=O)N'?\n\nA: 503.500\nB: 481.600\nC: 462.500\nD: 489.600"
+        }
+      ],
+      "gold": "C"
+    },
+    {
+      "index": 494,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nHow many atoms are there in the molecule with the the IUPAC name '(2S)-3-amino-2-(methylamino)propanal'?\n\nA: 39\nB: 17\nC: 51\nD: 63",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "How many atoms are there in the molecule with the the IUPAC name '(2S)-3-amino-2-(methylamino)propanal'?\n\nA: 39\nB: 17\nC: 51\nD: 63"
+        }
+      ],
+      "gold": "B"
+    },
+    {
+      "index": 261,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nWhat is the molar weight (g/mol) of the molecule with the the IUPAC name '(2S)-2-[[(2S)-2-[[(2S)-2-[[(2S,3R)-2-[[(2S)-2-[[(2S)-2-[[(2S)-2-acetamido-4-methylpentanoyl]amino]-4-methylpentanoyl]amino]-4-methylpentanoyl]amino]-3-hydroxybutanoyl]amino]-5-(diaminomethylideneamino)pentanoyl]amino]-3-methylbutanoyl]amino]-6-amino-N-[(4-carbamimidoylphenyl)methyl]hexanamide'?\n\nA: 1015.300\nB: 960.000\nC: 1002.200\nD: 959.100",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "What is the molar weight (g/mol) of the molecule with the the IUPAC name '(2S)-2-[[(2S)-2-[[(2S)-2-[[(2S,3R)-2-[[(2S)-2-[[(2S)-2-[[(2S)-2-acetamido-4-methylpentanoyl]amino]-4-methylpentanoyl]amino]-4-methylpentanoyl]amino]-3-hydroxybutanoyl]amino]-5-(diaminomethylideneamino)pentanoyl]amino]-3-methylbutanoyl]amino]-6-amino-N-[(4-carbamimidoylphenyl)methyl]hexanamide'?\n\nA: 1015.300\nB: 960.000\nC: 1002.200\nD: 959.100"
+        }
+      ],
+      "gold": "A"
+    },
+    {
+      "index": 248,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nIn the given reactants and reagents (in SMILES format) which are separated by \".\":\nCNc1nccc(-c2cccnc2Oc2ccc(O)cc2)n1.CO.CS(C)=O.Clc1nnc(-c2ccccc2)c2ccccc12.O=C([O-])[O-].[K+].[K+]\nChoose the proper SMILES notation for the product:\n\nA: CNc1nccc(-c2cccnc2Oc2ccc(Oc3nnc(-c4ccccc4)c4ccccc34)cc2)n1\nB: Fc1ccc(-c2ccn(C(c3ccccc3)(c3ccccc3)c3ccccc3)n2)c(F)c1\nC: CNc1nccc(-c2cccnc2Oc2ccc(NC(=O)c3cccc(-c4ccoc4)c3)cc2C)n1\nD: COc1cccc(CNC(=O)COc2ccc(Oc3ncnc4cc(OC)c(OC)cc34)cc2)c1",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "In the given reactants and reagents (in SMILES format) which are separated by \".\":\nCNc1nccc(-c2cccnc2Oc2ccc(O)cc2)n1.CO.CS(C)=O.Clc1nnc(-c2ccccc2)c2ccccc12.O=C([O-])[O-].[K+].[K+]\nChoose the proper SMILES notation for the product:\n\nA: CNc1nccc(-c2cccnc2Oc2ccc(Oc3nnc(-c4ccccc4)c4ccccc34)cc2)n1\nB: Fc1ccc(-c2ccn(C(c3ccccc3)(c3ccccc3)c3ccccc3)n2)c(F)c1\nC: CNc1nccc(-c2cccnc2Oc2ccc(NC(=O)c3cccc(-c4ccoc4)c3)cc2C)n1\nD: COc1cccc(CNC(=O)COc2ccc(Oc3ncnc4cc(OC)c(OC)cc34)cc2)c1"
+        }
+      ],
+      "gold": "A"
+    },
+    {
+      "index": 207,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nHow do you do acid base titration calculations?\n\nA: Measure the temperature change during the titration process.\nB: Use the pH scale to determine the concentration of the acid and base.\nC: Calculate the mass of the acid and base and find their ratio.\nD: Find the molar ratio of the acid to the base, then use volume and molarity to convert to moles and vice versa.",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "How do you do acid base titration calculations?\n\nA: Measure the temperature change during the titration process.\nB: Use the pH scale to determine the concentration of the acid and base.\nC: Calculate the mass of the acid and base and find their ratio.\nD: Find the molar ratio of the acid to the base, then use volume and molarity to convert to moles and vice versa."
+        }
+      ],
+      "gold": "D"
+    },
+    {
+      "index": 470,
+      "prompt": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n\n\nWhat is the correct octanol/water distribution coefficient logD under the circumstance of pH 7.4 for the molecule \"Cc1ccc(Cl)c(Nc2ccnc(Nc3ccc(OCC(O)CN(C)C)cc3)n2)c1\" ?\n\nA: 1.76\nB: 2.6\nC: 3.6\nD: 1.14",
+      "messages": [
+        {
+          "role": "system",
+          "content": "\nGiven a question and four options, please select the right answer. Respond in the following format:\n<reasoning>\n...\n</reasoning>\n<answer>\n...\n</answer>\n\nFor the answer, only output the letter corresponding to the correct option (A, B, C, or D), and nothing else. Do not restate the answer text. For example, if the answer is \"A\", just output:\n<answer>\nA\n</answer>\n"
+        },
+        {
+          "role": "user",
+          "content": "What is the correct octanol/water distribution coefficient logD under the circumstance of pH 7.4 for the molecule \"Cc1ccc(Cl)c(Nc2ccnc(Nc3ccc(OCC(O)CN(C)C)cc3)n2)c1\" ?\n\nA: 1.76\nB: 2.6\nC: 3.6\nD: 1.14"
+        }
+      ],
+      "gold": "B"
+    }
+  ]
+}

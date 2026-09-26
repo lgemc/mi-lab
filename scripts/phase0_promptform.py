@@ -20,6 +20,8 @@ from src.experiment import translation_study as study
 from src.methods.quality import bleu
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 SAMPLE = 12
 FORMS = ("instruction", "few_shot")
@@ -69,4 +71,4 @@ def main() -> None:
         print(f"[{form}] {outputs[form][0][:120]}")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

@@ -1,0 +1,4524 @@
+{
+  "protocol": "a weight mask reduced to the component vocabulary the rest of this repo uses. Density per component is a share of that component's own parameters, never of the model's -- dividing by the model total would make every row a fact about model size rather than about the circuit.",
+  "config": "qwen3-1.7b",
+  "task": "translation",
+  "gates": "results/qwen3-1.7b-sweep/gold-t02/sheaf-translation-mask.pt",
+  "n_gates": 1409286144,
+  "n_open": 214571528,
+  "density": 0.15225547,
+  "components": [
+    {
+      "layer": 0,
+      "kind": "attn.v",
+      "open": 1362671,
+      "total": 2097152,
+      "density": 0.649772,
+      "share_of_circuit": 0.006351
+    },
+    {
+      "layer": 0,
+      "kind": "attn.out",
+      "open": 2600756,
+      "total": 4194304,
+      "density": 0.620069,
+      "share_of_circuit": 0.012121
+    },
+    {
+      "layer": 27,
+      "kind": "attn.v",
+      "open": 1252251,
+      "total": 2097152,
+      "density": 0.59712,
+      "share_of_circuit": 0.005836
+    },
+    {
+      "layer": 21,
+      "kind": "attn.v",
+      "open": 1244540,
+      "total": 2097152,
+      "density": 0.593443,
+      "share_of_circuit": 0.0058
+    },
+    {
+      "layer": 24,
+      "kind": "attn.v",
+      "open": 1238997,
+      "total": 2097152,
+      "density": 0.5908,
+      "share_of_circuit": 0.005774
+    },
+    {
+      "layer": 22,
+      "kind": "attn.v",
+      "open": 1236130,
+      "total": 2097152,
+      "density": 0.589433,
+      "share_of_circuit": 0.005761
+    },
+    {
+      "layer": 23,
+      "kind": "attn.v",
+      "open": 1226735,
+      "total": 2097152,
+      "density": 0.584953,
+      "share_of_circuit": 0.005717
+    },
+    {
+      "layer": 17,
+      "kind": "attn.v",
+      "open": 1220911,
+      "total": 2097152,
+      "density": 0.582176,
+      "share_of_circuit": 0.00569
+    },
+    {
+      "layer": 25,
+      "kind": "attn.v",
+      "open": 1216055,
+      "total": 2097152,
+      "density": 0.57986,
+      "share_of_circuit": 0.005667
+    },
+    {
+      "layer": 20,
+      "kind": "attn.v",
+      "open": 1207942,
+      "total": 2097152,
+      "density": 0.575992,
+      "share_of_circuit": 0.00563
+    },
+    {
+      "layer": 19,
+      "kind": "attn.v",
+      "open": 1182316,
+      "total": 2097152,
+      "density": 0.563772,
+      "share_of_circuit": 0.00551
+    },
+    {
+      "layer": 26,
+      "kind": "attn.v",
+      "open": 1171064,
+      "total": 2097152,
+      "density": 0.558407,
+      "share_of_circuit": 0.005458
+    },
+    {
+      "layer": 25,
+      "kind": "attn.out",
+      "open": 2299668,
+      "total": 4194304,
+      "density": 0.548284,
+      "share_of_circuit": 0.010717
+    },
+    {
+      "layer": 18,
+      "kind": "attn.v",
+      "open": 1131861,
+      "total": 2097152,
+      "density": 0.539713,
+      "share_of_circuit": 0.005275
+    },
+    {
+      "layer": 24,
+      "kind": "attn.out",
+      "open": 2255183,
+      "total": 4194304,
+      "density": 0.537678,
+      "share_of_circuit": 0.01051
+    },
+    {
+      "layer": 26,
+      "kind": "attn.out",
+      "open": 2206744,
+      "total": 4194304,
+      "density": 0.526129,
+      "share_of_circuit": 0.010284
+    },
+    {
+      "layer": 21,
+      "kind": "attn.out",
+      "open": 2204849,
+      "total": 4194304,
+      "density": 0.525677,
+      "share_of_circuit": 0.010276
+    },
+    {
+      "layer": 17,
+      "kind": "attn.out",
+      "open": 2186113,
+      "total": 4194304,
+      "density": 0.52121,
+      "share_of_circuit": 0.010188
+    },
+    {
+      "layer": 1,
+      "kind": "attn.v",
+      "open": 1091276,
+      "total": 2097152,
+      "density": 0.520361,
+      "share_of_circuit": 0.005086
+    },
+    {
+      "layer": 22,
+      "kind": "attn.out",
+      "open": 2175289,
+      "total": 4194304,
+      "density": 0.518629,
+      "share_of_circuit": 0.010138
+    },
+    {
+      "layer": 20,
+      "kind": "attn.out",
+      "open": 2162728,
+      "total": 4194304,
+      "density": 0.515635,
+      "share_of_circuit": 0.010079
+    },
+    {
+      "layer": 23,
+      "kind": "attn.out",
+      "open": 2123958,
+      "total": 4194304,
+      "density": 0.506391,
+      "share_of_circuit": 0.009899
+    },
+    {
+      "layer": 19,
+      "kind": "attn.out",
+      "open": 2110983,
+      "total": 4194304,
+      "density": 0.503298,
+      "share_of_circuit": 0.009838
+    },
+    {
+      "layer": 27,
+      "kind": "attn.out",
+      "open": 2109454,
+      "total": 4194304,
+      "density": 0.502933,
+      "share_of_circuit": 0.009831
+    },
+    {
+      "layer": 0,
+      "kind": "mlp.out",
+      "open": 6221986,
+      "total": 12582912,
+      "density": 0.494479,
+      "share_of_circuit": 0.028997
+    },
+    {
+      "layer": 1,
+      "kind": "attn.out",
+      "open": 2030407,
+      "total": 4194304,
+      "density": 0.484087,
+      "share_of_circuit": 0.009463
+    },
+    {
+      "layer": 15,
+      "kind": "attn.v",
+      "open": 1004710,
+      "total": 2097152,
+      "density": 0.479083,
+      "share_of_circuit": 0.004682
+    },
+    {
+      "layer": 2,
+      "kind": "attn.v",
+      "open": 1003374,
+      "total": 2097152,
+      "density": 0.478446,
+      "share_of_circuit": 0.004676
+    },
+    {
+      "layer": 16,
+      "kind": "attn.v",
+      "open": 976962,
+      "total": 2097152,
+      "density": 0.465852,
+      "share_of_circuit": 0.004553
+    },
+    {
+      "layer": 18,
+      "kind": "attn.out",
+      "open": 1929868,
+      "total": 4194304,
+      "density": 0.460116,
+      "share_of_circuit": 0.008994
+    },
+    {
+      "layer": 0,
+      "kind": "mlp.in",
+      "open": 11563517,
+      "total": 25165824,
+      "density": 0.459493,
+      "share_of_circuit": 0.053891
+    },
+    {
+      "layer": 2,
+      "kind": "attn.out",
+      "open": 1861642,
+      "total": 4194304,
+      "density": 0.44385,
+      "share_of_circuit": 0.008676
+    },
+    {
+      "layer": 15,
+      "kind": "attn.out",
+      "open": 1846102,
+      "total": 4194304,
+      "density": 0.440145,
+      "share_of_circuit": 0.008604
+    },
+    {
+      "layer": 14,
+      "kind": "attn.v",
+      "open": 889120,
+      "total": 2097152,
+      "density": 0.423965,
+      "share_of_circuit": 0.004144
+    },
+    {
+      "layer": 11,
+      "kind": "attn.v",
+      "open": 867371,
+      "total": 2097152,
+      "density": 0.413595,
+      "share_of_circuit": 0.004042
+    },
+    {
+      "layer": 13,
+      "kind": "attn.v",
+      "open": 861977,
+      "total": 2097152,
+      "density": 0.411023,
+      "share_of_circuit": 0.004017
+    },
+    {
+      "layer": 12,
+      "kind": "attn.v",
+      "open": 855357,
+      "total": 2097152,
+      "density": 0.407866,
+      "share_of_circuit": 0.003986
+    },
+    {
+      "layer": 16,
+      "kind": "attn.out",
+      "open": 1691790,
+      "total": 4194304,
+      "density": 0.403354,
+      "share_of_circuit": 0.007885
+    },
+    {
+      "layer": 9,
+      "kind": "attn.v",
+      "open": 839460,
+      "total": 2097152,
+      "density": 0.400286,
+      "share_of_circuit": 0.003912
+    },
+    {
+      "layer": 3,
+      "kind": "attn.v",
+      "open": 816785,
+      "total": 2097152,
+      "density": 0.389473,
+      "share_of_circuit": 0.003807
+    },
+    {
+      "layer": 14,
+      "kind": "attn.out",
+      "open": 1611705,
+      "total": 4194304,
+      "density": 0.38426,
+      "share_of_circuit": 0.007511
+    },
+    {
+      "layer": 13,
+      "kind": "attn.out",
+      "open": 1526047,
+      "total": 4194304,
+      "density": 0.363838,
+      "share_of_circuit": 0.007112
+    },
+    {
+      "layer": 12,
+      "kind": "attn.out",
+      "open": 1501870,
+      "total": 4194304,
+      "density": 0.358074,
+      "share_of_circuit": 0.006999
+    },
+    {
+      "layer": 10,
+      "kind": "attn.v",
+      "open": 738529,
+      "total": 2097152,
+      "density": 0.352158,
+      "share_of_circuit": 0.003442
+    },
+    {
+      "layer": 1,
+      "kind": "mlp.out",
+      "open": 4415428,
+      "total": 12582912,
+      "density": 0.350907,
+      "share_of_circuit": 0.020578
+    },
+    {
+      "layer": 5,
+      "kind": "attn.v",
+      "open": 714357,
+      "total": 2097152,
+      "density": 0.340632,
+      "share_of_circuit": 0.003329
+    },
+    {
+      "layer": 7,
+      "kind": "attn.v",
+      "open": 699508,
+      "total": 2097152,
+      "density": 0.333551,
+      "share_of_circuit": 0.00326
+    },
+    {
+      "layer": 0,
+      "kind": "attn.k",
+      "open": 699084,
+      "total": 2097152,
+      "density": 0.333349,
+      "share_of_circuit": 0.003258
+    },
+    {
+      "layer": 8,
+      "kind": "attn.v",
+      "open": 699052,
+      "total": 2097152,
+      "density": 0.333334,
+      "share_of_circuit": 0.003258
+    },
+    {
+      "layer": 3,
+      "kind": "attn.out",
+      "open": 1392842,
+      "total": 4194304,
+      "density": 0.332079,
+      "share_of_circuit": 0.006491
+    },
+    {
+      "layer": 9,
+      "kind": "attn.out",
+      "open": 1363198,
+      "total": 4194304,
+      "density": 0.325012,
+      "share_of_circuit": 0.006353
+    },
+    {
+      "layer": 2,
+      "kind": "mlp.out",
+      "open": 4032388,
+      "total": 12582912,
+      "density": 0.320465,
+      "share_of_circuit": 0.018793
+    },
+    {
+      "layer": 11,
+      "kind": "attn.out",
+      "open": 1342725,
+      "total": 4194304,
+      "density": 0.320131,
+      "share_of_circuit": 0.006258
+    },
+    {
+      "layer": 1,
+      "kind": "attn.k",
+      "open": 658552,
+      "total": 2097152,
+      "density": 0.314022,
+      "share_of_circuit": 0.003069
+    },
+    {
+      "layer": 4,
+      "kind": "attn.v",
+      "open": 654223,
+      "total": 2097152,
+      "density": 0.311958,
+      "share_of_circuit": 0.003049
+    },
+    {
+      "layer": 1,
+      "kind": "mlp.in",
+      "open": 7792454,
+      "total": 25165824,
+      "density": 0.309644,
+      "share_of_circuit": 0.036316
+    },
+    {
+      "layer": 6,
+      "kind": "attn.v",
+      "open": 608165,
+      "total": 2097152,
+      "density": 0.289996,
+      "share_of_circuit": 0.002834
+    },
+    {
+      "layer": 2,
+      "kind": "mlp.in",
+      "open": 7242106,
+      "total": 25165824,
+      "density": 0.287775,
+      "share_of_circuit": 0.033751
+    },
+    {
+      "layer": 10,
+      "kind": "attn.out",
+      "open": 1182478,
+      "total": 4194304,
+      "density": 0.281925,
+      "share_of_circuit": 0.005511
+    },
+    {
+      "layer": 2,
+      "kind": "attn.k",
+      "open": 582413,
+      "total": 2097152,
+      "density": 0.277716,
+      "share_of_circuit": 0.002714
+    },
+    {
+      "layer": 1,
+      "kind": "attn.q",
+      "open": 1162878,
+      "total": 4194304,
+      "density": 0.277252,
+      "share_of_circuit": 0.00542
+    },
+    {
+      "layer": 7,
+      "kind": "attn.out",
+      "open": 1162586,
+      "total": 4194304,
+      "density": 0.277182,
+      "share_of_circuit": 0.005418
+    },
+    {
+      "layer": 3,
+      "kind": "mlp.out",
+      "open": 3409509,
+      "total": 12582912,
+      "density": 0.270963,
+      "share_of_circuit": 0.01589
+    },
+    {
+      "layer": 5,
+      "kind": "attn.out",
+      "open": 1101744,
+      "total": 4194304,
+      "density": 0.262676,
+      "share_of_circuit": 0.005135
+    },
+    {
+      "layer": 8,
+      "kind": "attn.out",
+      "open": 1095007,
+      "total": 4194304,
+      "density": 0.26107,
+      "share_of_circuit": 0.005103
+    },
+    {
+      "layer": 3,
+      "kind": "mlp.in",
+      "open": 6312294,
+      "total": 25165824,
+      "density": 0.250828,
+      "share_of_circuit": 0.029418
+    },
+    {
+      "layer": 4,
+      "kind": "attn.out",
+      "open": 1026175,
+      "total": 4194304,
+      "density": 0.244659,
+      "share_of_circuit": 0.004782
+    },
+    {
+      "layer": 2,
+      "kind": "attn.q",
+      "open": 988455,
+      "total": 4194304,
+      "density": 0.235666,
+      "share_of_circuit": 0.004607
+    },
+    {
+      "layer": 0,
+      "kind": "attn.q",
+      "open": 937370,
+      "total": 4194304,
+      "density": 0.223486,
+      "share_of_circuit": 0.004369
+    },
+    {
+      "layer": 4,
+      "kind": "mlp.out",
+      "open": 2807348,
+      "total": 12582912,
+      "density": 0.223108,
+      "share_of_circuit": 0.013084
+    },
+    {
+      "layer": 4,
+      "kind": "mlp.in",
+      "open": 5612967,
+      "total": 25165824,
+      "density": 0.223039,
+      "share_of_circuit": 0.026159
+    },
+    {
+      "layer": 6,
+      "kind": "attn.out",
+      "open": 904969,
+      "total": 4194304,
+      "density": 0.215761,
+      "share_of_circuit": 0.004218
+    },
+    {
+      "layer": 3,
+      "kind": "attn.k",
+      "open": 452415,
+      "total": 2097152,
+      "density": 0.215728,
+      "share_of_circuit": 0.002108
+    },
+    {
+      "layer": 5,
+      "kind": "mlp.in",
+      "open": 5192141,
+      "total": 25165824,
+      "density": 0.206317,
+      "share_of_circuit": 0.024198
+    },
+    {
+      "layer": 5,
+      "kind": "mlp.out",
+      "open": 2487834,
+      "total": 12582912,
+      "density": 0.197715,
+      "share_of_circuit": 0.011594
+    },
+    {
+      "layer": 15,
+      "kind": "attn.k",
+      "open": 409622,
+      "total": 2097152,
+      "density": 0.195323,
+      "share_of_circuit": 0.001909
+    },
+    {
+      "layer": 17,
+      "kind": "attn.k",
+      "open": 406758,
+      "total": 2097152,
+      "density": 0.193957,
+      "share_of_circuit": 0.001896
+    },
+    {
+      "layer": 25,
+      "kind": "attn.k",
+      "open": 376252,
+      "total": 2097152,
+      "density": 0.179411,
+      "share_of_circuit": 0.001754
+    },
+    {
+      "layer": 6,
+      "kind": "mlp.in",
+      "open": 4306312,
+      "total": 25165824,
+      "density": 0.171117,
+      "share_of_circuit": 0.020069
+    },
+    {
+      "layer": 6,
+      "kind": "mlp.out",
+      "open": 2098207,
+      "total": 12582912,
+      "density": 0.166751,
+      "share_of_circuit": 0.009779
+    },
+    {
+      "layer": 5,
+      "kind": "attn.k",
+      "open": 346103,
+      "total": 2097152,
+      "density": 0.165035,
+      "share_of_circuit": 0.001613
+    },
+    {
+      "layer": 4,
+      "kind": "attn.k",
+      "open": 334262,
+      "total": 2097152,
+      "density": 0.159389,
+      "share_of_circuit": 0.001558
+    },
+    {
+      "layer": 3,
+      "kind": "attn.q",
+      "open": 649561,
+      "total": 4194304,
+      "density": 0.154867,
+      "share_of_circuit": 0.003027
+    },
+    {
+      "layer": 21,
+      "kind": "attn.k",
+      "open": 321047,
+      "total": 2097152,
+      "density": 0.153087,
+      "share_of_circuit": 0.001496
+    },
+    {
+      "layer": 12,
+      "kind": "attn.k",
+      "open": 319383,
+      "total": 2097152,
+      "density": 0.152294,
+      "share_of_circuit": 0.001488
+    },
+    {
+      "layer": 20,
+      "kind": "attn.k",
+      "open": 313188,
+      "total": 2097152,
+      "density": 0.14934,
+      "share_of_circuit": 0.00146
+    },
+    {
+      "layer": 11,
+      "kind": "attn.k",
+      "open": 308217,
+      "total": 2097152,
+      "density": 0.146969,
+      "share_of_circuit": 0.001436
+    },
+    {
+      "layer": 9,
+      "kind": "attn.k",
+      "open": 306918,
+      "total": 2097152,
+      "density": 0.14635,
+      "share_of_circuit": 0.00143
+    },
+    {
+      "layer": 19,
+      "kind": "attn.k",
+      "open": 303216,
+      "total": 2097152,
+      "density": 0.144585,
+      "share_of_circuit": 0.001413
+    },
+    {
+      "layer": 14,
+      "kind": "attn.k",
+      "open": 303064,
+      "total": 2097152,
+      "density": 0.144512,
+      "share_of_circuit": 0.001412
+    },
+    {
+      "layer": 7,
+      "kind": "mlp.out",
+      "open": 1789573,
+      "total": 12582912,
+      "density": 0.142222,
+      "share_of_circuit": 0.00834
+    },
+    {
+      "layer": 7,
+      "kind": "mlp.in",
+      "open": 3543902,
+      "total": 25165824,
+      "density": 0.140822,
+      "share_of_circuit": 0.016516
+    },
+    {
+      "layer": 26,
+      "kind": "attn.k",
+      "open": 295115,
+      "total": 2097152,
+      "density": 0.140722,
+      "share_of_circuit": 0.001375
+    },
+    {
+      "layer": 22,
+      "kind": "attn.k",
+      "open": 292281,
+      "total": 2097152,
+      "density": 0.13937,
+      "share_of_circuit": 0.001362
+    },
+    {
+      "layer": 13,
+      "kind": "attn.k",
+      "open": 290325,
+      "total": 2097152,
+      "density": 0.138438,
+      "share_of_circuit": 0.001353
+    },
+    {
+      "layer": 10,
+      "kind": "attn.k",
+      "open": 287151,
+      "total": 2097152,
+      "density": 0.136924,
+      "share_of_circuit": 0.001338
+    },
+    {
+      "layer": 7,
+      "kind": "attn.k",
+      "open": 282532,
+      "total": 2097152,
+      "density": 0.134722,
+      "share_of_circuit": 0.001317
+    },
+    {
+      "layer": 15,
+      "kind": "attn.q",
+      "open": 561257,
+      "total": 4194304,
+      "density": 0.133814,
+      "share_of_circuit": 0.002616
+    },
+    {
+      "layer": 8,
+      "kind": "mlp.in",
+      "open": 3349227,
+      "total": 25165824,
+      "density": 0.133086,
+      "share_of_circuit": 0.015609
+    },
+    {
+      "layer": 8,
+      "kind": "mlp.out",
+      "open": 1623634,
+      "total": 12582912,
+      "density": 0.129035,
+      "share_of_circuit": 0.007567
+    },
+    {
+      "layer": 17,
+      "kind": "attn.q",
+      "open": 539734,
+      "total": 4194304,
+      "density": 0.128683,
+      "share_of_circuit": 0.002515
+    },
+    {
+      "layer": 8,
+      "kind": "attn.k",
+      "open": 267822,
+      "total": 2097152,
+      "density": 0.127707,
+      "share_of_circuit": 0.001248
+    },
+    {
+      "layer": 24,
+      "kind": "attn.k",
+      "open": 266886,
+      "total": 2097152,
+      "density": 0.127261,
+      "share_of_circuit": 0.001244
+    },
+    {
+      "layer": 16,
+      "kind": "attn.k",
+      "open": 260243,
+      "total": 2097152,
+      "density": 0.124094,
+      "share_of_circuit": 0.001213
+    },
+    {
+      "layer": 23,
+      "kind": "attn.k",
+      "open": 258365,
+      "total": 2097152,
+      "density": 0.123198,
+      "share_of_circuit": 0.001204
+    },
+    {
+      "layer": 5,
+      "kind": "attn.q",
+      "open": 506961,
+      "total": 4194304,
+      "density": 0.120869,
+      "share_of_circuit": 0.002363
+    },
+    {
+      "layer": 9,
+      "kind": "mlp.in",
+      "open": 2884458,
+      "total": 25165824,
+      "density": 0.114618,
+      "share_of_circuit": 0.013443
+    },
+    {
+      "layer": 9,
+      "kind": "mlp.out",
+      "open": 1382492,
+      "total": 12582912,
+      "density": 0.109871,
+      "share_of_circuit": 0.006443
+    },
+    {
+      "layer": 18,
+      "kind": "attn.k",
+      "open": 227098,
+      "total": 2097152,
+      "density": 0.108289,
+      "share_of_circuit": 0.001058
+    },
+    {
+      "layer": 25,
+      "kind": "attn.q",
+      "open": 441643,
+      "total": 4194304,
+      "density": 0.105296,
+      "share_of_circuit": 0.002058
+    },
+    {
+      "layer": 7,
+      "kind": "attn.q",
+      "open": 428392,
+      "total": 4194304,
+      "density": 0.102137,
+      "share_of_circuit": 0.001996
+    },
+    {
+      "layer": 6,
+      "kind": "attn.k",
+      "open": 213853,
+      "total": 2097152,
+      "density": 0.101973,
+      "share_of_circuit": 0.000997
+    },
+    {
+      "layer": 4,
+      "kind": "attn.q",
+      "open": 426531,
+      "total": 4194304,
+      "density": 0.101693,
+      "share_of_circuit": 0.001988
+    },
+    {
+      "layer": 9,
+      "kind": "attn.q",
+      "open": 423053,
+      "total": 4194304,
+      "density": 0.100864,
+      "share_of_circuit": 0.001972
+    },
+    {
+      "layer": 12,
+      "kind": "attn.q",
+      "open": 416935,
+      "total": 4194304,
+      "density": 0.099405,
+      "share_of_circuit": 0.001943
+    },
+    {
+      "layer": 10,
+      "kind": "mlp.in",
+      "open": 2467598,
+      "total": 25165824,
+      "density": 0.098054,
+      "share_of_circuit": 0.0115
+    },
+    {
+      "layer": 14,
+      "kind": "attn.q",
+      "open": 404021,
+      "total": 4194304,
+      "density": 0.096326,
+      "share_of_circuit": 0.001883
+    },
+    {
+      "layer": 11,
+      "kind": "attn.q",
+      "open": 402390,
+      "total": 4194304,
+      "density": 0.095937,
+      "share_of_circuit": 0.001875
+    },
+    {
+      "layer": 20,
+      "kind": "attn.q",
+      "open": 387616,
+      "total": 4194304,
+      "density": 0.092415,
+      "share_of_circuit": 0.001806
+    },
+    {
+      "layer": 10,
+      "kind": "mlp.out",
+      "open": 1157818,
+      "total": 12582912,
+      "density": 0.092015,
+      "share_of_circuit": 0.005396
+    },
+    {
+      "layer": 13,
+      "kind": "attn.q",
+      "open": 384882,
+      "total": 4194304,
+      "density": 0.091763,
+      "share_of_circuit": 0.001794
+    },
+    {
+      "layer": 10,
+      "kind": "attn.q",
+      "open": 381856,
+      "total": 4194304,
+      "density": 0.091042,
+      "share_of_circuit": 0.00178
+    },
+    {
+      "layer": 8,
+      "kind": "attn.q",
+      "open": 364375,
+      "total": 4194304,
+      "density": 0.086874,
+      "share_of_circuit": 0.001698
+    },
+    {
+      "layer": 19,
+      "kind": "attn.q",
+      "open": 357698,
+      "total": 4194304,
+      "density": 0.085282,
+      "share_of_circuit": 0.001667
+    },
+    {
+      "layer": 27,
+      "kind": "attn.k",
+      "open": 177247,
+      "total": 2097152,
+      "density": 0.084518,
+      "share_of_circuit": 0.000826
+    },
+    {
+      "layer": 26,
+      "kind": "attn.q",
+      "open": 343757,
+      "total": 4194304,
+      "density": 0.081958,
+      "share_of_circuit": 0.001602
+    },
+    {
+      "layer": 11,
+      "kind": "mlp.in",
+      "open": 2021719,
+      "total": 25165824,
+      "density": 0.080336,
+      "share_of_circuit": 0.009422
+    },
+    {
+      "layer": 21,
+      "kind": "attn.q",
+      "open": 335691,
+      "total": 4194304,
+      "density": 0.080035,
+      "share_of_circuit": 0.001564
+    },
+    {
+      "layer": 16,
+      "kind": "attn.q",
+      "open": 318265,
+      "total": 4194304,
+      "density": 0.07588,
+      "share_of_circuit": 0.001483
+    },
+    {
+      "layer": 23,
+      "kind": "attn.q",
+      "open": 318154,
+      "total": 4194304,
+      "density": 0.075854,
+      "share_of_circuit": 0.001483
+    },
+    {
+      "layer": 11,
+      "kind": "mlp.out",
+      "open": 952899,
+      "total": 12582912,
+      "density": 0.07573,
+      "share_of_circuit": 0.004441
+    },
+    {
+      "layer": 24,
+      "kind": "attn.q",
+      "open": 308049,
+      "total": 4194304,
+      "density": 0.073445,
+      "share_of_circuit": 0.001436
+    },
+    {
+      "layer": 6,
+      "kind": "attn.q",
+      "open": 298824,
+      "total": 4194304,
+      "density": 0.071245,
+      "share_of_circuit": 0.001393
+    },
+    {
+      "layer": 22,
+      "kind": "attn.q",
+      "open": 265135,
+      "total": 4194304,
+      "density": 0.063213,
+      "share_of_circuit": 0.001236
+    },
+    {
+      "layer": 18,
+      "kind": "attn.q",
+      "open": 263888,
+      "total": 4194304,
+      "density": 0.062916,
+      "share_of_circuit": 0.00123
+    },
+    {
+      "layer": 19,
+      "kind": "mlp.out",
+      "open": 747205,
+      "total": 12582912,
+      "density": 0.059383,
+      "share_of_circuit": 0.003482
+    },
+    {
+      "layer": 12,
+      "kind": "mlp.in",
+      "open": 1398321,
+      "total": 25165824,
+      "density": 0.055564,
+      "share_of_circuit": 0.006517
+    },
+    {
+      "layer": 19,
+      "kind": "mlp.in",
+      "open": 1369558,
+      "total": 25165824,
+      "density": 0.054421,
+      "share_of_circuit": 0.006383
+    },
+    {
+      "layer": 12,
+      "kind": "mlp.out",
+      "open": 674151,
+      "total": 12582912,
+      "density": 0.053577,
+      "share_of_circuit": 0.003142
+    },
+    {
+      "layer": 20,
+      "kind": "mlp.in",
+      "open": 1258727,
+      "total": 25165824,
+      "density": 0.050017,
+      "share_of_circuit": 0.005866
+    },
+    {
+      "layer": 20,
+      "kind": "mlp.out",
+      "open": 626739,
+      "total": 12582912,
+      "density": 0.049809,
+      "share_of_circuit": 0.002921
+    },
+    {
+      "layer": 18,
+      "kind": "mlp.out",
+      "open": 564336,
+      "total": 12582912,
+      "density": 0.044849,
+      "share_of_circuit": 0.00263
+    },
+    {
+      "layer": 16,
+      "kind": "mlp.out",
+      "open": 544503,
+      "total": 12582912,
+      "density": 0.043273,
+      "share_of_circuit": 0.002538
+    },
+    {
+      "layer": 18,
+      "kind": "mlp.in",
+      "open": 1014519,
+      "total": 25165824,
+      "density": 0.040313,
+      "share_of_circuit": 0.004728
+    },
+    {
+      "layer": 27,
+      "kind": "mlp.out",
+      "open": 507175,
+      "total": 12582912,
+      "density": 0.040307,
+      "share_of_circuit": 0.002364
+    },
+    {
+      "layer": 16,
+      "kind": "mlp.in",
+      "open": 1013608,
+      "total": 25165824,
+      "density": 0.040277,
+      "share_of_circuit": 0.004724
+    },
+    {
+      "layer": 13,
+      "kind": "mlp.in",
+      "open": 968741,
+      "total": 25165824,
+      "density": 0.038494,
+      "share_of_circuit": 0.004515
+    },
+    {
+      "layer": 27,
+      "kind": "attn.q",
+      "open": 158488,
+      "total": 4194304,
+      "density": 0.037786,
+      "share_of_circuit": 0.000739
+    },
+    {
+      "layer": 13,
+      "kind": "mlp.out",
+      "open": 455506,
+      "total": 12582912,
+      "density": 0.0362,
+      "share_of_circuit": 0.002123
+    },
+    {
+      "layer": 27,
+      "kind": "mlp.in",
+      "open": 910503,
+      "total": 25165824,
+      "density": 0.03618,
+      "share_of_circuit": 0.004243
+    },
+    {
+      "layer": 17,
+      "kind": "mlp.out",
+      "open": 410686,
+      "total": 12582912,
+      "density": 0.032638,
+      "share_of_circuit": 0.001914
+    },
+    {
+      "layer": 26,
+      "kind": "mlp.out",
+      "open": 409990,
+      "total": 12582912,
+      "density": 0.032583,
+      "share_of_circuit": 0.001911
+    },
+    {
+      "layer": 17,
+      "kind": "mlp.in",
+      "open": 789367,
+      "total": 25165824,
+      "density": 0.031367,
+      "share_of_circuit": 0.003679
+    },
+    {
+      "layer": 21,
+      "kind": "mlp.in",
+      "open": 773600,
+      "total": 25165824,
+      "density": 0.03074,
+      "share_of_circuit": 0.003605
+    },
+    {
+      "layer": 14,
+      "kind": "mlp.in",
+      "open": 746647,
+      "total": 25165824,
+      "density": 0.029669,
+      "share_of_circuit": 0.00348
+    },
+    {
+      "layer": 21,
+      "kind": "mlp.out",
+      "open": 370854,
+      "total": 12582912,
+      "density": 0.029473,
+      "share_of_circuit": 0.001728
+    },
+    {
+      "layer": 14,
+      "kind": "mlp.out",
+      "open": 355161,
+      "total": 12582912,
+      "density": 0.028226,
+      "share_of_circuit": 0.001655
+    },
+    {
+      "layer": 25,
+      "kind": "mlp.out",
+      "open": 322109,
+      "total": 12582912,
+      "density": 0.025599,
+      "share_of_circuit": 0.001501
+    },
+    {
+      "layer": 26,
+      "kind": "mlp.in",
+      "open": 639183,
+      "total": 25165824,
+      "density": 0.025399,
+      "share_of_circuit": 0.002979
+    },
+    {
+      "layer": 15,
+      "kind": "mlp.in",
+      "open": 593167,
+      "total": 25165824,
+      "density": 0.02357,
+      "share_of_circuit": 0.002764
+    },
+    {
+      "layer": 22,
+      "kind": "mlp.out",
+      "open": 296213,
+      "total": 12582912,
+      "density": 0.023541,
+      "share_of_circuit": 0.00138
+    },
+    {
+      "layer": 22,
+      "kind": "mlp.in",
+      "open": 576588,
+      "total": 25165824,
+      "density": 0.022912,
+      "share_of_circuit": 0.002687
+    },
+    {
+      "layer": 15,
+      "kind": "mlp.out",
+      "open": 287246,
+      "total": 12582912,
+      "density": 0.022828,
+      "share_of_circuit": 0.001339
+    },
+    {
+      "layer": 25,
+      "kind": "mlp.in",
+      "open": 518361,
+      "total": 25165824,
+      "density": 0.020598,
+      "share_of_circuit": 0.002416
+    },
+    {
+      "layer": 23,
+      "kind": "mlp.out",
+      "open": 246754,
+      "total": 12582912,
+      "density": 0.01961,
+      "share_of_circuit": 0.00115
+    },
+    {
+      "layer": 23,
+      "kind": "mlp.in",
+      "open": 490417,
+      "total": 25165824,
+      "density": 0.019487,
+      "share_of_circuit": 0.002286
+    },
+    {
+      "layer": 24,
+      "kind": "mlp.out",
+      "open": 232696,
+      "total": 12582912,
+      "density": 0.018493,
+      "share_of_circuit": 0.001084
+    },
+    {
+      "layer": 24,
+      "kind": "mlp.in",
+      "open": 437236,
+      "total": 25165824,
+      "density": 0.017374,
+      "share_of_circuit": 0.002038
+    }
+  ],
+  "by_layer": {
+    "0": 23385384,
+    "1": 17150995,
+    "2": 15710378,
+    "3": 13033406,
+    "4": 10861506,
+    "5": 10349140,
+    "6": 8430330,
+    "7": 7906493,
+    "8": 7399117,
+    "9": 7199579,
+    "10": 6215430,
+    "11": 5895321,
+    "12": 5166017,
+    "13": 4487478,
+    "14": 4309718,
+    "15": 4702104,
+    "16": 4805371,
+    "17": 5553569,
+    "18": 5131570,
+    "19": 6070976,
+    "20": 5956940,
+    "21": 5250581,
+    "22": 4841636,
+    "23": 4664383,
+    "24": 4739047,
+    "25": 5174088,
+    "26": 5065853,
+    "27": 5115118
+  },
+  "heads": [
+    {
+      "layer": 0,
+      "head": 4,
+      "open": 163484,
+      "total": 262144,
+      "density": 0.623642
+    },
+    {
+      "layer": 0,
+      "head": 0,
+      "open": 163205,
+      "total": 262144,
+      "density": 0.622578
+    },
+    {
+      "layer": 0,
+      "head": 14,
+      "open": 163135,
+      "total": 262144,
+      "density": 0.622311
+    },
+    {
+      "layer": 0,
+      "head": 8,
+      "open": 163096,
+      "total": 262144,
+      "density": 0.622162
+    },
+    {
+      "layer": 0,
+      "head": 2,
+      "open": 163034,
+      "total": 262144,
+      "density": 0.621925
+    },
+    {
+      "layer": 0,
+      "head": 13,
+      "open": 162800,
+      "total": 262144,
+      "density": 0.621033
+    },
+    {
+      "layer": 0,
+      "head": 10,
+      "open": 162763,
+      "total": 262144,
+      "density": 0.620892
+    },
+    {
+      "layer": 0,
+      "head": 7,
+      "open": 162740,
+      "total": 262144,
+      "density": 0.620804
+    },
+    {
+      "layer": 0,
+      "head": 15,
+      "open": 162720,
+      "total": 262144,
+      "density": 0.620728
+    },
+    {
+      "layer": 0,
+      "head": 12,
+      "open": 162618,
+      "total": 262144,
+      "density": 0.620338
+    },
+    {
+      "layer": 0,
+      "head": 9,
+      "open": 162596,
+      "total": 262144,
+      "density": 0.620255
+    },
+    {
+      "layer": 0,
+      "head": 5,
+      "open": 162516,
+      "total": 262144,
+      "density": 0.619949
+    },
+    {
+      "layer": 0,
+      "head": 11,
+      "open": 161855,
+      "total": 262144,
+      "density": 0.617428
+    },
+    {
+      "layer": 0,
+      "head": 1,
+      "open": 161766,
+      "total": 262144,
+      "density": 0.617088
+    },
+    {
+      "layer": 0,
+      "head": 3,
+      "open": 161292,
+      "total": 262144,
+      "density": 0.61528
+    },
+    {
+      "layer": 0,
+      "head": 6,
+      "open": 161136,
+      "total": 262144,
+      "density": 0.614685
+    },
+    {
+      "layer": 25,
+      "head": 14,
+      "open": 145015,
+      "total": 262144,
+      "density": 0.553188
+    },
+    {
+      "layer": 25,
+      "head": 2,
+      "open": 145011,
+      "total": 262144,
+      "density": 0.553173
+    },
+    {
+      "layer": 25,
+      "head": 1,
+      "open": 144974,
+      "total": 262144,
+      "density": 0.553032
+    },
+    {
+      "layer": 25,
+      "head": 15,
+      "open": 144799,
+      "total": 262144,
+      "density": 0.552364
+    },
+    {
+      "layer": 25,
+      "head": 11,
+      "open": 144507,
+      "total": 262144,
+      "density": 0.55125
+    },
+    {
+      "layer": 25,
+      "head": 7,
+      "open": 144221,
+      "total": 262144,
+      "density": 0.550159
+    },
+    {
+      "layer": 25,
+      "head": 10,
+      "open": 144041,
+      "total": 262144,
+      "density": 0.549473
+    },
+    {
+      "layer": 25,
+      "head": 5,
+      "open": 143843,
+      "total": 262144,
+      "density": 0.548717
+    },
+    {
+      "layer": 25,
+      "head": 12,
+      "open": 143807,
+      "total": 262144,
+      "density": 0.54858
+    },
+    {
+      "layer": 25,
+      "head": 13,
+      "open": 143433,
+      "total": 262144,
+      "density": 0.547153
+    },
+    {
+      "layer": 25,
+      "head": 8,
+      "open": 143377,
+      "total": 262144,
+      "density": 0.54694
+    },
+    {
+      "layer": 25,
+      "head": 9,
+      "open": 143261,
+      "total": 262144,
+      "density": 0.546497
+    },
+    {
+      "layer": 25,
+      "head": 0,
+      "open": 143062,
+      "total": 262144,
+      "density": 0.545738
+    },
+    {
+      "layer": 24,
+      "head": 14,
+      "open": 142816,
+      "total": 262144,
+      "density": 0.5448
+    },
+    {
+      "layer": 24,
+      "head": 15,
+      "open": 142708,
+      "total": 262144,
+      "density": 0.544388
+    },
+    {
+      "layer": 25,
+      "head": 4,
+      "open": 142666,
+      "total": 262144,
+      "density": 0.544228
+    },
+    {
+      "layer": 24,
+      "head": 1,
+      "open": 142571,
+      "total": 262144,
+      "density": 0.543865
+    },
+    {
+      "layer": 25,
+      "head": 6,
+      "open": 142270,
+      "total": 262144,
+      "density": 0.542717
+    },
+    {
+      "layer": 24,
+      "head": 2,
+      "open": 142243,
+      "total": 262144,
+      "density": 0.542614
+    },
+    {
+      "layer": 24,
+      "head": 7,
+      "open": 141781,
+      "total": 262144,
+      "density": 0.540852
+    },
+    {
+      "layer": 24,
+      "head": 10,
+      "open": 141467,
+      "total": 262144,
+      "density": 0.539654
+    },
+    {
+      "layer": 25,
+      "head": 3,
+      "open": 141381,
+      "total": 262144,
+      "density": 0.539326
+    },
+    {
+      "layer": 24,
+      "head": 13,
+      "open": 141320,
+      "total": 262144,
+      "density": 0.539093
+    },
+    {
+      "layer": 24,
+      "head": 12,
+      "open": 140850,
+      "total": 262144,
+      "density": 0.5373
+    },
+    {
+      "layer": 24,
+      "head": 9,
+      "open": 140790,
+      "total": 262144,
+      "density": 0.537071
+    },
+    {
+      "layer": 24,
+      "head": 8,
+      "open": 140757,
+      "total": 262144,
+      "density": 0.536945
+    },
+    {
+      "layer": 24,
+      "head": 11,
+      "open": 140740,
+      "total": 262144,
+      "density": 0.53688
+    },
+    {
+      "layer": 24,
+      "head": 5,
+      "open": 140327,
+      "total": 262144,
+      "density": 0.535305
+    },
+    {
+      "layer": 24,
+      "head": 4,
+      "open": 140077,
+      "total": 262144,
+      "density": 0.534351
+    },
+    {
+      "layer": 24,
+      "head": 6,
+      "open": 139333,
+      "total": 262144,
+      "density": 0.531513
+    },
+    {
+      "layer": 21,
+      "head": 8,
+      "open": 139294,
+      "total": 262144,
+      "density": 0.531364
+    },
+    {
+      "layer": 26,
+      "head": 0,
+      "open": 139203,
+      "total": 262144,
+      "density": 0.531017
+    },
+    {
+      "layer": 21,
+      "head": 14,
+      "open": 139170,
+      "total": 262144,
+      "density": 0.530891
+    },
+    {
+      "layer": 21,
+      "head": 15,
+      "open": 139002,
+      "total": 262144,
+      "density": 0.530251
+    },
+    {
+      "layer": 24,
+      "head": 0,
+      "open": 138785,
+      "total": 262144,
+      "density": 0.529423
+    },
+    {
+      "layer": 26,
+      "head": 8,
+      "open": 138739,
+      "total": 262144,
+      "density": 0.529247
+    },
+    {
+      "layer": 21,
+      "head": 7,
+      "open": 138720,
+      "total": 262144,
+      "density": 0.529175
+    },
+    {
+      "layer": 24,
+      "head": 3,
+      "open": 138618,
+      "total": 262144,
+      "density": 0.528786
+    },
+    {
+      "layer": 21,
+      "head": 2,
+      "open": 138502,
+      "total": 262144,
+      "density": 0.528343
+    },
+    {
+      "layer": 26,
+      "head": 2,
+      "open": 138373,
+      "total": 262144,
+      "density": 0.527851
+    },
+    {
+      "layer": 26,
+      "head": 7,
+      "open": 138274,
+      "total": 262144,
+      "density": 0.527473
+    },
+    {
+      "layer": 26,
+      "head": 12,
+      "open": 138102,
+      "total": 262144,
+      "density": 0.526817
+    },
+    {
+      "layer": 26,
+      "head": 4,
+      "open": 138071,
+      "total": 262144,
+      "density": 0.526699
+    },
+    {
+      "layer": 26,
+      "head": 14,
+      "open": 138002,
+      "total": 262144,
+      "density": 0.526436
+    },
+    {
+      "layer": 26,
+      "head": 1,
+      "open": 137947,
+      "total": 262144,
+      "density": 0.526226
+    },
+    {
+      "layer": 26,
+      "head": 11,
+      "open": 137911,
+      "total": 262144,
+      "density": 0.526089
+    },
+    {
+      "layer": 21,
+      "head": 11,
+      "open": 137857,
+      "total": 262144,
+      "density": 0.525883
+    },
+    {
+      "layer": 26,
+      "head": 10,
+      "open": 137854,
+      "total": 262144,
+      "density": 0.525871
+    },
+    {
+      "layer": 26,
+      "head": 15,
+      "open": 137750,
+      "total": 262144,
+      "density": 0.525475
+    },
+    {
+      "layer": 26,
+      "head": 5,
+      "open": 137738,
+      "total": 262144,
+      "density": 0.525429
+    },
+    {
+      "layer": 21,
+      "head": 1,
+      "open": 137729,
+      "total": 262144,
+      "density": 0.525394
+    },
+    {
+      "layer": 21,
+      "head": 4,
+      "open": 137710,
+      "total": 262144,
+      "density": 0.525322
+    },
+    {
+      "layer": 26,
+      "head": 9,
+      "open": 137620,
+      "total": 262144,
+      "density": 0.524979
+    },
+    {
+      "layer": 22,
+      "head": 15,
+      "open": 137585,
+      "total": 262144,
+      "density": 0.524845
+    },
+    {
+      "layer": 21,
+      "head": 9,
+      "open": 137441,
+      "total": 262144,
+      "density": 0.524296
+    },
+    {
+      "layer": 17,
+      "head": 10,
+      "open": 137410,
+      "total": 262144,
+      "density": 0.524178
+    },
+    {
+      "layer": 21,
+      "head": 5,
+      "open": 137393,
+      "total": 262144,
+      "density": 0.524113
+    },
+    {
+      "layer": 21,
+      "head": 13,
+      "open": 137361,
+      "total": 262144,
+      "density": 0.523991
+    },
+    {
+      "layer": 17,
+      "head": 8,
+      "open": 137326,
+      "total": 262144,
+      "density": 0.523857
+    },
+    {
+      "layer": 26,
+      "head": 3,
+      "open": 137228,
+      "total": 262144,
+      "density": 0.523483
+    },
+    {
+      "layer": 21,
+      "head": 6,
+      "open": 137174,
+      "total": 262144,
+      "density": 0.523277
+    },
+    {
+      "layer": 26,
+      "head": 13,
+      "open": 137149,
+      "total": 262144,
+      "density": 0.523182
+    },
+    {
+      "layer": 17,
+      "head": 15,
+      "open": 137139,
+      "total": 262144,
+      "density": 0.523144
+    },
+    {
+      "layer": 21,
+      "head": 10,
+      "open": 137105,
+      "total": 262144,
+      "density": 0.523014
+    },
+    {
+      "layer": 17,
+      "head": 9,
+      "open": 137076,
+      "total": 262144,
+      "density": 0.522903
+    },
+    {
+      "layer": 22,
+      "head": 14,
+      "open": 137019,
+      "total": 262144,
+      "density": 0.522686
+    },
+    {
+      "layer": 17,
+      "head": 4,
+      "open": 136948,
+      "total": 262144,
+      "density": 0.522415
+    },
+    {
+      "layer": 22,
+      "head": 7,
+      "open": 136934,
+      "total": 262144,
+      "density": 0.522362
+    },
+    {
+      "layer": 21,
+      "head": 12,
+      "open": 136904,
+      "total": 262144,
+      "density": 0.522247
+    },
+    {
+      "layer": 17,
+      "head": 7,
+      "open": 136869,
+      "total": 262144,
+      "density": 0.522114
+    },
+    {
+      "layer": 21,
+      "head": 0,
+      "open": 136824,
+      "total": 262144,
+      "density": 0.521942
+    },
+    {
+      "layer": 26,
+      "head": 6,
+      "open": 136783,
+      "total": 262144,
+      "density": 0.521786
+    },
+    {
+      "layer": 17,
+      "head": 13,
+      "open": 136761,
+      "total": 262144,
+      "density": 0.521702
+    },
+    {
+      "layer": 22,
+      "head": 8,
+      "open": 136753,
+      "total": 262144,
+      "density": 0.521671
+    },
+    {
+      "layer": 17,
+      "head": 11,
+      "open": 136726,
+      "total": 262144,
+      "density": 0.521568
+    },
+    {
+      "layer": 21,
+      "head": 3,
+      "open": 136663,
+      "total": 262144,
+      "density": 0.521328
+    },
+    {
+      "layer": 22,
+      "head": 2,
+      "open": 136631,
+      "total": 262144,
+      "density": 0.521206
+    },
+    {
+      "layer": 22,
+      "head": 1,
+      "open": 136622,
+      "total": 262144,
+      "density": 0.521172
+    },
+    {
+      "layer": 17,
+      "head": 0,
+      "open": 136615,
+      "total": 262144,
+      "density": 0.521145
+    },
+    {
+      "layer": 17,
+      "head": 14,
+      "open": 136607,
+      "total": 262144,
+      "density": 0.521114
+    },
+    {
+      "layer": 17,
+      "head": 3,
+      "open": 136500,
+      "total": 262144,
+      "density": 0.520706
+    },
+    {
+      "layer": 22,
+      "head": 13,
+      "open": 136237,
+      "total": 262144,
+      "density": 0.519703
+    },
+    {
+      "layer": 17,
+      "head": 6,
+      "open": 136179,
+      "total": 262144,
+      "density": 0.519482
+    },
+    {
+      "layer": 17,
+      "head": 5,
+      "open": 136144,
+      "total": 262144,
+      "density": 0.519348
+    },
+    {
+      "layer": 17,
+      "head": 12,
+      "open": 136140,
+      "total": 262144,
+      "density": 0.519333
+    },
+    {
+      "layer": 17,
+      "head": 2,
+      "open": 136097,
+      "total": 262144,
+      "density": 0.519169
+    },
+    {
+      "layer": 22,
+      "head": 11,
+      "open": 136014,
+      "total": 262144,
+      "density": 0.518852
+    },
+    {
+      "layer": 20,
+      "head": 8,
+      "open": 135987,
+      "total": 262144,
+      "density": 0.518749
+    },
+    {
+      "layer": 20,
+      "head": 15,
+      "open": 135974,
+      "total": 262144,
+      "density": 0.5187
+    },
+    {
+      "layer": 22,
+      "head": 10,
+      "open": 135880,
+      "total": 262144,
+      "density": 0.518341
+    },
+    {
+      "layer": 20,
+      "head": 14,
+      "open": 135860,
+      "total": 262144,
+      "density": 0.518265
+    },
+    {
+      "layer": 22,
+      "head": 4,
+      "open": 135856,
+      "total": 262144,
+      "density": 0.51825
+    },
+    {
+      "layer": 20,
+      "head": 7,
+      "open": 135768,
+      "total": 262144,
+      "density": 0.517914
+    },
+    {
+      "layer": 22,
+      "head": 12,
+      "open": 135721,
+      "total": 262144,
+      "density": 0.517735
+    },
+    {
+      "layer": 17,
+      "head": 1,
+      "open": 135576,
+      "total": 262144,
+      "density": 0.517181
+    },
+    {
+      "layer": 20,
+      "head": 2,
+      "open": 135454,
+      "total": 262144,
+      "density": 0.516716
+    },
+    {
+      "layer": 22,
+      "head": 5,
+      "open": 135304,
+      "total": 262144,
+      "density": 0.516144
+    },
+    {
+      "layer": 20,
+      "head": 6,
+      "open": 135288,
+      "total": 262144,
+      "density": 0.516083
+    },
+    {
+      "layer": 20,
+      "head": 1,
+      "open": 135282,
+      "total": 262144,
+      "density": 0.51606
+    },
+    {
+      "layer": 22,
+      "head": 6,
+      "open": 135268,
+      "total": 262144,
+      "density": 0.516006
+    },
+    {
+      "layer": 20,
+      "head": 13,
+      "open": 135199,
+      "total": 262144,
+      "density": 0.515743
+    },
+    {
+      "layer": 20,
+      "head": 11,
+      "open": 135189,
+      "total": 262144,
+      "density": 0.515705
+    },
+    {
+      "layer": 20,
+      "head": 10,
+      "open": 135048,
+      "total": 262144,
+      "density": 0.515167
+    },
+    {
+      "layer": 22,
+      "head": 9,
+      "open": 134994,
+      "total": 262144,
+      "density": 0.514961
+    },
+    {
+      "layer": 20,
+      "head": 4,
+      "open": 134982,
+      "total": 262144,
+      "density": 0.514915
+    },
+    {
+      "layer": 20,
+      "head": 9,
+      "open": 134753,
+      "total": 262144,
+      "density": 0.514042
+    },
+    {
+      "layer": 20,
+      "head": 5,
+      "open": 134627,
+      "total": 262144,
+      "density": 0.513561
+    },
+    {
+      "layer": 20,
+      "head": 12,
+      "open": 134516,
+      "total": 262144,
+      "density": 0.513138
+    },
+    {
+      "layer": 22,
+      "head": 0,
+      "open": 134515,
+      "total": 262144,
+      "density": 0.513134
+    },
+    {
+      "layer": 20,
+      "head": 0,
+      "open": 134514,
+      "total": 262144,
+      "density": 0.51313
+    },
+    {
+      "layer": 23,
+      "head": 15,
+      "open": 134455,
+      "total": 262144,
+      "density": 0.512905
+    },
+    {
+      "layer": 20,
+      "head": 3,
+      "open": 134287,
+      "total": 262144,
+      "density": 0.512264
+    },
+    {
+      "layer": 23,
+      "head": 14,
+      "open": 134022,
+      "total": 262144,
+      "density": 0.511253
+    },
+    {
+      "layer": 23,
+      "head": 2,
+      "open": 133994,
+      "total": 262144,
+      "density": 0.511147
+    },
+    {
+      "layer": 23,
+      "head": 7,
+      "open": 133976,
+      "total": 262144,
+      "density": 0.511078
+    },
+    {
+      "layer": 22,
+      "head": 3,
+      "open": 133956,
+      "total": 262144,
+      "density": 0.511002
+    },
+    {
+      "layer": 23,
+      "head": 8,
+      "open": 133617,
+      "total": 262144,
+      "density": 0.509708
+    },
+    {
+      "layer": 23,
+      "head": 1,
+      "open": 133358,
+      "total": 262144,
+      "density": 0.50872
+    },
+    {
+      "layer": 23,
+      "head": 11,
+      "open": 133030,
+      "total": 262144,
+      "density": 0.507469
+    },
+    {
+      "layer": 23,
+      "head": 13,
+      "open": 132860,
+      "total": 262144,
+      "density": 0.506821
+    },
+    {
+      "layer": 19,
+      "head": 8,
+      "open": 132811,
+      "total": 262144,
+      "density": 0.506634
+    },
+    {
+      "layer": 27,
+      "head": 1,
+      "open": 132686,
+      "total": 262144,
+      "density": 0.506157
+    },
+    {
+      "layer": 19,
+      "head": 14,
+      "open": 132640,
+      "total": 262144,
+      "density": 0.505981
+    },
+    {
+      "layer": 27,
+      "head": 5,
+      "open": 132572,
+      "total": 262144,
+      "density": 0.505722
+    },
+    {
+      "layer": 23,
+      "head": 4,
+      "open": 132519,
+      "total": 262144,
+      "density": 0.50552
+    },
+    {
+      "layer": 19,
+      "head": 6,
+      "open": 132476,
+      "total": 262144,
+      "density": 0.505356
+    },
+    {
+      "layer": 23,
+      "head": 12,
+      "open": 132466,
+      "total": 262144,
+      "density": 0.505318
+    },
+    {
+      "layer": 23,
+      "head": 10,
+      "open": 132445,
+      "total": 262144,
+      "density": 0.505238
+    },
+    {
+      "layer": 27,
+      "head": 4,
+      "open": 132375,
+      "total": 262144,
+      "density": 0.504971
+    },
+    {
+      "layer": 27,
+      "head": 12,
+      "open": 132268,
+      "total": 262144,
+      "density": 0.504562
+    },
+    {
+      "layer": 23,
+      "head": 5,
+      "open": 132237,
+      "total": 262144,
+      "density": 0.504444
+    },
+    {
+      "layer": 19,
+      "head": 1,
+      "open": 132216,
+      "total": 262144,
+      "density": 0.504364
+    },
+    {
+      "layer": 27,
+      "head": 0,
+      "open": 132104,
+      "total": 262144,
+      "density": 0.503937
+    },
+    {
+      "layer": 27,
+      "head": 9,
+      "open": 132087,
+      "total": 262144,
+      "density": 0.503872
+    },
+    {
+      "layer": 27,
+      "head": 13,
+      "open": 132055,
+      "total": 262144,
+      "density": 0.50375
+    },
+    {
+      "layer": 19,
+      "head": 15,
+      "open": 132045,
+      "total": 262144,
+      "density": 0.503712
+    },
+    {
+      "layer": 27,
+      "head": 7,
+      "open": 132027,
+      "total": 262144,
+      "density": 0.503643
+    },
+    {
+      "layer": 19,
+      "head": 13,
+      "open": 132024,
+      "total": 262144,
+      "density": 0.503632
+    },
+    {
+      "layer": 23,
+      "head": 9,
+      "open": 132021,
+      "total": 262144,
+      "density": 0.50362
+    },
+    {
+      "layer": 19,
+      "head": 0,
+      "open": 131982,
+      "total": 262144,
+      "density": 0.503471
+    },
+    {
+      "layer": 19,
+      "head": 2,
+      "open": 131964,
+      "total": 262144,
+      "density": 0.503403
+    },
+    {
+      "layer": 19,
+      "head": 7,
+      "open": 131955,
+      "total": 262144,
+      "density": 0.503368
+    },
+    {
+      "layer": 27,
+      "head": 2,
+      "open": 131940,
+      "total": 262144,
+      "density": 0.503311
+    },
+    {
+      "layer": 19,
+      "head": 4,
+      "open": 131898,
+      "total": 262144,
+      "density": 0.503151
+    },
+    {
+      "layer": 27,
+      "head": 11,
+      "open": 131837,
+      "total": 262144,
+      "density": 0.502918
+    },
+    {
+      "layer": 19,
+      "head": 11,
+      "open": 131785,
+      "total": 262144,
+      "density": 0.50272
+    },
+    {
+      "layer": 19,
+      "head": 9,
+      "open": 131772,
+      "total": 262144,
+      "density": 0.50267
+    },
+    {
+      "layer": 27,
+      "head": 14,
+      "open": 131745,
+      "total": 262144,
+      "density": 0.502567
+    },
+    {
+      "layer": 19,
+      "head": 3,
+      "open": 131691,
+      "total": 262144,
+      "density": 0.502361
+    },
+    {
+      "layer": 27,
+      "head": 15,
+      "open": 131559,
+      "total": 262144,
+      "density": 0.501858
+    },
+    {
+      "layer": 19,
+      "head": 10,
+      "open": 131520,
+      "total": 262144,
+      "density": 0.501709
+    },
+    {
+      "layer": 27,
+      "head": 6,
+      "open": 131443,
+      "total": 262144,
+      "density": 0.501415
+    },
+    {
+      "layer": 19,
+      "head": 5,
+      "open": 131411,
+      "total": 262144,
+      "density": 0.501293
+    },
+    {
+      "layer": 27,
+      "head": 10,
+      "open": 131292,
+      "total": 262144,
+      "density": 0.500839
+    },
+    {
+      "layer": 23,
+      "head": 3,
+      "open": 131053,
+      "total": 262144,
+      "density": 0.499928
+    },
+    {
+      "layer": 23,
+      "head": 0,
+      "open": 130975,
+      "total": 262144,
+      "density": 0.49963
+    },
+    {
+      "layer": 23,
+      "head": 6,
+      "open": 130930,
+      "total": 262144,
+      "density": 0.499458
+    },
+    {
+      "layer": 19,
+      "head": 12,
+      "open": 130793,
+      "total": 262144,
+      "density": 0.498936
+    },
+    {
+      "layer": 27,
+      "head": 3,
+      "open": 130738,
+      "total": 262144,
+      "density": 0.498726
+    },
+    {
+      "layer": 27,
+      "head": 8,
+      "open": 130726,
+      "total": 262144,
+      "density": 0.49868
+    },
+    {
+      "layer": 1,
+      "head": 8,
+      "open": 127796,
+      "total": 262144,
+      "density": 0.487503
+    },
+    {
+      "layer": 1,
+      "head": 9,
+      "open": 127716,
+      "total": 262144,
+      "density": 0.487198
+    },
+    {
+      "layer": 1,
+      "head": 14,
+      "open": 127658,
+      "total": 262144,
+      "density": 0.486977
+    },
+    {
+      "layer": 1,
+      "head": 10,
+      "open": 127602,
+      "total": 262144,
+      "density": 0.486763
+    },
+    {
+      "layer": 1,
+      "head": 0,
+      "open": 127296,
+      "total": 262144,
+      "density": 0.485596
+    },
+    {
+      "layer": 1,
+      "head": 2,
+      "open": 127139,
+      "total": 262144,
+      "density": 0.484997
+    },
+    {
+      "layer": 1,
+      "head": 1,
+      "open": 126937,
+      "total": 262144,
+      "density": 0.484226
+    },
+    {
+      "layer": 1,
+      "head": 5,
+      "open": 126929,
+      "total": 262144,
+      "density": 0.484196
+    },
+    {
+      "layer": 1,
+      "head": 12,
+      "open": 126797,
+      "total": 262144,
+      "density": 0.483692
+    },
+    {
+      "layer": 1,
+      "head": 15,
+      "open": 126772,
+      "total": 262144,
+      "density": 0.483597
+    },
+    {
+      "layer": 1,
+      "head": 11,
+      "open": 126706,
+      "total": 262144,
+      "density": 0.483345
+    },
+    {
+      "layer": 1,
+      "head": 6,
+      "open": 126592,
+      "total": 262144,
+      "density": 0.48291
+    },
+    {
+      "layer": 1,
+      "head": 13,
+      "open": 126478,
+      "total": 262144,
+      "density": 0.482475
+    },
+    {
+      "layer": 1,
+      "head": 4,
+      "open": 126180,
+      "total": 262144,
+      "density": 0.481339
+    },
+    {
+      "layer": 1,
+      "head": 7,
+      "open": 125989,
+      "total": 262144,
+      "density": 0.48061
+    },
+    {
+      "layer": 1,
+      "head": 3,
+      "open": 125820,
+      "total": 262144,
+      "density": 0.479965
+    },
+    {
+      "layer": 18,
+      "head": 8,
+      "open": 121988,
+      "total": 262144,
+      "density": 0.465347
+    },
+    {
+      "layer": 18,
+      "head": 10,
+      "open": 121463,
+      "total": 262144,
+      "density": 0.463345
+    },
+    {
+      "layer": 18,
+      "head": 6,
+      "open": 121368,
+      "total": 262144,
+      "density": 0.462982
+    },
+    {
+      "layer": 18,
+      "head": 15,
+      "open": 121154,
+      "total": 262144,
+      "density": 0.462166
+    },
+    {
+      "layer": 18,
+      "head": 13,
+      "open": 121045,
+      "total": 262144,
+      "density": 0.46175
+    },
+    {
+      "layer": 18,
+      "head": 4,
+      "open": 121012,
+      "total": 262144,
+      "density": 0.461624
+    },
+    {
+      "layer": 18,
+      "head": 9,
+      "open": 120978,
+      "total": 262144,
+      "density": 0.461494
+    },
+    {
+      "layer": 18,
+      "head": 14,
+      "open": 120950,
+      "total": 262144,
+      "density": 0.461388
+    },
+    {
+      "layer": 18,
+      "head": 0,
+      "open": 120759,
+      "total": 262144,
+      "density": 0.460659
+    },
+    {
+      "layer": 18,
+      "head": 3,
+      "open": 120686,
+      "total": 262144,
+      "density": 0.460381
+    },
+    {
+      "layer": 18,
+      "head": 1,
+      "open": 120392,
+      "total": 262144,
+      "density": 0.459259
+    },
+    {
+      "layer": 18,
+      "head": 2,
+      "open": 120215,
+      "total": 262144,
+      "density": 0.458584
+    },
+    {
+      "layer": 18,
+      "head": 7,
+      "open": 120188,
+      "total": 262144,
+      "density": 0.458481
+    },
+    {
+      "layer": 18,
+      "head": 11,
+      "open": 119574,
+      "total": 262144,
+      "density": 0.456139
+    },
+    {
+      "layer": 18,
+      "head": 5,
+      "open": 119198,
+      "total": 262144,
+      "density": 0.454704
+    },
+    {
+      "layer": 18,
+      "head": 12,
+      "open": 118898,
+      "total": 262144,
+      "density": 0.45356
+    },
+    {
+      "layer": 15,
+      "head": 9,
+      "open": 117526,
+      "total": 262144,
+      "density": 0.448326
+    },
+    {
+      "layer": 2,
+      "head": 1,
+      "open": 117366,
+      "total": 262144,
+      "density": 0.447716
+    },
+    {
+      "layer": 15,
+      "head": 6,
+      "open": 117331,
+      "total": 262144,
+      "density": 0.447582
+    },
+    {
+      "layer": 2,
+      "head": 14,
+      "open": 116952,
+      "total": 262144,
+      "density": 0.446136
+    },
+    {
+      "layer": 2,
+      "head": 8,
+      "open": 116894,
+      "total": 262144,
+      "density": 0.445915
+    },
+    {
+      "layer": 15,
+      "head": 10,
+      "open": 116790,
+      "total": 262144,
+      "density": 0.445518
+    },
+    {
+      "layer": 2,
+      "head": 6,
+      "open": 116767,
+      "total": 262144,
+      "density": 0.445431
+    },
+    {
+      "layer": 15,
+      "head": 7,
+      "open": 116763,
+      "total": 262144,
+      "density": 0.445415
+    },
+    {
+      "layer": 2,
+      "head": 10,
+      "open": 116505,
+      "total": 262144,
+      "density": 0.444431
+    },
+    {
+      "layer": 15,
+      "head": 3,
+      "open": 116424,
+      "total": 262144,
+      "density": 0.444122
+    },
+    {
+      "layer": 2,
+      "head": 5,
+      "open": 116383,
+      "total": 262144,
+      "density": 0.443966
+    },
+    {
+      "layer": 2,
+      "head": 12,
+      "open": 116352,
+      "total": 262144,
+      "density": 0.443848
+    },
+    {
+      "layer": 2,
+      "head": 2,
+      "open": 116349,
+      "total": 262144,
+      "density": 0.443836
+    },
+    {
+      "layer": 2,
+      "head": 15,
+      "open": 116203,
+      "total": 262144,
+      "density": 0.443279
+    },
+    {
+      "layer": 15,
+      "head": 13,
+      "open": 116188,
+      "total": 262144,
+      "density": 0.443222
+    },
+    {
+      "layer": 2,
+      "head": 9,
+      "open": 116170,
+      "total": 262144,
+      "density": 0.443153
+    },
+    {
+      "layer": 2,
+      "head": 0,
+      "open": 116155,
+      "total": 262144,
+      "density": 0.443096
+    },
+    {
+      "layer": 2,
+      "head": 4,
+      "open": 116135,
+      "total": 262144,
+      "density": 0.44302
+    },
+    {
+      "layer": 2,
+      "head": 3,
+      "open": 116062,
+      "total": 262144,
+      "density": 0.442741
+    },
+    {
+      "layer": 15,
+      "head": 4,
+      "open": 115857,
+      "total": 262144,
+      "density": 0.441959
+    },
+    {
+      "layer": 2,
+      "head": 11,
+      "open": 115849,
+      "total": 262144,
+      "density": 0.441929
+    },
+    {
+      "layer": 2,
+      "head": 13,
+      "open": 115819,
+      "total": 262144,
+      "density": 0.441814
+    },
+    {
+      "layer": 2,
+      "head": 7,
+      "open": 115681,
+      "total": 262144,
+      "density": 0.441288
+    },
+    {
+      "layer": 15,
+      "head": 0,
+      "open": 115618,
+      "total": 262144,
+      "density": 0.441048
+    },
+    {
+      "layer": 15,
+      "head": 1,
+      "open": 115392,
+      "total": 262144,
+      "density": 0.440186
+    },
+    {
+      "layer": 15,
+      "head": 15,
+      "open": 115297,
+      "total": 262144,
+      "density": 0.439823
+    },
+    {
+      "layer": 15,
+      "head": 8,
+      "open": 114667,
+      "total": 262144,
+      "density": 0.43742
+    },
+    {
+      "layer": 15,
+      "head": 14,
+      "open": 114323,
+      "total": 262144,
+      "density": 0.436108
+    },
+    {
+      "layer": 15,
+      "head": 11,
+      "open": 113806,
+      "total": 262144,
+      "density": 0.434135
+    },
+    {
+      "layer": 15,
+      "head": 5,
+      "open": 113800,
+      "total": 262144,
+      "density": 0.434113
+    },
+    {
+      "layer": 15,
+      "head": 2,
+      "open": 113730,
+      "total": 262144,
+      "density": 0.433846
+    },
+    {
+      "layer": 15,
+      "head": 12,
+      "open": 112590,
+      "total": 262144,
+      "density": 0.429497
+    },
+    {
+      "layer": 16,
+      "head": 9,
+      "open": 107421,
+      "total": 262144,
+      "density": 0.409779
+    },
+    {
+      "layer": 16,
+      "head": 10,
+      "open": 107417,
+      "total": 262144,
+      "density": 0.409763
+    },
+    {
+      "layer": 16,
+      "head": 3,
+      "open": 107361,
+      "total": 262144,
+      "density": 0.40955
+    },
+    {
+      "layer": 16,
+      "head": 6,
+      "open": 107188,
+      "total": 262144,
+      "density": 0.40889
+    },
+    {
+      "layer": 16,
+      "head": 7,
+      "open": 106627,
+      "total": 262144,
+      "density": 0.40675
+    },
+    {
+      "layer": 16,
+      "head": 4,
+      "open": 106420,
+      "total": 262144,
+      "density": 0.40596
+    },
+    {
+      "layer": 16,
+      "head": 13,
+      "open": 106165,
+      "total": 262144,
+      "density": 0.404987
+    },
+    {
+      "layer": 16,
+      "head": 15,
+      "open": 106127,
+      "total": 262144,
+      "density": 0.404842
+    },
+    {
+      "layer": 16,
+      "head": 0,
+      "open": 105815,
+      "total": 262144,
+      "density": 0.403652
+    },
+    {
+      "layer": 16,
+      "head": 8,
+      "open": 105630,
+      "total": 262144,
+      "density": 0.402946
+    },
+    {
+      "layer": 16,
+      "head": 1,
+      "open": 104783,
+      "total": 262144,
+      "density": 0.399715
+    },
+    {
+      "layer": 16,
+      "head": 14,
+      "open": 104727,
+      "total": 262144,
+      "density": 0.399502
+    },
+    {
+      "layer": 16,
+      "head": 11,
+      "open": 104326,
+      "total": 262144,
+      "density": 0.397972
+    },
+    {
+      "layer": 16,
+      "head": 2,
+      "open": 104207,
+      "total": 262144,
+      "density": 0.397518
+    },
+    {
+      "layer": 16,
+      "head": 5,
+      "open": 104132,
+      "total": 262144,
+      "density": 0.397232
+    },
+    {
+      "layer": 16,
+      "head": 12,
+      "open": 103444,
+      "total": 262144,
+      "density": 0.394608
+    },
+    {
+      "layer": 14,
+      "head": 9,
+      "open": 103187,
+      "total": 262144,
+      "density": 0.393627
+    },
+    {
+      "layer": 14,
+      "head": 10,
+      "open": 102933,
+      "total": 262144,
+      "density": 0.392658
+    },
+    {
+      "layer": 14,
+      "head": 7,
+      "open": 102030,
+      "total": 262144,
+      "density": 0.389214
+    },
+    {
+      "layer": 14,
+      "head": 1,
+      "open": 101920,
+      "total": 262144,
+      "density": 0.388794
+    },
+    {
+      "layer": 14,
+      "head": 6,
+      "open": 101532,
+      "total": 262144,
+      "density": 0.387314
+    },
+    {
+      "layer": 14,
+      "head": 3,
+      "open": 101508,
+      "total": 262144,
+      "density": 0.387222
+    },
+    {
+      "layer": 14,
+      "head": 4,
+      "open": 101477,
+      "total": 262144,
+      "density": 0.387104
+    },
+    {
+      "layer": 14,
+      "head": 13,
+      "open": 101407,
+      "total": 262144,
+      "density": 0.386837
+    },
+    {
+      "layer": 14,
+      "head": 15,
+      "open": 100947,
+      "total": 262144,
+      "density": 0.385082
+    },
+    {
+      "layer": 14,
+      "head": 0,
+      "open": 100515,
+      "total": 262144,
+      "density": 0.383434
+    },
+    {
+      "layer": 14,
+      "head": 8,
+      "open": 100170,
+      "total": 262144,
+      "density": 0.382118
+    },
+    {
+      "layer": 14,
+      "head": 14,
+      "open": 99842,
+      "total": 262144,
+      "density": 0.380867
+    },
+    {
+      "layer": 14,
+      "head": 2,
+      "open": 99081,
+      "total": 262144,
+      "density": 0.377964
+    },
+    {
+      "layer": 14,
+      "head": 5,
+      "open": 98722,
+      "total": 262144,
+      "density": 0.376595
+    },
+    {
+      "layer": 14,
+      "head": 11,
+      "open": 98675,
+      "total": 262144,
+      "density": 0.376415
+    },
+    {
+      "layer": 14,
+      "head": 12,
+      "open": 97759,
+      "total": 262144,
+      "density": 0.372921
+    },
+    {
+      "layer": 13,
+      "head": 9,
+      "open": 97753,
+      "total": 262144,
+      "density": 0.372898
+    },
+    {
+      "layer": 13,
+      "head": 10,
+      "open": 97571,
+      "total": 262144,
+      "density": 0.372204
+    },
+    {
+      "layer": 13,
+      "head": 1,
+      "open": 96902,
+      "total": 262144,
+      "density": 0.369652
+    },
+    {
+      "layer": 13,
+      "head": 7,
+      "open": 96702,
+      "total": 262144,
+      "density": 0.368889
+    },
+    {
+      "layer": 13,
+      "head": 4,
+      "open": 96472,
+      "total": 262144,
+      "density": 0.368011
+    },
+    {
+      "layer": 13,
+      "head": 6,
+      "open": 96117,
+      "total": 262144,
+      "density": 0.366657
+    },
+    {
+      "layer": 12,
+      "head": 10,
+      "open": 95979,
+      "total": 262144,
+      "density": 0.366131
+    },
+    {
+      "layer": 12,
+      "head": 9,
+      "open": 95954,
+      "total": 262144,
+      "density": 0.366035
+    },
+    {
+      "layer": 13,
+      "head": 3,
+      "open": 95666,
+      "total": 262144,
+      "density": 0.364937
+    },
+    {
+      "layer": 13,
+      "head": 8,
+      "open": 95657,
+      "total": 262144,
+      "density": 0.364902
+    },
+    {
+      "layer": 12,
+      "head": 1,
+      "open": 95378,
+      "total": 262144,
+      "density": 0.363838
+    },
+    {
+      "layer": 13,
+      "head": 15,
+      "open": 95367,
+      "total": 262144,
+      "density": 0.363796
+    },
+    {
+      "layer": 12,
+      "head": 6,
+      "open": 95173,
+      "total": 262144,
+      "density": 0.363056
+    },
+    {
+      "layer": 13,
+      "head": 13,
+      "open": 95073,
+      "total": 262144,
+      "density": 0.362675
+    },
+    {
+      "layer": 12,
+      "head": 7,
+      "open": 95035,
+      "total": 262144,
+      "density": 0.36253
+    },
+    {
+      "layer": 13,
+      "head": 14,
+      "open": 94830,
+      "total": 262144,
+      "density": 0.361748
+    },
+    {
+      "layer": 12,
+      "head": 4,
+      "open": 94527,
+      "total": 262144,
+      "density": 0.360592
+    },
+    {
+      "layer": 12,
+      "head": 3,
+      "open": 94323,
+      "total": 262144,
+      "density": 0.359814
+    },
+    {
+      "layer": 13,
+      "head": 2,
+      "open": 94275,
+      "total": 262144,
+      "density": 0.359631
+    },
+    {
+      "layer": 12,
+      "head": 8,
+      "open": 94095,
+      "total": 262144,
+      "density": 0.358944
+    },
+    {
+      "layer": 13,
+      "head": 0,
+      "open": 94073,
+      "total": 262144,
+      "density": 0.35886
+    },
+    {
+      "layer": 12,
+      "head": 13,
+      "open": 93961,
+      "total": 262144,
+      "density": 0.358433
+    },
+    {
+      "layer": 12,
+      "head": 14,
+      "open": 93727,
+      "total": 262144,
+      "density": 0.35754
+    },
+    {
+      "layer": 13,
+      "head": 11,
+      "open": 93692,
+      "total": 262144,
+      "density": 0.357407
+    },
+    {
+      "layer": 13,
+      "head": 5,
+      "open": 93419,
+      "total": 262144,
+      "density": 0.356365
+    },
+    {
+      "layer": 12,
+      "head": 15,
+      "open": 93393,
+      "total": 262144,
+      "density": 0.356266
+    },
+    {
+      "layer": 12,
+      "head": 2,
+      "open": 92828,
+      "total": 262144,
+      "density": 0.354111
+    },
+    {
+      "layer": 12,
+      "head": 0,
+      "open": 92708,
+      "total": 262144,
+      "density": 0.353653
+    },
+    {
+      "layer": 13,
+      "head": 12,
+      "open": 92478,
+      "total": 262144,
+      "density": 0.352776
+    },
+    {
+      "layer": 12,
+      "head": 11,
+      "open": 92345,
+      "total": 262144,
+      "density": 0.352268
+    },
+    {
+      "layer": 12,
+      "head": 5,
+      "open": 91333,
+      "total": 262144,
+      "density": 0.348408
+    },
+    {
+      "layer": 12,
+      "head": 12,
+      "open": 91111,
+      "total": 262144,
+      "density": 0.347561
+    },
+    {
+      "layer": 3,
+      "head": 1,
+      "open": 88422,
+      "total": 262144,
+      "density": 0.337303
+    },
+    {
+      "layer": 3,
+      "head": 5,
+      "open": 87731,
+      "total": 262144,
+      "density": 0.334667
+    },
+    {
+      "layer": 3,
+      "head": 0,
+      "open": 87634,
+      "total": 262144,
+      "density": 0.334297
+    },
+    {
+      "layer": 3,
+      "head": 10,
+      "open": 87445,
+      "total": 262144,
+      "density": 0.333576
+    },
+    {
+      "layer": 3,
+      "head": 8,
+      "open": 87377,
+      "total": 262144,
+      "density": 0.333317
+    },
+    {
+      "layer": 3,
+      "head": 9,
+      "open": 87374,
+      "total": 262144,
+      "density": 0.333305
+    },
+    {
+      "layer": 3,
+      "head": 6,
+      "open": 87210,
+      "total": 262144,
+      "density": 0.33268
+    },
+    {
+      "layer": 3,
+      "head": 4,
+      "open": 87130,
+      "total": 262144,
+      "density": 0.332375
+    },
+    {
+      "layer": 3,
+      "head": 3,
+      "open": 87010,
+      "total": 262144,
+      "density": 0.331917
+    },
+    {
+      "layer": 3,
+      "head": 14,
+      "open": 86968,
+      "total": 262144,
+      "density": 0.331757
+    },
+    {
+      "layer": 9,
+      "head": 1,
+      "open": 86962,
+      "total": 262144,
+      "density": 0.331734
+    },
+    {
+      "layer": 3,
+      "head": 13,
+      "open": 86810,
+      "total": 262144,
+      "density": 0.331154
+    },
+    {
+      "layer": 3,
+      "head": 15,
+      "open": 86759,
+      "total": 262144,
+      "density": 0.330959
+    },
+    {
+      "layer": 3,
+      "head": 7,
+      "open": 86743,
+      "total": 262144,
+      "density": 0.330898
+    },
+    {
+      "layer": 9,
+      "head": 10,
+      "open": 86687,
+      "total": 262144,
+      "density": 0.330685
+    },
+    {
+      "layer": 3,
+      "head": 2,
+      "open": 86563,
+      "total": 262144,
+      "density": 0.330212
+    },
+    {
+      "layer": 9,
+      "head": 9,
+      "open": 86427,
+      "total": 262144,
+      "density": 0.329693
+    },
+    {
+      "layer": 9,
+      "head": 8,
+      "open": 86085,
+      "total": 262144,
+      "density": 0.328388
+    },
+    {
+      "layer": 9,
+      "head": 7,
+      "open": 86030,
+      "total": 262144,
+      "density": 0.328178
+    },
+    {
+      "layer": 3,
+      "head": 11,
+      "open": 85972,
+      "total": 262144,
+      "density": 0.327957
+    },
+    {
+      "layer": 9,
+      "head": 6,
+      "open": 85923,
+      "total": 262144,
+      "density": 0.32777
+    },
+    {
+      "layer": 11,
+      "head": 10,
+      "open": 85709,
+      "total": 262144,
+      "density": 0.326954
+    },
+    {
+      "layer": 3,
+      "head": 12,
+      "open": 85694,
+      "total": 262144,
+      "density": 0.326897
+    },
+    {
+      "layer": 11,
+      "head": 8,
+      "open": 85694,
+      "total": 262144,
+      "density": 0.326897
+    },
+    {
+      "layer": 9,
+      "head": 2,
+      "open": 85644,
+      "total": 262144,
+      "density": 0.326706
+    },
+    {
+      "layer": 11,
+      "head": 1,
+      "open": 85572,
+      "total": 262144,
+      "density": 0.326431
+    },
+    {
+      "layer": 9,
+      "head": 13,
+      "open": 85449,
+      "total": 262144,
+      "density": 0.325962
+    },
+    {
+      "layer": 9,
+      "head": 4,
+      "open": 85310,
+      "total": 262144,
+      "density": 0.325432
+    },
+    {
+      "layer": 11,
+      "head": 7,
+      "open": 85218,
+      "total": 262144,
+      "density": 0.325081
+    },
+    {
+      "layer": 9,
+      "head": 3,
+      "open": 85180,
+      "total": 262144,
+      "density": 0.324936
+    },
+    {
+      "layer": 11,
+      "head": 6,
+      "open": 84844,
+      "total": 262144,
+      "density": 0.323654
+    },
+    {
+      "layer": 9,
+      "head": 0,
+      "open": 84749,
+      "total": 262144,
+      "density": 0.323292
+    },
+    {
+      "layer": 9,
+      "head": 15,
+      "open": 84576,
+      "total": 262144,
+      "density": 0.322632
+    },
+    {
+      "layer": 9,
+      "head": 11,
+      "open": 84404,
+      "total": 262144,
+      "density": 0.321976
+    },
+    {
+      "layer": 11,
+      "head": 9,
+      "open": 84260,
+      "total": 262144,
+      "density": 0.321426
+    },
+    {
+      "layer": 11,
+      "head": 3,
+      "open": 84177,
+      "total": 262144,
+      "density": 0.32111
+    },
+    {
+      "layer": 11,
+      "head": 15,
+      "open": 83921,
+      "total": 262144,
+      "density": 0.320133
+    },
+    {
+      "layer": 9,
+      "head": 14,
+      "open": 83833,
+      "total": 262144,
+      "density": 0.319798
+    },
+    {
+      "layer": 11,
+      "head": 4,
+      "open": 83785,
+      "total": 262144,
+      "density": 0.319614
+    },
+    {
+      "layer": 11,
+      "head": 14,
+      "open": 83718,
+      "total": 262144,
+      "density": 0.319359
+    },
+    {
+      "layer": 11,
+      "head": 13,
+      "open": 83656,
+      "total": 262144,
+      "density": 0.319122
+    },
+    {
+      "layer": 11,
+      "head": 2,
+      "open": 83590,
+      "total": 262144,
+      "density": 0.318871
+    },
+    {
+      "layer": 9,
+      "head": 5,
+      "open": 83357,
+      "total": 262144,
+      "density": 0.317982
+    },
+    {
+      "layer": 11,
+      "head": 0,
+      "open": 83178,
+      "total": 262144,
+      "density": 0.317299
+    },
+    {
+      "layer": 11,
+      "head": 11,
+      "open": 82906,
+      "total": 262144,
+      "density": 0.316261
+    },
+    {
+      "layer": 9,
+      "head": 12,
+      "open": 82582,
+      "total": 262144,
+      "density": 0.315025
+    },
+    {
+      "layer": 11,
+      "head": 12,
+      "open": 81741,
+      "total": 262144,
+      "density": 0.311817
+    },
+    {
+      "layer": 11,
+      "head": 5,
+      "open": 80756,
+      "total": 262144,
+      "density": 0.30806
+    },
+    {
+      "layer": 10,
+      "head": 1,
+      "open": 75362,
+      "total": 262144,
+      "density": 0.287483
+    },
+    {
+      "layer": 10,
+      "head": 9,
+      "open": 75187,
+      "total": 262144,
+      "density": 0.286816
+    },
+    {
+      "layer": 10,
+      "head": 3,
+      "open": 75146,
+      "total": 262144,
+      "density": 0.286659
+    },
+    {
+      "layer": 10,
+      "head": 10,
+      "open": 75025,
+      "total": 262144,
+      "density": 0.286198
+    },
+    {
+      "layer": 10,
+      "head": 8,
+      "open": 74782,
+      "total": 262144,
+      "density": 0.285271
+    },
+    {
+      "layer": 10,
+      "head": 6,
+      "open": 74609,
+      "total": 262144,
+      "density": 0.284611
+    },
+    {
+      "layer": 10,
+      "head": 7,
+      "open": 74579,
+      "total": 262144,
+      "density": 0.284496
+    },
+    {
+      "layer": 10,
+      "head": 2,
+      "open": 74456,
+      "total": 262144,
+      "density": 0.284027
+    },
+    {
+      "layer": 7,
+      "head": 1,
+      "open": 74077,
+      "total": 262144,
+      "density": 0.282581
+    },
+    {
+      "layer": 10,
+      "head": 13,
+      "open": 73962,
+      "total": 262144,
+      "density": 0.282143
+    },
+    {
+      "layer": 10,
+      "head": 0,
+      "open": 73949,
+      "total": 262144,
+      "density": 0.282093
+    },
+    {
+      "layer": 10,
+      "head": 4,
+      "open": 73898,
+      "total": 262144,
+      "density": 0.281898
+    },
+    {
+      "layer": 7,
+      "head": 10,
+      "open": 73791,
+      "total": 262144,
+      "density": 0.28149
+    },
+    {
+      "layer": 7,
+      "head": 8,
+      "open": 73592,
+      "total": 262144,
+      "density": 0.280731
+    },
+    {
+      "layer": 10,
+      "head": 15,
+      "open": 73333,
+      "total": 262144,
+      "density": 0.279743
+    },
+    {
+      "layer": 7,
+      "head": 9,
+      "open": 73300,
+      "total": 262144,
+      "density": 0.279617
+    },
+    {
+      "layer": 7,
+      "head": 3,
+      "open": 73219,
+      "total": 262144,
+      "density": 0.279308
+    },
+    {
+      "layer": 10,
+      "head": 11,
+      "open": 73011,
+      "total": 262144,
+      "density": 0.278515
+    },
+    {
+      "layer": 7,
+      "head": 0,
+      "open": 72998,
+      "total": 262144,
+      "density": 0.278465
+    },
+    {
+      "layer": 7,
+      "head": 7,
+      "open": 72766,
+      "total": 262144,
+      "density": 0.27758
+    },
+    {
+      "layer": 7,
+      "head": 13,
+      "open": 72756,
+      "total": 262144,
+      "density": 0.277542
+    },
+    {
+      "layer": 7,
+      "head": 2,
+      "open": 72531,
+      "total": 262144,
+      "density": 0.276684
+    },
+    {
+      "layer": 7,
+      "head": 4,
+      "open": 72504,
+      "total": 262144,
+      "density": 0.276581
+    },
+    {
+      "layer": 7,
+      "head": 6,
+      "open": 72442,
+      "total": 262144,
+      "density": 0.276344
+    },
+    {
+      "layer": 7,
+      "head": 15,
+      "open": 72405,
+      "total": 262144,
+      "density": 0.276203
+    },
+    {
+      "layer": 7,
+      "head": 14,
+      "open": 72352,
+      "total": 262144,
+      "density": 0.276001
+    },
+    {
+      "layer": 10,
+      "head": 5,
+      "open": 72163,
+      "total": 262144,
+      "density": 0.27528
+    },
+    {
+      "layer": 10,
+      "head": 14,
+      "open": 72006,
+      "total": 262144,
+      "density": 0.274681
+    },
+    {
+      "layer": 7,
+      "head": 5,
+      "open": 71753,
+      "total": 262144,
+      "density": 0.273716
+    },
+    {
+      "layer": 7,
+      "head": 11,
+      "open": 71408,
+      "total": 262144,
+      "density": 0.2724
+    },
+    {
+      "layer": 10,
+      "head": 12,
+      "open": 71010,
+      "total": 262144,
+      "density": 0.270882
+    },
+    {
+      "layer": 7,
+      "head": 12,
+      "open": 70692,
+      "total": 262144,
+      "density": 0.269669
+    },
+    {
+      "layer": 5,
+      "head": 1,
+      "open": 70177,
+      "total": 262144,
+      "density": 0.267704
+    },
+    {
+      "layer": 5,
+      "head": 8,
+      "open": 70061,
+      "total": 262144,
+      "density": 0.267262
+    },
+    {
+      "layer": 8,
+      "head": 1,
+      "open": 70029,
+      "total": 262144,
+      "density": 0.267139
+    },
+    {
+      "layer": 5,
+      "head": 10,
+      "open": 69837,
+      "total": 262144,
+      "density": 0.266407
+    },
+    {
+      "layer": 8,
+      "head": 10,
+      "open": 69810,
+      "total": 262144,
+      "density": 0.266304
+    },
+    {
+      "layer": 8,
+      "head": 6,
+      "open": 69554,
+      "total": 262144,
+      "density": 0.265327
+    },
+    {
+      "layer": 8,
+      "head": 8,
+      "open": 69495,
+      "total": 262144,
+      "density": 0.265102
+    },
+    {
+      "layer": 5,
+      "head": 0,
+      "open": 69477,
+      "total": 262144,
+      "density": 0.265034
+    },
+    {
+      "layer": 8,
+      "head": 3,
+      "open": 69376,
+      "total": 262144,
+      "density": 0.264648
+    },
+    {
+      "layer": 8,
+      "head": 9,
+      "open": 69282,
+      "total": 262144,
+      "density": 0.26429
+    },
+    {
+      "layer": 5,
+      "head": 9,
+      "open": 69206,
+      "total": 262144,
+      "density": 0.264
+    },
+    {
+      "layer": 5,
+      "head": 14,
+      "open": 69091,
+      "total": 262144,
+      "density": 0.263561
+    },
+    {
+      "layer": 5,
+      "head": 15,
+      "open": 69085,
+      "total": 262144,
+      "density": 0.263538
+    },
+    {
+      "layer": 5,
+      "head": 2,
+      "open": 69037,
+      "total": 262144,
+      "density": 0.263355
+    },
+    {
+      "layer": 8,
+      "head": 7,
+      "open": 68970,
+      "total": 262144,
+      "density": 0.2631
+    },
+    {
+      "layer": 8,
+      "head": 4,
+      "open": 68945,
+      "total": 262144,
+      "density": 0.263004
+    },
+    {
+      "layer": 8,
+      "head": 13,
+      "open": 68819,
+      "total": 262144,
+      "density": 0.262524
+    },
+    {
+      "layer": 8,
+      "head": 2,
+      "open": 68736,
+      "total": 262144,
+      "density": 0.262207
+    },
+    {
+      "layer": 5,
+      "head": 6,
+      "open": 68556,
+      "total": 262144,
+      "density": 0.26152
+    },
+    {
+      "layer": 5,
+      "head": 7,
+      "open": 68462,
+      "total": 262144,
+      "density": 0.261162
+    },
+    {
+      "layer": 5,
+      "head": 3,
+      "open": 68440,
+      "total": 262144,
+      "density": 0.261078
+    },
+    {
+      "layer": 5,
+      "head": 13,
+      "open": 68426,
+      "total": 262144,
+      "density": 0.261024
+    },
+    {
+      "layer": 8,
+      "head": 0,
+      "open": 68250,
+      "total": 262144,
+      "density": 0.260353
+    },
+    {
+      "layer": 5,
+      "head": 11,
+      "open": 68229,
+      "total": 262144,
+      "density": 0.260273
+    },
+    {
+      "layer": 5,
+      "head": 4,
+      "open": 68116,
+      "total": 262144,
+      "density": 0.259842
+    },
+    {
+      "layer": 5,
+      "head": 5,
+      "open": 67882,
+      "total": 262144,
+      "density": 0.258949
+    },
+    {
+      "layer": 8,
+      "head": 15,
+      "open": 67837,
+      "total": 262144,
+      "density": 0.258778
+    },
+    {
+      "layer": 5,
+      "head": 12,
+      "open": 67662,
+      "total": 262144,
+      "density": 0.25811
+    },
+    {
+      "layer": 8,
+      "head": 11,
+      "open": 66873,
+      "total": 262144,
+      "density": 0.2551
+    },
+    {
+      "layer": 8,
+      "head": 5,
+      "open": 66748,
+      "total": 262144,
+      "density": 0.254623
+    },
+    {
+      "layer": 8,
+      "head": 14,
+      "open": 66543,
+      "total": 262144,
+      "density": 0.253841
+    },
+    {
+      "layer": 8,
+      "head": 12,
+      "open": 65740,
+      "total": 262144,
+      "density": 0.250778
+    },
+    {
+      "layer": 4,
+      "head": 10,
+      "open": 65367,
+      "total": 262144,
+      "density": 0.249355
+    },
+    {
+      "layer": 4,
+      "head": 1,
+      "open": 65160,
+      "total": 262144,
+      "density": 0.248566
+    },
+    {
+      "layer": 4,
+      "head": 9,
+      "open": 65005,
+      "total": 262144,
+      "density": 0.247974
+    },
+    {
+      "layer": 4,
+      "head": 0,
+      "open": 64815,
+      "total": 262144,
+      "density": 0.24725
+    },
+    {
+      "layer": 4,
+      "head": 8,
+      "open": 64725,
+      "total": 262144,
+      "density": 0.246906
+    },
+    {
+      "layer": 4,
+      "head": 3,
+      "open": 64336,
+      "total": 262144,
+      "density": 0.245422
+    },
+    {
+      "layer": 4,
+      "head": 15,
+      "open": 64260,
+      "total": 262144,
+      "density": 0.245132
+    },
+    {
+      "layer": 4,
+      "head": 7,
+      "open": 64112,
+      "total": 262144,
+      "density": 0.244568
+    },
+    {
+      "layer": 4,
+      "head": 14,
+      "open": 64055,
+      "total": 262144,
+      "density": 0.24435
+    },
+    {
+      "layer": 4,
+      "head": 11,
+      "open": 64028,
+      "total": 262144,
+      "density": 0.244247
+    },
+    {
+      "layer": 4,
+      "head": 2,
+      "open": 63987,
+      "total": 262144,
+      "density": 0.244091
+    },
+    {
+      "layer": 4,
+      "head": 4,
+      "open": 63904,
+      "total": 262144,
+      "density": 0.243774
+    },
+    {
+      "layer": 4,
+      "head": 5,
+      "open": 63652,
+      "total": 262144,
+      "density": 0.242813
+    },
+    {
+      "layer": 4,
+      "head": 6,
+      "open": 63481,
+      "total": 262144,
+      "density": 0.242161
+    },
+    {
+      "layer": 4,
+      "head": 13,
+      "open": 63419,
+      "total": 262144,
+      "density": 0.241924
+    },
+    {
+      "layer": 4,
+      "head": 12,
+      "open": 61869,
+      "total": 262144,
+      "density": 0.236012
+    },
+    {
+      "layer": 6,
+      "head": 1,
+      "open": 57988,
+      "total": 262144,
+      "density": 0.221207
+    },
+    {
+      "layer": 6,
+      "head": 8,
+      "open": 57606,
+      "total": 262144,
+      "density": 0.219749
+    },
+    {
+      "layer": 6,
+      "head": 10,
+      "open": 57279,
+      "total": 262144,
+      "density": 0.218502
+    },
+    {
+      "layer": 6,
+      "head": 3,
+      "open": 57136,
+      "total": 262144,
+      "density": 0.217957
+    },
+    {
+      "layer": 6,
+      "head": 7,
+      "open": 56821,
+      "total": 262144,
+      "density": 0.216755
+    },
+    {
+      "layer": 6,
+      "head": 9,
+      "open": 56821,
+      "total": 262144,
+      "density": 0.216755
+    },
+    {
+      "layer": 6,
+      "head": 2,
+      "open": 56731,
+      "total": 262144,
+      "density": 0.216412
+    },
+    {
+      "layer": 6,
+      "head": 6,
+      "open": 56636,
+      "total": 262144,
+      "density": 0.216049
+    },
+    {
+      "layer": 6,
+      "head": 4,
+      "open": 56321,
+      "total": 262144,
+      "density": 0.214848
+    },
+    {
+      "layer": 6,
+      "head": 13,
+      "open": 56257,
+      "total": 262144,
+      "density": 0.214603
+    },
+    {
+      "layer": 6,
+      "head": 5,
+      "open": 56154,
+      "total": 262144,
+      "density": 0.214211
+    },
+    {
+      "layer": 6,
+      "head": 15,
+      "open": 56109,
+      "total": 262144,
+      "density": 0.214039
+    },
+    {
+      "layer": 6,
+      "head": 0,
+      "open": 56052,
+      "total": 262144,
+      "density": 0.213821
+    },
+    {
+      "layer": 6,
+      "head": 14,
+      "open": 55995,
+      "total": 262144,
+      "density": 0.213604
+    },
+    {
+      "layer": 6,
+      "head": 11,
+      "open": 55861,
+      "total": 262144,
+      "density": 0.213093
+    },
+    {
+      "layer": 6,
+      "head": 12,
+      "open": 55202,
+      "total": 262144,
+      "density": 0.210579
+    }
+  ],
+  "command": "uv run python -m scripts.sheaf_extract qwen3-1.7b results/qwen3-1.7b-sweep/gold-t02 --task translation"
+}

@@ -9,10 +9,22 @@ The project uses `uv` (there is a `uv.lock`; the `.venv` is what `uv run` uses).
 
 ```bash
 uv sync                                            # install/refresh the environment
+uv sync --extra serve --extra graphs               # both optional extras; naming one drops the other
+uv run --no-group comet --group hybrid <cmd>       # transformers 5, for qwen3_5 (Qwen3.6-27B); see below
 uv run python -m src.cli --help                    # the CLI (also installed as the `mi-lab` script)
 uv run python -m src.ie                            # the TUI explorer (`ie`); see Explorer below
 uv run python -m src.app --multirun model=gpt2-small,pythia-70m   # Hydra sweeps only
 ```
+
+Two environments share the lockfile. The default is transformers 4.57, because COMET
+(`unbabel-comet`, the `comet` group, installed by default) and `circuit-tracer` (the `graphs` extra)
+both pin transformers below 5. The `hybrid` group is transformers 5, which is the only version that
+knows `qwen3_5`; `[tool.uv] conflicts` keeps it apart from both. The whole suite passes in either;
+`tests.hybrid` skips in the default one. Switching re-syncs `.venv` in place, so switch back with a
+plain `uv run` (or `uv sync`) before a COMET or attribution-graph run — and never while a run in
+the other environment is still going, because it swaps transformers under a live process whose
+lazy imports have not all happened yet. To keep both at once, give one its own venv with
+`UV_PROJECT_ENVIRONMENT=.venv-hybrid`.
 
 ### Tests
 
@@ -22,19 +34,20 @@ Everything under `src/` is a namespace package except `src/cli/commands/viz/`, w
 modules explicitly:
 
 ```bash
-# everything: 602 tests, ~90s on a CPU and ~60s on a GPU (the online half needs GPT-2 small)
+# everything: 705 tests, ~90s on a CPU and ~75s on a GPU (the online half needs GPT-2 small)
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
     tests.results tests.components tests.cost tests.quality tests.pipeline \
     tests.translation_study tests.ie tests.probing tests.runner tests.adapter tests.circuits \
     tests.discovery tests.comparison tests.faithfulness tests.edges tests.sheaves \
-    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes tests.serve
+    tests.telemetry tests.neurons tests.gates tests.knockout tests.passes tests.serve \
+    tests.attribution tests.workspacebench tests.readout tests.hybrid
 
-# offline subset: 374 tests, no checkpoint needed, seconds
+# offline subset: 381 tests, no checkpoint needed, seconds
 uv run python -m unittest tests.config tests.dataset tests.metrics tests.spec tests.run \
     tests.prompts tests.torchdata tests.ioi tests.tasks tests.artifact tests.observe \
     tests.results tests.components tests.cost tests.quality tests.pipeline \
-    tests.translation_study
+    tests.translation_study tests.workspacebench
 
 # one module / class / method
 uv run python -m unittest tests.spec
@@ -144,6 +157,17 @@ scores a logit difference while `methods/circuits.py` builds on `data/ioi.py`; p
   from group directories (`model/`, `data/`, `method/`, `preset/`) against `specs/config.yaml`.
   A `specs/model/*.yaml` is a one-liner naming a `configs/` entry — it does not restate model facts.
 
+A config may also carry a **dictionary block** — `sae:` (`SAEConfig`) or `transcoder:`
+(`TranscoderConfig`) — naming a pretrained decomposition for that checkpoint. They are separate
+types because they are separate things: an SAE reconstructs an activation from itself, a
+transcoder maps an MLP's input to its output and can therefore *replace* the MLP, which is the
+construction an attribution graph rests on. A residual-stream SAE cannot stand in for one.
+Unknown keys inside a block raise like any other (invariant 3). Two fields exist to be read before
+anything loads: `resident_gib`, because a cross-layer decoder writes to every later layer and the
+weights are a pyramid (43.6 GiB for the 1.7B — larger than the 8B checkpoint), and
+`variance_unexplained`, because whatever the transcoder fails to reconstruct becomes an error node
+with no incoming edges, and that is where the explanation stops.
+
 `ModelSpec.resolve()` bridges them: load the named config, then apply the spec's optional overrides.
 Those overrides are `Optional[...] = None` on purpose, so "not stated" stays distinguishable from
 "stated as the default".
@@ -174,6 +198,15 @@ compose_spec  →  ExperimentSpec  →  run_experiment  →  Run (+ directory)
   adding it is a new file here rather than an edit to `adapter.py`. All architecture knowledge is
   quarantined in `_blocks`, `_attention_projection`, `_mlp` and `_final_norm` — four lookup lists;
   teaching the backend a new model family is editing those and nothing else.
+  **Hybrid stacks** (Qwen3.5/3.6: gated-DeltaNet blocks, three in four, between softmax-attention
+  ones) are the one wrinkle: a block whose mixer is in `LINEAR_MIXERS` has no projection
+  (`projections[i] is None`), `attention_layers` lists the ones that do, and every head-level
+  operation goes through `_projection(i)`, which refuses a linear block by name. Their heads are
+  a different shape from the model's, so splitting them by `n_heads` would be a plausible wrong
+  number. Residual-stream operations work on every block; sizes come from
+  `config.get_text_config()` because a multimodal checkpoint nests them. Weights load with
+  `device_map` straight to the device — `.to()` after a CPU load held two copies, which on the
+  GB10's unified memory is the whole machine.
   `adapter.py` imports this package **at the bottom of the file**, which is the one import in the
   repo whose position is load-bearing: registration has to happen when `adapter` is imported, and
   the backend imports the protocols above it, so anywhere else is a cycle.
@@ -237,7 +270,13 @@ The split, by the question each module answers:
 - `model/passes.py` — the observed forward pass: `forward_batches` right-pads, runs under
   `no_grad` and yields ids and mask *after* each pass, the moment a hook has filled what it was
   pointed at; `hooked` removes handles even when the body raises; `attention_of` finds the
-  attention module by which module owns the projection rather than by a name.
+  attention module by which module owns the projection rather than by a name. The measurements
+  that want gradients rather than values share `encode`, `Span`/`teacher_forced` (a prompt and
+  its continuation, with the token boundary *checked* — BPE merges across the join and the scored
+  span would otherwise start inside a token that is half prompt) and `differentiable`, which puts
+  the stack in a graph by detaching what block 0 is handed and marking that one tensor as the
+  leaf. Never by un-freezing the weights: that asks autograd for a gradient buffer the size of
+  the model — 16 GiB on the 8B — to reach activations a thousandth of that.
 - `methods/components.py` — the vocabulary `mlp:L`, `heads:L`, `head:L:H` and the set algebra
   over it. `CANDIDATE_BAND` is a pair of depth fractions (invariant 1) resolved on the loaded
   model: `(0.75, 1.0)` is layers 27–35 on 36 layers and 9–11 on 12, where the `range(27, 36)` it
@@ -246,6 +285,24 @@ The split, by the question each module answers:
   the model's geometry and `check` refuses another checkpoint; `cached_means` slices a superset
   capture rather than re-capturing; `ablate` replaces a head's write at the attention output
   projection input and an MLP's at its output, under hooks removed on exit.
+- `methods/attribution.py` — the same causal question as the knockout sweep, answered with a
+  gradient instead of a generation: `(clean - mean) . d(metric)/d(activation)` at the two sites
+  `knockout.ablate` replaces, so what is estimated is the study's own intervention and the sign
+  matches `dbleu`. **One clean pass and one backward pass for the whole lattice**, whatever its
+  size (`tests/attribution.py::test_it_costs_the_same_number_of_passes_however_many_components_are_scored`),
+  against one generation pass per component for the sweep. The base is fixed — the study's
+  `mlp:L` / `head:L:H` lattice — and the three things that are *not* fixed are the module's
+  content: `steps` (one gradient at the clean point, or integrated along the path back from the
+  mean-ablated model, which is where a saturated metric's first-order term is wrong), `metric`
+  (`target` is the likelihood of one continuation, `kl` is the whole vocabulary; `kl` is refused
+  at `steps=1` because its gradient on the unablated model is exactly zero and would return a
+  confident ranking of nothing), and `granularity` (`node` per component, `edge` per
+  source-reader pair). `to_nodes` sums an edge attribution back to its sources and is *exactly*
+  the node attribution of the same pass — two routes to one number, checked to float noise,
+  and the check found the real bug: a tensor hook on what a destination read catches the
+  residual stream's other uses too, so edges must open a per-reader slot (`_destination_hooks`).
+  `adapter.destinations()` includes `logits`, which `adapter.edges()` does not: nothing ablates
+  it, but a source's edges do not sum to its node score without it.
 - `methods/cost.py` — MACs per head and per MLP read off the checkpoint config with no weights
   loaded, and `matched_draw`: a random control matched to the discovered set **by cost, not by
   count**, since one MLP is worth dozens of heads.
@@ -334,6 +391,15 @@ The split, by the question each module answers:
   deployed from `~/m/projects/k8s/mi-lab` (`tests/serve.py`).
 - `data/translation.py` — the corpus: `eval_split` takes the shots from the tail and scores the
   head so a pair is never both, and `counterfactual_prompts` keep the form and drop the task.
+- `scripts/phase1c_graphs.py` — attribution graphs (Ameisen et al. 2025) over a pretrained
+  cross-layer transcoder, which exists for exactly one checkpoint in reach:
+  `configs/qwen3-1.7b-base.yaml`. The **third base** for one question — knockout ablates
+  components, `phase1b_attribution` scores the same components with a gradient, this one scores
+  *features* — and the reason the config is separate from `qwen3-1.7b` is that the CLT targets
+  Qwen3-1.7B-**Base**, whose weights are not the post-trained checkpoint the existing 688s sweep
+  was measured on. `guard` enforces that; point `MI_LAB_RESULTS` at a fresh root and re-measure,
+  which on this model is minutes. Needs `uv sync --extra graphs`, and the `check` stage exists to
+  fail in the first minute rather than after 43.6 GiB of weights are resident.
 - `experiment/translation_study.py` — the protocol as constants and one `setup`: `ARTIFACTS`
   names every file by key, the band, the pre-registered ceiling and saturation rule, `Corpus`,
   and `score_set`, so a BLEU in one script is the same BLEU in the next.
@@ -403,14 +469,59 @@ over every gate. `history` stays at its six entries — it is the summary inside
 `uv run python -m scripts.watch` reads the newest journal under `MI_LAB_JOURNALS` (`--list`,
 `--follow`, `--rows`). It only reads, so pointing it at a run in flight cannot disturb it.
 
-`src/telemetry/tracking.py` mirrors the same rows to the cluster's MLflow (`--tracking mlflow`,
-default `none`). It answers the question the journal does not — how does this run compare to the
-four before it — and it is a *mirror*: the row is on disk before it is sent, and any network
-failure disables the sink instead of raising into a two-hour training loop.
+### Every run is traced in MLflow — this is a rule, not an option
 
+**Everything this repo runs goes to the cluster's MLflow (`https://mlflow.atelier.run`), and new
+code must keep it that way.** A result on disk that MLflow does not know about cannot be traced
+back to the code, the commit and the command that made it — which is the question every result
+here eventually gets asked. Tracking is **on by default**; nobody has to remember a flag.
+
+The whole policy is `track()` in `src/telemetry/tracking.py`, a context manager around a run:
+
+- **Provenance on every run**: `git_commit`, `git_dirty` (this repo is routinely run from an
+  uncommitted tree, and a commit without the dirty bit points at the wrong code with complete
+  confidence), `git_branch`, `command`, `host`, and every `MI_LAB_*` variable as `env.*` — they
+  move results roots and corpus sizes, so they are part of what ran.
+- **Status that means something**: FINISHED, FAILED with an `error` tag, or KILLED on Ctrl-C.
+  A clean `SystemExit(0)` (`--help`) is not a failure; a nonzero exit code is.
+- **Artifacts**: every file under the run's `outputs` that changed while it ran is uploaded
+  through the server's artifact proxy — results JSON, logs, plots, a failed run's partial log
+  included. Files over `MAX_ARTIFACT_BYTES` (64 MiB: weights, masks, caches) are skipped.
+- **Nesting**: `track` exports its run id as `MI_LAB_MLFLOW_PARENT`, and a tracked process that
+  finds it files itself under it (`mlflow.parentRunId`). That is how `scripts.pipeline` shows as
+  one run with its steps inside — the steps are subprocesses and the environment is all they share.
+- **Off switches**: `MI_LAB_TRACKING=none` in the environment, `tracking=none` on a spec, or
+  `--tracking none` on `sheaf_prune`. Under `python -m unittest` it resolves to `none` by
+  itself (`default_tracking`), so the suite never posts; `tests/telemetry.py` tests `track`
+  against a fake server on a local port instead.
+
+Where it is wired, and what a new entry point has to do:
+
+| entry point | how | MLflow experiment |
+|---|---|---|
+| `run_experiment` (CLI, Hydra, every `ExperimentSpec`) | `track` around the runner; spec flattened to dotted params, `run.metrics`, the run directory as artifacts | `mi-lab-<spec.experiment>` |
+| `scripts/*.py` | last line is `tracked_main(main, "<experiment>", outputs=[results_root()])`; directories named on the command line are outputs too | per question, below |
+| `scripts/wsbench_baseline.py` | its own `track`, one metric row per bank; `--backfill` sends an old results file with no model | `mi-lab-wsbench` |
+| `scripts/sheaf_prune.py` (and `sheaf.py`, which calls it) | `Tracker` mirrored from the journal every step, plus `provenance()` | `mi-lab-sheaves` |
+
+Script experiments: phase 0/1a/1b, `build_translation_*` and `pipeline` → `mi-lab-translation-study`;
+`phase1c_graphs` → `mi-lab-graphs`; `phase2_diffing` → `mi-lab-diffing`; `sheaf_*` →
+`mi-lab-sheaves`. `watch.py` (reads, runs nothing) and `serve.py` (a server that lives for days,
+not a run) are the only untracked scripts, deliberately.
+
+**Adding a script**: end it with `tracked_main`. If it produces numbers worth charting, call
+`track` yourself and `tracker.log(step, {...})` them (see `wsbench_baseline`). **Adding an
+experiment kind**: nothing — `run_experiment` already tracks it; put its numbers in
+`run.record(...)`. A result computed before tracking existed goes up as a backfill tagged
+`backfill: true`, whose provenance is the commit that sent it, not the one that computed it.
+
+The mechanics of the sink itself:
+
+- It is a *mirror*: a journaled row is on disk before it is sent, and any network failure
+  disables the sink instead of raising — a tracker may never kill a two-hour run.
 - **REST over urllib, not the `mlflow` client.** `telemetry` is stdlib-only so a result stays
-  readable on a machine that cannot load the model that wrote it, and this needs four stable 2.0
-  calls. Import `mlflow` the day artifacts, autologging or the registry are wanted.
+  readable on a machine that cannot load the model that wrote it, and this needs a handful of
+  stable 2.0 calls plus one artifact-proxy `PUT`.
 - **`configs/tracking/*.yaml` holds the endpoint** (a fact about the cluster); `specs/tracking/*`
   names one the way `specs/model/*` names a `configs/` entry. `TrackingSpec` is **excluded from
   `spec_hash`** with `output` — invariant 4, since mirroring metrics does not change them.
@@ -705,6 +816,10 @@ data URIs, so the file survives being moved or attached. Every `viz` command tak
 
 ## Conventions
 
+- **Every run is traced in MLflow.** A new script ends with `tracked_main`, a new experiment kind
+  goes through `run_experiment`, and anything else that produces a result wraps it in `track`.
+  See **Every run is traced in MLflow** above; never add an entry point that writes results and
+  skips it.
 - Every module opens with a docstring stating what it is *for* and which decision it encodes,
   usually ending in a `A common pipe could be: a | b | c` line. Match that when adding a module.
 - Each subsystem raises its own `ValueError` subclass (`ConfigError`, `SpecError`, `DatasetError`,

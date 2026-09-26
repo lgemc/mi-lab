@@ -28,6 +28,8 @@ from src.methods.knockout import translate
 from src.methods.quality import Comet, bleu, bleu_signature, chrf
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard, load_state, result, save_state
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 OUTPUTS = result("phase0-baseline-outputs.json")
 DEFAULT_SIZE = 200
@@ -104,4 +106,4 @@ def main() -> None:
           comet_error or "")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

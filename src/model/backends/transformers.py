@@ -67,18 +67,33 @@ def _blocks(model) -> torch.nn.ModuleList:
         raise ConfigError(f"cannot find the decoder blocks of {type(model).__name__}; teach _blocks its layout")
     return found
 
+# Token mixers that are not softmax attention: the linear-attention blocks of a
+# hybrid stack (Qwen3.5/3.6's gated DeltaNet, three blocks in every four). They
+# have heads too, but not the model's heads -- 48 of 128 wide where the
+# attention blocks have 24 of 256 -- so splitting their projection input by
+# `n_heads` would cut every "head" across two real ones and read as a plausible
+# number rather than as an error.
+LINEAR_MIXERS = ("linear_attn",)
+
 def _attention_projection(block, index: int):
-    """The linear that mixes the heads back into the residual stream
+    """The linear that mixes the heads back into the residual stream, or None for a linear-attention block
 
     This is the hinge every head-level operation turns on. Its *input* is the
     heads' outputs laid end to end -- n_heads contiguous slices of d_head --
     so reading it splits the heads apart and writing it patches one head
     without reimplementing attention. Its *output* is the whole attention
     write, so nothing downstream has to be told a patch happened.
+
+    None is an answer and not a miss: a hybrid model's linear-attention blocks
+    have no projection with this model's head layout, and the adapter keeps
+    the residual-stream half of itself working on them while `_projection`
+    refuses the head-level half.
     """
     found = _first_attribute(
         block, ("attn.c_proj", "self_attn.o_proj", "attention.dense", "attn.out_proj", "self_attention.dense")
     )
+    if found is None and _first_attribute(block, LINEAR_MIXERS) is not None:
+        return None
     if found is None:
         raise ConfigError(
             f"cannot find the attention output projection of block {index} "
@@ -213,12 +228,18 @@ class TransformersAdapter:
         self.tokenizer = tokenizer
         self.blocks = _blocks(model)
         self.projections = [_attention_projection(block, index) for index, block in enumerate(self.blocks)]
+        # the layers head-level operations are defined on; every layer, except in a hybrid stack
+        self.attention_layers = [index for index, projection in enumerate(self.projections) if projection is not None]
         self.mlps = [_mlp(block, index) for index, block in enumerate(self.blocks)]
+        # A multimodal checkpoint nests the language model's sizes under
+        # `text_config`, and the top-level config has no hidden_size to read.
+        # get_text_config() is the config itself for every text-only model.
+        text = model.config.get_text_config()
         self.cfg = replace(
             cfg.with_sizes(
                 n_layers=len(self.blocks),
-                d_model=model.config.hidden_size,
-                n_heads=getattr(model.config, "num_attention_heads", None),
+                d_model=text.hidden_size,
+                n_heads=getattr(text, "num_attention_heads", None),
             ),
             # stamped in the way the sizes are, and for the same reason: "auto" is a
             # question, and everything downstream that prints or records a device wants
@@ -230,6 +251,17 @@ class TransformersAdapter:
     def layer(self, frac: Optional[float] = None) -> int:
         """Resolve a depth fraction to an absolute layer index"""
         return self.cfg.layer(frac)
+
+    def _projection(self, index: int):
+        """Layer `index`'s head-mixing projection, refusing a layer that has no heads in this model's layout"""
+        projection = self.projections[index]
+        if projection is None:
+            raise ConfigError(
+                f"layer {index} of '{self.cfg.id}' is linear attention, and head-level operations are defined "
+                f"only on its softmax-attention layers {self.attention_layers}; residual-stream operations "
+                "(capture, steer, logits, generate, patch without heads) work on every layer"
+            )
+        return projection
 
     def _resolve_layers(self, layers: Optional[Sequence[int]]) -> List[int]:
         """Default to the config's probe layer, and reject indices this model does not have"""
@@ -458,8 +490,27 @@ class TransformersAdapter:
                     ).attentions
                 if not patterns:
                     raise ConfigError(f"'{self.cfg.id}' returned no attention weights under eager attention")
-                chunks.append(torch.stack([patterns[index] for index in layers], dim=1).float().cpu())
+                chunks.append(torch.stack([patterns[self._pattern_slot(index, len(patterns))] for index in layers],
+                                          dim=1).float().cpu())
         return torch.cat(chunks, dim=0)
+
+    def _pattern_slot(self, index: int, returned: int) -> int:
+        """Where layer `index`'s pattern sits in the `attentions` tuple
+
+        One entry per layer, except in a hybrid stack, which may return one per
+        softmax-attention layer only -- and there the tuple's position 3 is
+        layer 15. Indexing it by layer would hand back another layer's
+        pattern, so a length that is neither is refused rather than guessed.
+        """
+        self._projection(index)
+        if returned == self.cfg.n_layers:
+            return index
+        if returned == len(self.attention_layers):
+            return self.attention_layers.index(index)
+        raise ConfigError(
+            f"'{self.cfg.id}' returned {returned} attention patterns for {self.cfg.n_layers} layers, "
+            f"{len(self.attention_layers)} of them softmax attention; cannot tell which is layer {index}"
+        )
 
     @contextmanager
     def _record_heads(self, layers: Sequence[int], detach: bool = True) -> Iterator[Dict[int, torch.Tensor]]:
@@ -480,7 +531,7 @@ class TransformersAdapter:
             return hook
 
         for index in layers:
-            handles.append(self.projections[index].register_forward_pre_hook(make_hook(index)))
+            handles.append(self._projection(index).register_forward_pre_hook(make_hook(index)))
         try:
             yield captured
         finally:
@@ -672,7 +723,7 @@ class TransformersAdapter:
                 return hook
 
             for position, index in enumerate(layers):
-                handles.append(self.projections[index].register_forward_pre_hook(make_hook(position, rows)))
+                handles.append(self._projection(index).register_forward_pre_hook(make_hook(position, rows)))
             try:
                 with torch.enable_grad():
                     output = self.model(ids, attention_mask=mask, use_cache=False).logits
@@ -706,14 +757,14 @@ class TransformersAdapter:
             batch, self.cfg.n_heads, width
         )
         with torch.no_grad():
-            projection = self.projections[index]
+            projection = self._projection(index)
             # the projection's bias is written once per layer, not once per head, so it is subtracted back out
             return (projection(isolated) - projection(merged.new_zeros(1, width))).float().cpu()
 
     def _bias_write(self, index: int, width: int, dtype, device) -> torch.Tensor:
         """The attention output projection's own bias, which belongs to no head"""
         with torch.no_grad():
-            return self.projections[index](torch.zeros(1, width, dtype=dtype, device=device)).float().cpu()
+            return self._projection(index)(torch.zeros(1, width, dtype=dtype, device=device)).float().cpu()
 
     def _decompose_chunk(self, ids: torch.Tensor, mask: torch.Tensor, layers: Sequence[int]) -> Dict[str, torch.Tensor]:
         """Every write into one chunk's final token, recorded in a single forward pass"""
@@ -767,7 +818,7 @@ class TransformersAdapter:
             batch, seq, self.cfg.n_heads, width
         )
         with torch.no_grad():
-            projection = self.projections[index]
+            projection = self._projection(index)
             bias = projection(merged.new_zeros(1, width))
             return projection(isolated) - bias
 
@@ -811,7 +862,7 @@ class TransformersAdapter:
                 return hook
 
             for index in layers:
-                handles.append(self.projections[index].register_forward_pre_hook(make(merged, index)))
+                handles.append(self._projection(index).register_forward_pre_hook(make(merged, index)))
                 handles.append(self.mlps[index].register_forward_hook(make(mlp_out, index, on_output=True)))
                 handles.append(_attention_norm(self.blocks[index], index)
                                .register_forward_pre_hook(make(attention_in, index)))
@@ -828,7 +879,7 @@ class TransformersAdapter:
             heads = torch.stack([self._head_writes_at(index, merged[index]) for index in layers], dim=1)
             with torch.no_grad():
                 biases = torch.stack([
-                    self.projections[index](merged[index].new_zeros(1, width)).expand(
+                    self._projection(index)(merged[index].new_zeros(1, width)).expand(
                         merged[index].shape[0], merged[index].shape[1], width)
                     for index in layers], dim=1)
             collected["embedding"].append(attention_in[0].float().cpu())
@@ -953,7 +1004,7 @@ class TransformersAdapter:
         # destination hook on that same block has edited it
         handles.append(self.blocks[0].register_forward_pre_hook(capture_embedding))
         for index in range(self.cfg.n_layers):
-            handles.append(self.projections[index].register_forward_pre_hook(capture_merged(index)))
+            handles.append(self._projection(index).register_forward_pre_hook(capture_merged(index)))
             handles.append(self.mlps[index].register_forward_hook(capture_mlp(index)))
         for destination in wanted:
             kind, layer = destination.split(":")
@@ -1116,7 +1167,7 @@ class TransformersAdapter:
 
         handles.append(self.blocks[0].register_forward_pre_hook(capture_embedding))
         for index in range(self.cfg.n_layers):
-            handles.append(self.projections[index].register_forward_pre_hook(capture_merged(index)))
+            handles.append(self._projection(index).register_forward_pre_hook(capture_merged(index)))
             handles.append(self.mlps[index].register_forward_hook(capture_mlp(index)))
         for destination in wanted:
             kind, layer = destination.split(":")
@@ -1138,6 +1189,7 @@ class TransformersAdapter:
         """
         sources = ["embed"]
         for layer in range(self.cfg.n_layers):
+            self._projection(layer)
             sources.extend(f"head:{layer}:{head}" for head in range(self.cfg.n_heads))
             sources.append(f"mlp:{layer}")
             sources.append(f"bias:{layer}")
@@ -1151,6 +1203,60 @@ class TransformersAdapter:
                         continue
                     found.append((source, destination))
         return found
+
+    def destinations(self) -> Dict[str, torch.nn.Module]:
+        """Every destination id mapped to the module whose *input* is what it read
+
+        `edges()` says which edges exist and `edge_patch` intervenes on one;
+        this is the third thing an edge method needs and the one that was
+        locked in here: the module to hang a hook on to read -- or
+        differentiate -- what a destination saw. `edge_patch` and
+        `residual_sources` already resolved it twice through the private norm
+        helpers, and attribution would have been the third copy of a lookup
+        whose failure mode is a hook one module off, which reads as a
+        plausible number rather than as an error.
+
+        The input is pre-norm on purpose. An edge is a term in the residual
+        sum, so the quantity an edge ablation moves is the sum, not what the
+        norm made of it.
+
+        `logits` is here and is *not* in `edges()`, which is the one thing to
+        know about this mapping. Every source also writes straight to the
+        unembedding, through the final norm and past every block: that edge
+        exists in the model and `edges()` omits it because nothing in this
+        repo ablates it -- an edge intervention is defined against a reader
+        inside a block. A gradient measurement cannot omit it. A source's
+        effect is the sum over everything that reads it, and a sum that stops
+        at the last block loses the whole direct path to the output, which is
+        most of what a late component does: leave it out and the last layer's
+        MLP scores near zero per edge while scoring large as a node, with
+        nothing to say which number is wrong.
+        """
+        found = {}
+        for layer in range(self.cfg.n_layers):
+            found[f"attn:{layer}"] = _attention_norm(self.blocks[layer], layer)
+            found[f"mlp:{layer}"] = _mlp_norm(self.blocks[layer], layer)
+        found["logits"] = _final_norm(self.model)
+        return found
+
+    def head_write(self, layer: int, merged: torch.Tensor) -> torch.Tensor:
+        """What one layer's heads write into the residual stream, from the tensor the projection reads
+
+        `merged` is the [.., n_heads * d_head] the output projection is handed
+        -- the site `head_outputs` reads, `ablate` replaces and `Means` holds a
+        mean of -- and the write is that projected, with the bias taken off
+        because the bias is its own source in `edges()` and would otherwise be
+        counted once per head.
+
+        Public because a counterfactual write has to be computed the same way
+        as the live one: the mean of a head at the projection's input is not a
+        residual-stream vector until it goes through the projection, and a
+        caller that multiplied by `weight` itself would have to know that
+        Conv1D and Linear disagree about which axis that is.
+        """
+        projection = self._projection(layer)
+        bias = projection(merged.new_zeros(1, merged.shape[-1]))
+        return projection(merged) - bias
 
     def _check_edge(self, source: str, destination: str) -> None:
         """Refuse an edge that does not exist in a causal residual stream"""
@@ -1192,7 +1298,7 @@ class TransformersAdapter:
             return mlp_out[layer].to(like.device, like.dtype)
         width = merged[layer].shape[-1]
         with contextlib.nullcontext() if grad else torch.no_grad():
-            bias = self.projections[layer](merged[layer].new_zeros(1, width))
+            bias = self._projection(layer)(merged[layer].new_zeros(1, width))
             if parts[0] == "bias":
                 return bias.expand_as(like).to(like.device, like.dtype)
             head = int(parts[2])
@@ -1200,7 +1306,7 @@ class TransformersAdapter:
             selector[head] = 1.0
             isolated = (self._split_heads(merged[layer]) * selector[None, None, :, None]).reshape(
                 merged[layer].shape)
-            return (self.projections[layer](isolated) - bias).to(like.device, like.dtype)
+            return (self._projection(layer)(isolated) - bias).to(like.device, like.dtype)
 
     def _off_write(self, source: str, off: Dict[str, torch.Tensor]) -> torch.Tensor:
         """What a source wrote in the counterfactual run this ablation falls back to"""
@@ -1287,7 +1393,7 @@ class TransformersAdapter:
         for index in active.residual:
             handles.append(self.blocks[index].register_forward_hook(make_residual_hook(index)))
         for index in active.heads:
-            handles.append(self.projections[index].register_forward_pre_hook(make_head_hook(index)))
+            handles.append(self._projection(index).register_forward_pre_hook(make_head_hook(index)))
 
         self._patch = active
         try:
@@ -1321,8 +1427,14 @@ def _build_transformers(cfg: ModelConfig) -> ModelAdapter:
     if tokenizer.pad_token is None:
         # GPT-2 and friends ship no pad token, and batching needs one
         tokenizer.pad_token = tokenizer.eos_token
-    model = AutoModelForCausalLM.from_pretrained(cfg.hf_name, dtype=DTYPES[cfg.dtype])
-    model.to(resolve_device(cfg.device))
+    # Weights go straight to the device, shard by shard. Loading to the CPU and
+    # then calling `.to()` holds two full copies at the peak, and on the GB10
+    # both copies come out of the same 121 GB of unified memory: a 27B in
+    # bfloat16 is 54 GB twice, and that run took the machine down on the OOM
+    # killer. Streaming keeps the peak at one copy plus one shard.
+    model = AutoModelForCausalLM.from_pretrained(
+        cfg.hf_name, dtype=DTYPES[cfg.dtype], device_map=resolve_device(cfg.device)
+    )
     model.eval()
     return TransformersAdapter(cfg, model, tokenizer)
 

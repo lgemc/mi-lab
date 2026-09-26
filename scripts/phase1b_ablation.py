@@ -46,6 +46,8 @@ from src.methods.knockout import Means, ablate, preview, translate
 from src.methods.quality import BOOTSTRAP_RESAMPLES, SIGNIFICANCE_ALPHA, Comet, bleu, paired_significance
 from src.telemetry.observe import Budget, banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, save_state
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 PROGRESS = study.artifact("ablation_progress")
 SWEEP = study.artifact("sweep")
@@ -273,4 +275,4 @@ def main() -> None:
         raise SystemExit(f"unknown stage '{stage}'; stages are sweep, assemble, significance, comet")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

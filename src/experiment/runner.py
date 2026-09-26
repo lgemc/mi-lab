@@ -12,6 +12,7 @@ from ..model.adapter import load_adapter, require_circuits
 from ..share import storage
 from ..share.converters.circuit import from_circuit
 from ..share.converters.comparison import from_comparison
+from ..telemetry.tracking import default_tracking, track
 from .run import Run
 from .spec import ExperimentSpec, SpecError, save_spec
 
@@ -267,13 +268,32 @@ def run_experiment(spec: ExperimentSpec, root: Optional[str] = None) -> Run:
     save_spec(spec, str(directory / "spec.yaml"))
     run.save(str(directory))
 
-    try:
-        with measure(items=1) as cost:
-            EXPERIMENTS[spec.kind](spec, run, directory)
-    except Exception as error:
-        run.finish(error=error)
+    # The MLflow run wraps the whole directory, so spec.yaml, run.json and
+    # whatever the experiment wrote -- a failed run's included -- go up with it
+    tracking = default_tracking() if spec.tracking.name == "auto" else spec.tracking.name
+    with track(f"{spec.experiment}-{run.run_id}", f"mi-lab-{spec.experiment}", params=flat(run.params),
+               outputs=[directory], tracking=tracking,
+               tags={"kind": spec.kind, "spec_hash": spec.spec_hash, "run_id": run.run_id,
+                     "run_directory": str(directory)}) as tracker:
+        try:
+            with measure(items=1) as cost:
+                EXPERIMENTS[spec.kind](spec, run, directory)
+        except Exception as error:
+            run.finish(error=error)
+            run.save(str(directory))
+            raise
+        run.record(seconds=cost[0].seconds).finish()
         run.save(str(directory))
-        raise
-    run.record(seconds=cost[0].seconds).finish()
-    run.save(str(directory))
+        tracker.log(0, run.metrics)
     return run
+
+def flat(params: Dict, prefix: str = "") -> Dict[str, object]:
+    """A nested spec as dotted keys, the form MLflow can filter on (`model.name = 'gpt2-small'`)"""
+    found: Dict[str, object] = {}
+    for key, value in params.items():
+        name = f"{prefix}{key}"
+        if isinstance(value, dict):
+            found.update(flat(value, f"{name}."))
+        else:
+            found[name] = value
+    return found

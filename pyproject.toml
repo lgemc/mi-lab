@@ -19,7 +19,6 @@ dependencies = [
     "torch>=2.13.0",
     "transformers>=4.57.0",
     "typer>=0.27.1",
-    "unbabel-comet>=2.2.7",
 ]
 
 [project.scripts]
@@ -32,10 +31,39 @@ serve = [
     "httpx>=0.28.1",
     "uvicorn[standard]>=0.52.4",
 ]
+# Attribution graphs (Ameisen et al. 2025) over a pretrained cross-layer
+# transcoder. An extra rather than a dependency because it brings its own
+# model stack -- transformer-lens, and nnsight for the checkpoints
+# transformer-lens does not cover -- and because the artifact it reads is a
+# 43.6 GiB download that no other phase of this repo needs.
+graphs = [
+    "circuit-tracer>=0.5.0",
+]
 
 [dependency-groups]
 dev = [
     "ruff>=0.16.4",
+]
+# COMET-22, the translation metric the phase 0/1b scripts score with. A group
+# rather than a dependency only so that `hybrid` below can leave it out: it
+# caps transformers below 5. It is a default group, so a plain `uv run` has it.
+comet = [
+    "unbabel-comet>=2.2.7",
+]
+# Transformers 5, for architectures 4.x does not know -- Qwen3.5/3.6's hybrid
+# linear/full-attention stack (`qwen3_5`) first of all. COMET and circuit-tracer
+# both pin transformers 4, so this is an environment of its own:
+#   uv run --no-group comet --group hybrid python -m scripts.wsbench_baseline qwen3.6-27b
+# The whole test suite passes on either side of the split.
+hybrid = [
+    "transformers>=5.17.0",
+]
+
+[tool.uv]
+default-groups = ["dev", "comet"]
+conflicts = [
+    [{ group = "hybrid" }, { group = "comet" }],
+    [{ group = "hybrid" }, { extra = "graphs" }],
 ]
 
 # Ruff replaces flake8 + isort + pyupgrade + bugbear in one binary. Run it with

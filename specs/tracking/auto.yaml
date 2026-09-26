@@ -1,0 +1,5 @@
+# The default: tracked to MLflow, unless MI_LAB_TRACKING says otherwise or the
+# run is the test suite (`telemetry.tracking.default_tracking`). Every run in
+# this repo is meant to be traceable, so tracking is what you get by not
+# choosing; `tracking=none` is the explicit opt-out.
+name: auto

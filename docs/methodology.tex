@@ -1,0 +1,605 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{geometry}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{enumitem}
+\usepackage{multirow}
+\usepackage{array}
+
+\geometry{margin=2.4cm}
+\hypersetup{colorlinks=true,linkcolor=blue!60!black,urlcolor=blue!60!black,citecolor=blue!60!black}
+
+\newcommand{\arxiv}[1]{\href{https://arxiv.org/abs/#1}{arXiv:#1}}
+\newcommand{\model}[1]{\textsf{#1}}
+\newcommand{\method}[1]{\textsc{#1}}
+
+\title{\textbf{Translation Circuit Discovery on Qwen Models:\\Methods, Failures, and the Edge-Pruning Fix}}
+\author{mi-lab (\texttt{~/main/mi-lab}) --- Luis Manrique}
+\date{September 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+We describe the full pipeline for locating the Spanish-to-English translation circuit in
+Qwen3-class models (8B \& 1.7B), developed iteratively over three methodological failures
+and two paradigm shifts. Starting from neuron-level activation scans (Phase~1a), we
+progress through retracted component-level ablation (Phase~1b), a diagnosed capacity
+failure in differentiable weight masking (DiscoGP / sheaf pruning), and finally a
+successful edge-pruning protocol that closes the memorization gap and recovers 99\% of
+full-model first-token accuracy with 26\% of residual-stream edges. The IOI circuit
+(Wang et al.~\cite{ioi}) on GPT-2 small serves as the control environment throughout.
+All code is at \texttt{github.com/lgemc/mi-lab}.
+\end{abstract}
+
+\section{Overview}
+
+The project proceeds in three phases (\S\S2--4), each with pre-registered
+success/failure criteria. The first phase (localisation) went through three full
+iterations---the initial approach was wrong, the first result was retracted, and the
+final method is supported by a random-component control. The pipeline is summarised in
+Figure~\ref{fig:pipeline}.
+
+\begin{figure}[ht]
+\centering
+\begin{minipage}{0.92\textwidth}
+\small
+\begin{verbatim}
+Phase 0: Feasibility (load model, COMET baseline, hook verification)
+                               |
+Phase 1: Circuit localisation
+  1a. Neuron scan (Tang et al.): cross-lingual |activation| contrast -> 0.27% flagged
+  1b. Component ablation (originally Wang et al. IOI knockout with mean ablation)
+      +-- [RETRACTED] Wrong reference distribution -> broken model, false PASS
+      |-- [FIXED] Counterfactual reference + random control arm -> discovered set
+      |           does NOT clear the random band at 19.4% FLOPs
+      \-- [Literature sweep 2026-08-31] Switch to EAP-IG + CircuitLasso as discovery;
+                                        knockout as validation only
+  1c. SAE features (CONDITIONAL) -- replaced by edge pruning
+                               |
+Phase 2: Causal verification (planned: ablation -> COMET drop, general-task check)
+                               |
+Phase 3: Speedup test (planned: circuit-guided dynamic sparsity vs Deja Vu)
+\end{verbatim}
+\end{minipage}
+\caption{Pipeline overview. Phase 1 consumed most of the effort; Phases 2 and 3 are
+pending methodological fixes from the Phase 1b failures.}
+\label{fig:pipeline}
+\end{figure}
+
+\section{Phase 0: Feasibility}\label{sec:phase0}
+
+\paragraph{Model.} Qwen3-8B in bf16 (15.3\,GiB CUDA, 36 layers, \(d_\text{model}=4096\),
+32 heads, \(d_\text{head}=128\), 8 KV heads, MLP width 12,288). Loaded via Transformers
+without 8-bit quantisation---the GB10 had 13\,Gi free, which was sufficient.
+Fast-iteration model: Qwen2.5-3B (bf16, $\approx$6.5\,GB). Contrast model: Aya-23-8B.
+
+\paragraph{Baselines.} 200 FLORES es$\rightarrow$en dev pairs, few-shot WMT-style
+prompting:\textbf{COMET-22 = 0.8712, sacreBLEU = 30.88, chrF = 61.84}.
+COMET throughput: $\approx$33\,s per 100 sentences.
+
+\paragraph{Prompt form.} Few-shot WMT-style (3 shots: \\
+\texttt{Spanish: \dots\ \textbackslash n English: \dots\ }) beats instruction prompting
+(BLEU 39.3 vs 31.0). The model translates without explicit instruction.
+
+\paragraph{Hook verification.} Residual capture and per-head outputs verified at every
+layer; \texttt{decompose()} remainder 0.39\% relative (bf16 ULP). Patch round-trips shift
+logits by exactly 0.0.
+
+\section{Phase 1a: Neuron-Level Activation Scan}
+
+Protocol from Tang et al.~\cite{languageneurons} (ACL 2024). For every FFN neuron,
+compute
+\[
+\text{score}_i = \overline{|a_i|}_\text{ES} - \frac{\overline{|a_i|}_\text{EN} + \overline{|a_i|}_\text{control}}{2}
+\]
+at the MLP down-projection input, over $\sim$5k tokens per condition
+(6,116 / 5,047 / 5,300). Flag score $>2\sigma$ ($\sigma=0.805$).
+
+\paragraph{Result.} 1,198 of 442,000 FFN neurons flagged (0.27\%).\textbf{Concentration is
+top-only:} 1,185/1,198 in layers 27--35; 85\% in layers 32--35; \textbf{zero in the
+bottom quarter}. Peak layer 33 (325 flagged). Outlier: layer 35 neuron 8136 at $\approx78\sigma$.
+
+\paragraph{Interpretation.} Matches Harrasse et al.~\cite{harasse} (language identity in
+late-layer high-frequency features) and Sch\"ut et al.~\cite{schut} (output-language
+decoding in English-shaped representation space). \textbf{Contradicts} the bottom-layer
+expectation of Tang et al.---though this is a methodological caveat (see \S\ref{sec:1a-caveat}).
+
+\subsection{Caveat}\label{sec:1a-caveat}
+Our statistic is a contrastive mean-absolute-activation difference, not Tang et al.'s
+LAPE (activation probability + entropy across languages, lowest percentile).
+The ``contradiction'' of bottom-layer findings is therefore a misattribution; we
+measure a different quantity. A raw-Spanish-text control pass would separate ``Spanish
+input neurons'' from ``output-language / task machinery.''
+
+\section{Phase 1b: Component Ablation --- Three Iterations}
+
+\subsection{First attempt (RETRACTED)}
+
+Following Wang et al.~\cite{ioi} and Zhang et al.~\cite{zhang2025}, we applied
+\method{mean ablation} to a candidate set of 9 MLPs in layers 27--35 (19.43\% of model
+MACs) over a WMT-500 dev subset. The ablation means were captured over raw English
+reference sentences---bare text, no few-shot skeleton, no \texttt{Spanish:}/\texttt{English:}
+labels, no in-context task.
+
+\paragraph{Result.} $\Delta$COMET = 0.643 against the pre-registered threshold of 0.020
+---a ``PASS'' by a factor of 32. Output collapsed to \texttt{a a a a a \dots} (BLEU 6.06).
+
+\paragraph{Three methodological failures (documented in \S8.3 of the design doc):}
+
+\begin{enumerate}
+\item \textbf{Wrong reference distribution.} Wang et al.~\cite{ioi} \S3 require
+  \(p_\text{ABC}\): preserve the task template, vary only the names. Zhang et
+  al.~\cite{zhang2025} \S3 build \(X^{-}\) on the same rule. Ablating toward raw English
+  removed the model's ability to continue a prompt at all.
+\item \textbf{Misattributed method.} Mean ablation is Zhang et al.'s \emph{validation}
+  step (\S4.3), not their discovery method (subspace-intervened path patching, \S4.1).
+  Reusing the cheap validation step as the expensive discovery step drops the subspace
+  confinement and the random control.
+\item \textbf{Missing random-component control.} Zhang et al.'s Figure~2 is entirely
+  ``Key Heads vs Random Heads, Key MLPs vs Random MLPs.'' Without this contrast, ``ablating
+  9 MLPs drops COMET 0.64'' is unfalsifiable.
+\end{enumerate}
+
+All three failures were latent in the design and were caught only by reading the actual
+generations rather than the corpus metric. The full analysis is in
+\texttt{wiki/concepts/interpretability/ablation-reference-distribution.md}.
+
+\subsection{Second attempt: Corrected reference + random control}
+
+\paragraph{Fix.} The counterfactual prompt form preserves every token of the eval prompt
+but neutralises the translation relation:
+\begin{verbatim}
+Text: <es sentence>
+Nothing: <en sentence, belonging to a different shot>
+... (3 shots) ...
+Text: <es sentence>
+Nothing:
+\end{verbatim}
+Same skeleton, same shot count, same Spanish source, same shot targets token for token.
+Language labels neutralised and shot targets rotated off their own sources.
+
+\paragraph{Random control.} \texttt{scripts/phase1b\_random\_control.py} draws component
+sets matched to a target set's MACs (to within 0.02\%), ablates toward the same
+counterfactual means, and reports the discovered arm against the random band. Each arm
+carries a degeneracy score (fraction of outputs that are repeated tokens rather than
+language).
+
+\paragraph{Result.} WMT-200 shortlist, baseline BLEU 38.42, degeneracy 0.00:
+\[
+\begin{array}{lccc}
+\text{Scope} & \text{Arm} & \text{BLEU} & \Delta\text{BLEU} \\ \hline
+\text{Model} & \text{discovered} & 0.96 & -37.46 \\
+\text{Model} & \text{random band} & 0.00\text{--}14.80 & -23.62\text{--}-38.42 \\
+\text{Candidate (27--35)} & \text{discovered} & 1.04 & -37.38 \\
+\text{Candidate (27--35)} & \text{random band} & 0.00\text{--}1.96 & -36.46\text{--}-38.42 \\
+\end{array}
+\]
+
+The candidate scope (layers 27--35) is the sharper test. Every random draw has the same
+7MLP/223head composition; the band is only 1.96 BLEU wide, and the discovered set lands
+at its \textbf{median}. \textbf{Separation:} $-$1.04 BLEU (negative).
+
+\paragraph{Interpretation.} At 19.4\% of model MACs, all arms are broken models
+(degeneracy 0.16--1.00). The knockout measures destruction, not localisation. As
+Kervadec et al.~\cite{kervadec} predict, LLM computation is generally dense: there is no
+19.4\% of the model that can be flattened and leave a language model standing.
+
+\subsection{Literature currency check (2026-08-31)}\label{sec:litcheck}
+
+A sweep of 2026 literature after the retraction found three concrete corrections:
+
+\begin{enumerate}
+\item \textbf{Discovery method.} The 2026 survey~\cite{survey2026} lists ACDC, EAP,
+  attribution/ALTI ($\sim100\times$ faster), and CLT attribution graphs. MIB~\cite{mib}
+  (2504.13151) finds attribution and mask-optimisation methods best for circuit
+  localisation. \textbf{Greedy knockout is on neither list.}
+\item \textbf{SAE premise contested.} MIB's causal-variable track finds \textbf{SAE
+  features are not better than neurons}; supervised DAS wins that track.
+\item \textbf{Mechanistic ceiling.} Kervadec et al.~\cite{kervadec} build a
+  computation-density estimator: LLM processing is \textbf{generally dense}; raretokens
+  require higher density; aggressive pruning preserves the output mode while flattening
+  the distribution---a failure mode invisible to corpus MT metrics.
+\end{enumerate}
+
+The revised Phase~1b uses \textbf{EAP-IG} (attribution) as the primary discovery method,
+with \textbf{CircuitLasso}~\cite{circuitlasso} as a cross-check. Knockout (mean ablation +
+random control) is kept for validation only. Section~\ref{sec:attribution} reports the
+implementation and what it reproduces of the sweep it replaces.
+
+\section{Attribution as the Discovery Method}\label{sec:attribution}
+
+The pre-registered replacement is implemented in \texttt{src/methods/attribution.py}
+and checked against the knockout sweep it replaces. Because mean ablation is the
+study's intervention, the quantity estimated is that intervention's first-order term,
+$(a_{\text{clean}} - a_{\text{mean}}) \cdot \partial m / \partial a$ at the two sites
+\texttt{knockout.ablate} replaces~\cite{attributionpatching,syed}. The cost is one clean
+pass plus $s$ backward passes for the \emph{whole} lattice, against one generation pass
+per component for the sweep.
+
+\subsection{What the comparison can and cannot say}
+
+The sweep is the ground truth and it has a noise floor that has to be stated first:
+288 of its 306 rows are single heads scored on half the corpus, with $\Delta$BLEU
+spread $\sigma = 0.21$ about a mean of $-0.04$ and only ten of the 288 outside
+$\pm 0.5$. A rank correlation over all 306 is therefore mostly a correlation against
+that spread, and it comes back near zero for every estimator tried
+($\rho \in [-0.03, -0.02]$). The answerable comparison is against the 18 components
+the sweep scored on the full 200 sentences; single-head attributions are summed into
+their \texttt{heads:L} group to match that vocabulary, which first-order attribution
+licenses because it is linear in the intervention.
+
+\subsection{Results (Qwen3-8B, band 27--35, 32 sentences)}
+
+\begin{center}
+\begin{tabular}{lrrr}
+\hline
+\textbf{Estimator} & \textbf{$\rho$ vs $\Delta$BLEU} & \textbf{top-5 overlap} & \textbf{seconds} \\
+\hline
+Knockout sweep (the measurement) & --- & --- & 7575 \\
+EAP, $s=1$, \texttt{target} & $+0.135$ & 0.25 & 12 \\
+EAP-IG path, $s=5$, \texttt{target} & $\mathbf{+0.548}$ & \textbf{0.67} & 44 \\
+EAP-IG path, $s=5$, \texttt{kl} & $+0.521$ & 0.67 & 45 \\
+EAP-IG path, $s=5$, \texttt{target}, \texttt{-{}-against gold} & $+0.600$ & 0.67 & 42 \\
+EAP-IG path, $s=5$, \texttt{kl}, \texttt{-{}-against gold} & $+0.583$ & 0.67 & 41 \\
+\hline
+\end{tabular}
+\end{center}
+
+Two results, and the second was not the expected one.
+
+\textbf{Integration is the whole difference.} The first-order term at the clean point
+is close to useless here ($\rho = +0.135$); integrating the gradient along the path
+back from the mean-ablated model lifts it to $\rho = +0.548$ and its top-5 overlap
+from 0.25 to 0.67, for $3.7\times$ the cost and still $172\times$ faster than the
+sweep. The two estimators agree with each other at only $\rho = +0.100$ (top-20
+overlap 0.25), so this is not a refinement: at $s=1$ and $s=5$ they are different
+rankings and only one of them tracks the ablation. This is the saturation failure
+EAP-IG~\cite{eapig} was written for, and it is the reason the pre-registration named
+EAP-\emph{IG} rather than EAP.
+
+\textbf{The metric choice matters, but only once the two metrics are asking
+different questions.} Teacher-forced on the \emph{unablated model's own generations},
+\texttt{target} and \texttt{kl} agree at $\rho = +0.940$ (top-20 overlap 0.90) --- as
+they should, since ``keep the likelihood of what the full model said'' is then a
+mode-seeking version of ``keep the full model's distribution''. Scoring against the
+WMT reference instead (\texttt{-{}-against gold}) removes that construction and the
+two separate: $\rho = +0.784$, top-20 overlap 0.67. So the apparent null was an
+artefact of the target, not evidence against Zhang \& Nanda~\cite{metricchoice}, and
+the reportable form of the result is that on this task the \emph{target} choice
+dominates the \emph{metric} choice.
+
+Scoring against the reference also tracks the sweep slightly better
+($\rho = +0.600$ for \texttt{target}, $+0.583$ for \texttt{kl}, both at top-5 overlap
+0.67), which is what should be expected: $\Delta$BLEU is measured against those same
+references, so the reference-scored attribution and the measurement it is checked
+against are asking one question and the self-scored one is asking two.
+
+A caveat that applies to both: what is estimated is a per-token likelihood and what the
+sweep measures is corpus BLEU over a 64-token greedy generation. Attribution cannot see
+a component that changes the generation without changing next-token likelihood along the
+teacher-forced path, and the residual disagreement at $\rho = 0.55$ is an upper bound on
+how much of that there is, not a measurement of the approximation error alone.
+
+\subsection{Node and edge attribution}
+
+The same pass runs at edge granularity, scoring (source, reader) pairs rather than
+components, and a source's edges sum \emph{exactly} to its node score --- two routes to
+one number, checked to float noise on GPT-2 small
+(\texttt{tests/attribution.py::test\_an\_edge\_attribution\_sums\_to\_the\_node\_attribution\_of\_the\_same\_pass}).
+Two things had to be right for that to hold, and both were wrong first. A gradient read
+by hooking the tensor a destination was handed picks up the residual stream's other uses
+as well, counting every downstream path once per upstream destination; the partial
+derivative through one reader needs a zero tensor added on that reader's path alone.
+And every source also writes straight to the unembedding --- an edge no ablation-based
+method enumerates, because nothing ablates it --- without which a late layer's MLP scores
+near zero per edge while scoring large as a node.
+
+That sum is also what is lost going the other way. Nothing in a node score says which
+reader the damage was done to, which is the structure post-hoc weight-space methods give
+up when they collapse back to per-unit scores.
+
+\section{Sheaf/DiscoGP Weight Pruning}\label{sec:sheaf}
+
+Parallel to the Phase~1b knockout work, we implemented differentiable weight masking
+(equivalently, a ``sheaf'' or DiscoGP-style circuit: a gate per weight over all 28 blocks
+of Qwen3-1.7B, \textbf{1,409,286,144 gates}).
+
+\subsection{Objective}
+
+A learned mask \(m \in [0,1]^\text{weights}\) is sampled via the Gumbel-sigmoid trick and
+applied elementwise to the frozen weights:
+\[
+\mathcal{L} = \underbrace{\text{KL}(p_\text{masked} \parallel p_\text{full})}_{\text{faithfulness}}
++ \lambda \underbrace{\|m\|_1}_\text{sparsity}
++ \gamma \underbrace{(\text{accuracy complement})}_\text{completeness}
+\]
+
+\subsection{Runs and results}
+
+Five runs with different faithfulness objectives and density targets on a word-level
+translation frame (\texttt{Spanish: \textless word\textgreater \textbackslash n English:})
+with 467 distinct prompts ($\sim$350 training split):
+
+\[
+\begin{array}{lcccccc}
+\text{Run} & \text{Density} & \text{Held-out} & \text{Recovered} & \text{Train} & \text{Complement} & \text{First token} \\ \hline
+\text{kl-t005} & 5.2\% & 0.674 & 0.34 & 0.926 & 0.489 & 0.016 \\
+\text{kl-t005-frame} & 8.1\% & 0.624 & 0.28 & 0.968 & 0.527 & 0.172 \\
+\text{gold-t02} & 15.2\% & 0.720 & \textbf{0.47} & 0.988 & 0.516 & 0.453 \\
+\text{kl-t02-dual} & 19.1\% & 0.710 & 0.45 & 0.982 & 0.489 & 0.297 \\
+\text{gold-t02-units} & 22.8\% & 0.613 & 0.26 & 0.993 & 0.425 & 0.383 \\ \hline
+\text{Chance floor} & --- & 0.477 & 0.00 & 0.477 & --- & --- \\
+\text{Full model} & 100\% & --- & 1.00 & --- & --- & 0.629 \\
+\end{array}
+\]
+
+\subsection{Mask capacity failure}\label{sec:capacity}
+
+Three readings:
+
+\paragraph{1. Train/held-out gap is the constant of the sweep.}
+Train 0.93--0.99 vs held-out 0.61--0.72 at every density, under every objective.
+This is \textbf{1.4 billion free bits fitting $\sim$350 examples}.
+
+\paragraph{2. The headline is read off the wrong scale.}
+The metric is \(\text{answer logit} > \text{distractor logit}\). The floor at all-gates-shut
+is 0.477. A circuit at 0.720 has recovered 46\% of the available range, not 72\%.
+
+\paragraph{3. The completeness term measures destruction.}
+Complement accuracy is 0.425--0.527 against a 0.477 floor: noise. McGrath et
+al.~\cite{hydra} (``Hydra Effect'', 2307.15771) show a healthy complement \emph{should}
+still work---so the completeness term rewards breaking shared machinery.
+
+\paragraph{Why IOI on GPT-2 small escapes this.} Four differences:
+
+\[
+\begin{array}{lcc}
+& \text{IOI / GPT-2 small} & \text{Translation / Qwen3-1.7B} \\ \hline
+\text{Gates} & 85\text{M} & 1{,}409\text{M} \\
+\text{Distinct prompts} & \text{templated, 10k+} & 467 \\
+\text{Contrast} & \text{logit diff \textbf{within one prompt}} & \text{answer vs another's answer} \\
+\text{Answer = argmax} & 98.4\% & 52.4\% \\
+\end{array}
+\]
+
+The within-prompt contrast cancels ``how do I continue text at all.'' The
+gate/prompt ratio differs by $\sim$3 orders of magnitude.
+
+\section{Edge Pruning: The Fix}\label{sec:edges}
+
+Following Bhaskar et al.~\cite{edgepruning} (``Finding Transformer Circuits with
+Edge Pruning'', arXiv:2406.16778), we prune \textbf{edges of the residual-stream
+computation graph} rather than weights.
+
+\paragraph{Capacity argument.} A 28-layer, 16-head model admits $\sim$14k edges against
+1.4B weights---five orders of magnitude less freedom. An edge is also the unit the word
+``circuit'' actually refers to.
+
+\subsection{GPT-2 small IOI: Validation}
+
+2028 edge gates, $\sim$380 distinct prompts, KL faithfulness, 2500 steps.
+
+\[
+\begin{array}{lcc}
+& \text{Weight mask} & \text{Edge mask} \\ \hline
+\text{Gates} & 85\text{M} & 2{,}028 \\
+\text{Train} & 0.93--0.99 & 0.712 \\
+\text{Held-out} & 0.61--0.72 & \textbf{0.685} \\
+\text{\textbf{Gap}} & \textbf{+0.27} & \textbf{+0.027} \\
+\end{array}
+\]
+
+The memorisation gap closes from +0.27 to $\pm$0.03.
+
+\paragraph{Density/accuracy relation is monotone:}
+\[
+\begin{array}{lccccccc}
+\text{Edges open} & 100\% & 64.7\% & 45.7\% & 32.0\% & 26.2\% & 21.5\% & 17.3\% & 7.6\% \\ \hline
+\text{Held-out} & 1.000 & 1.000 & 1.000 & 1.000 & 0.969 & 0.938 & 0.750 & 0.685 \\
+\end{array}
+\]
+
+\paragraph{Qualitative match to Wang et al.} At 7.6\% density: all three
+duplicate-token heads (0.1, 0.10, 3.0), induction head (5.9), two S-inhibition heads
+(7.3, 7.9), two of three name movers (9.6, 9.9), and the specific edges
+\texttt{head:7:9 $\to$ attn:9}, \texttt{head:7:3 $\to$ attn:10}, \texttt{head:7:9
+$\to$ attn:10} (S-inhibition writing into name movers' input).
+
+\paragraph{Random-edge control.} Five random 155-edge subsets:
+\[
+\begin{array}{lcc}
+& \text{Held-out} & \text{First token} \\ \hline
+\text{Learned, 155 of 2028} & \textbf{0.685} & \textbf{0.472} \\
+\text{Random (5 seeds)} & 0.370--0.480 & 0.000 (\text{every seed}) \\
+\end{array}
+\]
+
+\subsection{Qwen3-1.7B translation: Main result}
+
+14,140 edge gates (vs 1.4B weight gates), 900 steps, 25\% density target, the same
+word-level translation frame and prompt pool as \S\ref{sec:sheaf}.
+
+\[
+\begin{array}{lcc}
+& \text{Weight mask (best)} & \textbf{Edge mask} \\ \hline
+\text{Gates} & 1{,}409{,}286{,}144 & 14{,}140 \\
+\text{Density} & 15.2\% \text{ of weights} & 26.3\% \text{ of edges (3,720)} \\
+\text{Held-out ranking} & 0.720 & \textbf{1.000} \\
+\text{Recovered} & 0.47 & \textbf{1.00} \\
+\text{\textbf{Train $-$ held-out}} & \textbf{+0.27} & \textbf{0.000} \\
+\text{First token} & 0.453\;(64\%\text{ of full}) & \textbf{0.624}\;(99.2\%\text{ of full}) \\
+\text{Complement} & 0.516 & 0.462 \\
+\text{Wall clock} & 1\text{h}58\text{m} & 42\text{m} \\
+\end{array}
+\]
+
+\paragraph{Random-edge control (3 seeds).}
+\[
+\begin{array}{lcc}
+& \text{Held-out} & \text{First token} \\ \hline
+\text{Learned, 3,720 of 14,140} & \textbf{1.000} & \textbf{0.624} \\
+\text{Random (3 seeds)} & 0.446 / 0.478 / 0.462 & 0.000 \text{(every seed)} \\
+\end{array}
+\]
+
+\paragraph{Generations (greedy, held-out prompts, 6 tokens):}
+\[
+\begin{array}{ll}
+\texttt{Spanish: hoy \textbackslash n English:} & \text{full: today, circuit: today} \\
+\texttt{Spnish: pantalla \textbackslash n English:} & \text{full: screen, circuit: screen} \\
+\texttt{Spnish: longitud \textbackslash n English:} & \text{full: length, circuit: length} \\
+\texttt{Spanish: compartir \textbackslash n English:} & \text{full: share, circuit: share} \\
+\texttt{Spanish: paranoia \textbackslash n English:} & \text{full: paranoia, circuit: paranoia} \\
+\end{array}
+\]
+
+Full translations, not degenerate repetition. The continuation after the answer is still
+degraded (multi-position KL is the next improvement).
+
+\section{Summary of Methods and Tools}
+
+\begin{itemize}
+\item \textbf{Models:} Qwen3-8B (primary, bf16), Qwen2.5-3B (fast iteration,
+  bf16), Qwen3-1.7B (sheaf runs), GPT-2 small (IOI control).
+\item \textbf{Frameworks:} TransformerLens hooks (Phase 0/1a/1b), nnsight
+  (future), PyTorch + uv, Hydra composition, MLflow tracing.
+\item \textbf{Metrics:} COMET-22 (XLM-R-large), sacreBLEU, chrF, KL divergence,
+  logit difference, degeneracy, first-token accuracy, recovered = (accuracy -
+  chance) / (full - chance).
+\item \textbf{Data:} WMT14 ES$\rightarrow$EN (~30k dev, ~3k test), FLORES-100 es\_dev
+  (1k sentences), word-level translation frame (467 prompts).
+\item \textbf{Methods employed:}
+  \begin{itemize}
+  \item Neuron-level cross-lingual activation scan (Phase 1a).
+  \item Mean ablation knockout with counterfactual reference + random control
+    (Phase 1b, first two iterations -- now retired as a discovery method).
+  \item Attribution / EAP-IG (Phase 1b, revised -- primary discovery,
+    implemented in \texttt{src/methods/attribution.py}; see
+    \S\ref{sec:attribution}). CircuitLasso as a cross-check remains
+    unimplemented.
+  \item Differentiable weight masking / DiscoGP sheaf (independent parallel track
+    -- identified the capacity failure).
+  \item Edge pruning (Bhaskar et al. 2024) -- the fix that closes the gap and
+    produces the only unretracted result in this document.
+  \item ArXiv-supported literature methods: subspace-intervened path patching
+    (Zhang et al. 2025), ACDC (Conmy et al.), EAP-IG, CircuitLasso, DAS,
+    transcoders.
+  \end{itemize}
+\end{itemize}
+
+\section{Pre-registered Decision Criteria}
+
+\[
+\begin{array}{lc}
+\textbf{Circuit exists} & \text{Phase 1: component set $\leq$ 25\% FLOPs whose ablation
+  drops $\Delta$COMET $\geq$ 2.0 pts}\\
+\textbf{Circuit is separable} & \text{Phase 2b: general-task $\Delta$COMET from same ablation
+  $<$ half of translation drop} \\
+\textbf{Speedup claim} & \text{Phase 3: Arm C beats Arm B by $\geq$ 0.5 COMET at the
+  same FLOPs budget} \\
+\textbf{Negative} & \text{Arm C $\approx$ Arm B at every budget --- publish
+  the localisation + negative efficiency result} \\
+\end{array}
+\]
+
+\textbf{Amendment (2026-08-31):} No $\Delta$BLEU / $\Delta$COMET is quotable
+from an arm whose degeneracy is non-zero. Survival is a precondition of the test, not an outcome of it.
+
+\begin{thebibliography}{99}
+
+\bibitem{ioi} K. Wang, A. Variengien, A. Conmy, B. Shlegeris,\& J. Steinhardt,
+  ``Interpretability in the Wild: a Circuit for Indirect Object Identification in
+  GPT-2 Small,'' \arXiv{2211.00593}, 2022.
+
+\bibitem{zhang2025} Z. Zhang et al., ``Exploring the Translation Mechanism of
+  LLMs: A Circuit Decomposition Approach,'' \arXiv{2502.11806}, NeurIPS 2025.
+
+\bibitem{languageneurons} T. Tang, W. Luo, H.ang, D. Wu, J. Fu,  \& F.
+  Huang, ``Language-Speific Neurons,'' \arXiv{2402.16438}, ACL 2024.
+
+\bibitem{harasse} M. Harrasse, R. West \& U. Monea, ``Charactrizing & Tracing
+  Multilingual Knowledge in LLMs,'' \arXiv{2511.10840}, 2025.
+
+\bibitem{schut} L. Sch\"ut, M. Gal, \& S. Farquhar, ``Do Multilingual LLMs Think
+  In English?,'' \arXiv{2502.15603}, 2025.
+
+\bibitem{sepating} H. Dumas, C. Wendler, D. Veselovsky, G. Monea, \& R. West,
+  ``Separating Tongue from Thought: Activation Patching Reveals
+  Language-Agnostic Concept Representations in Transformers,'' \arXiv{2411.08745},
+  2024.
+
+\bibitem{transationswitch} L. Wu, Y. Chen, \& H. Zhao, ``Finding the Translation
+  Switch: Task-Initiation Features in Multilingual LLMs,'' \arXiv{2601.11019},
+  AAAI 2026.
+
+\bibitem{brinkmann} J. Brinkmann, A. Sinha, M. Retana, C. Lawrence, \& A.
+  Mathew, ``Cross-Lingual Sparse Autoencoders Interpret Multilingual Transformer
+  Representations,'' \arXiv{2501.06346}, 2025.
+
+\bibitem{dejavu} Z. Liu, J. Wang, T. Dao, T. Zhou, E. Yuan, M. Song, A. Shrivastava,
+  C. Zhang, J. Ngiam, \& C. Finn, ``Deja Vu: Contextual Sparsity for Efficient
+  LLMs at Inference Time,'' \arXiv{2310.17157}, 2023.
+
+\bibitem{circuitlasso} Y. Yin, S. Li, \& J. Bai, ``CircuitLasso: Scalable Circuit
+  Learning with Sparse Linear Regression,'' \arXiv{2606.16939}, 2026.
+
+\bibitem{pie} Z. Chen, Y. He, \& M. Mesgarani, ``PIE: Prune, Interpret, Evaluate
+  a l'Activation Patching,'' \arXiv{2604.16889}, 2026.
+
+\bibitem{kervadec} M. Kervadec, K. Lysova, M. Baroni, \& G. Boleda, ``Sparse or
+  Dense? Measuring Computation Density in LLMs,'' \arXiv{2601.22795}, 2026.
+
+\bibitem{hydra} A. McGrath, M. Bernardi, M. Telgarsky, \& C. Baldassi, ``The
+  Hydra Effect: Multi-Head Attention Is Additively Decomposable but the Heads Are
+  Not Independent,'' \arXiv{2307.15771}, 2023.
+
+\bibitem{edgepruning} A. Bhaskar, A. Wettig, D. Friedman, \& D. Chen, ``Finding
+  Transformer Circuits with Edge Pruning,'' \arXiv{2406.16778}, 2024.
+
+\bibitem{survey2026} Z. Liu et al., ``Circuit Discovery in Language Models: A
+  Survey,'' \arXiv{2607.07316}, 2026.
+
+\bibitem{mib} S. Marks, A. Renda, C. Olsson, \& N. Nanda, ``MIB: A Modular
+  Benchmark for Circuit Localisation,'' \arXiv{2504.13151}, 2025.
+
+\bibitem{optimalablation} Y. Li \& L. Janson, ``Optimal Ablation for
+  Interpretability,'' \arXiv{2409.09951}, NeurIPS 2024.
+
+\bibitem{subspacepatching} A. Makelov, L. Lange, \& N. Nanda, ``Is This the
+  Subspace You Are Looking For? An Interpretability Illusion in Activation
+  Patching,'' \arXiv{2311.17030}, 2023.
+
+\bibitem{goldowsky} N. Goldowsky-Dill, C. MacLeod, L. Sato, \& A. Arora,
+  ``Localizing Model Behavior with Path Patching,'' \arXiv{2304.05969}, 2024.
+
+\bibitem{acdc} A. Conmy, A. N. Mavor-Parker, A. Lynch, S. Heimersheim, \& A.
+  Garriga-Alonso, ``Towards Automated Circuit Discovery for Mechanistic
+  Interpretability,'' \arXiv{2304.14997}, 2023.
+
+\bibitem{liang2026} M. Liang et al., ``Neural FOXP2: SVD Steering Geometry for
+  Language Defaultness,'' \arXiv{2602.00945}, 2026.
+
+\bibitem{attributionpatching} N. Nanda, ``Attribution Patching: Activation
+  Patching at Industrial Scale,'' neelnanda.io, 2023.
+
+\bibitem{syed} A. Syed, C. Rager, \& A. Conmy, ``Attribution Patching
+  Outperforms Automated Circuit Discovery,'' \arxiv{2310.10348}, 2023.
+
+\bibitem{eapig} M. Hanna, S. Pezzelle, \& Y. Belinkov, ``Have Faith in
+  Faithfulness: Going Beyond Circuit Overlap When Finding Model Mechanisms,''
+  \arxiv{2403.17806}, 2024.
+
+\bibitem{metricchoice} F. Zhang \& N. Nanda, ``Towards Best Practices of
+  Activation Patching in Language Models: Metrics and Methods,''
+  \arxiv{2309.16042}, ICLR 2024.
+
+\end{thebibliography}
+
+\end{document}

@@ -1,0 +1,31 @@
+# The model WorkspaceBench reads: every bank's rollouts and responses are this
+# checkpoint's outputs, so a readout baseline scored against those banks has to
+# be this checkpoint and not a smaller one that would be easier to load.
+#
+# 54 GB of bfloat16 weights against the GB10's 121 GB of unified memory. That
+# fits with a desktop running and nothing else large, but it is unified memory
+# at LPDDR5X bandwidth -- generation is bandwidth-bound and slow, so batch_size
+# is small and max_new_tokens is the fewest that shows whether the answer is
+# right. Unlike qwen3.5-27b this names a backend that is actually registered.
+#
+# The architecture is `qwen3_5`, which only transformers 5 knows, and COMET and
+# circuit-tracer both hold the default environment on 4. So it runs in the
+# `hybrid` dependency group, and loading peaks ~36 GB above the resident 50 GB
+# for the four minutes the weights stream in -- close the large desktop apps:
+#   uv run --no-group comet --group hybrid python -m scripts.wsbench_baseline qwen3.6-27b
+# It is a hybrid stack: three blocks in four are linear attention, which the
+# adapter reads and steers like any block but has no heads on (see
+# `LINEAR_MIXERS` in the backend). Head-level methods run on the other sixteen.
+#
+# chat is false on purpose. The single-token banks are completion prompts --
+# "...the element with atomic number 26 is " -- and a chat template would put a
+# turn boundary between the prompt and the token the readout is taken at.
+id: qwen3.6-27b
+backend: transformers
+hf_name: Qwen/Qwen3.6-27B
+probe_layer_frac: 0.65
+batch_size: 4
+device: auto
+dtype: bfloat16
+max_new_tokens: 16
+chat: false

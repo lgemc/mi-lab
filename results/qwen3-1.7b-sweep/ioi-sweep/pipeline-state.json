@@ -1,0 +1,34 @@
+{
+  "done": {
+    "scripts.sheaf:prune-s0.01": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 7025.4
+    },
+    "scripts.sheaf_infer:infer-s0.01": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 24.6
+    },
+    "scripts.sheaf_extract:extract-s0.01": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 21.7
+    },
+    "scripts.sheaf:prune-s0.03": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 7016.5
+    },
+    "scripts.sheaf_infer:infer-s0.03": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 25.4
+    },
+    "scripts.sheaf_extract:extract-s0.03": {
+      "invocations": 1,
+      "budget_exits": 0,
+      "seconds": 22.1
+    }
+  }
+}

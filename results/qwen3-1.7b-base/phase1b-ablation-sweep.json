@@ -1,0 +1,117 @@
+{
+  "protocol": "mean ablation (Wang et al. 2211.00593 knockout) per component, mean taken over the counterfactual prompt distribution -- eval prompt with the translation logic removed; greedy translation of the WMT shortlist (few-shot, 64 new tokens); score = baseline corpus BLEU minus ablated corpus BLEU. Layer-level components on 497 sentences, single heads on 248.",
+  "baseline": {
+    "bleu_eval": 36.49,
+    "bleu_head": 36.03,
+    "sentences": {
+      "eval": 497,
+      "head": 248
+    },
+    "seconds": 45.0
+  },
+  "counterfactual_mean_tokens": 70635,
+  "components_scored": 14,
+  "wall_seconds_total": 671.0,
+  "ranked": [
+    {
+      "component": "mlp:23",
+      "bleu": 34.27,
+      "dbleu": 2.22,
+      "sentences": 497,
+      "seconds": 45.0
+    },
+    {
+      "component": "mlp:27",
+      "bleu": 34.3,
+      "dbleu": 2.19,
+      "sentences": 497,
+      "seconds": 45.0
+    },
+    {
+      "component": "mlp:26",
+      "bleu": 34.61,
+      "dbleu": 1.88,
+      "sentences": 497,
+      "seconds": 44.7
+    },
+    {
+      "component": "mlp:21",
+      "bleu": 34.8,
+      "dbleu": 1.69,
+      "sentences": 497,
+      "seconds": 44.9
+    },
+    {
+      "component": "mlp:24",
+      "bleu": 35.15,
+      "dbleu": 1.34,
+      "sentences": 497,
+      "seconds": 45.0
+    },
+    {
+      "component": "mlp:25",
+      "bleu": 35.58,
+      "dbleu": 0.91,
+      "sentences": 497,
+      "seconds": 44.7
+    },
+    {
+      "component": "mlp:22",
+      "bleu": 35.59,
+      "dbleu": 0.9,
+      "sentences": 497,
+      "seconds": 44.7
+    },
+    {
+      "component": "heads:22",
+      "bleu": 35.98,
+      "dbleu": 0.51,
+      "sentences": 497,
+      "seconds": 44.6
+    },
+    {
+      "component": "heads:23",
+      "bleu": 36.34,
+      "dbleu": 0.15,
+      "sentences": 497,
+      "seconds": 44.4
+    },
+    {
+      "component": "heads:25",
+      "bleu": 36.41,
+      "dbleu": 0.08,
+      "sentences": 497,
+      "seconds": 44.5
+    },
+    {
+      "component": "heads:26",
+      "bleu": 36.48,
+      "dbleu": 0.01,
+      "sentences": 497,
+      "seconds": 44.3
+    },
+    {
+      "component": "heads:27",
+      "bleu": 36.48,
+      "dbleu": 0.01,
+      "sentences": 497,
+      "seconds": 44.4
+    },
+    {
+      "component": "heads:24",
+      "bleu": 36.52,
+      "dbleu": -0.03,
+      "sentences": 497,
+      "seconds": 44.4
+    },
+    {
+      "component": "heads:21",
+      "bleu": 36.62,
+      "dbleu": -0.13,
+      "sentences": 497,
+      "seconds": 45.4
+    }
+  ],
+  "comet_top": null,
+  "command": "uv run python -m scripts.phase1b_ablation qwen3-1.7b-base sweep <group> (chained), then assemble"
+}

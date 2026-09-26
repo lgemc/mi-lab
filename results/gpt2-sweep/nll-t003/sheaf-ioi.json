@@ -5,14 +5,23 @@
   "layers": null,
   "n_layers": 12,
   "gates": 85017600,
-  "open": 1886655,
-  "density": 0.022191,
+  "open": 1509157,
+  "density": 0.017751,
   "n_edges": 0,
   "n_edges_open": 0,
+  "n_pinned": 0,
+  "n_restarts": 0,
   "edge_density": null,
-  "accuracy": 0.9685,
-  "train_accuracy": 0.9818,
-  "complement_accuracy": 0.4409,
+  "accuracy": 0.9213,
+  "best_accuracy": 1.0,
+  "best_density": 1.0,
+  "best_step": 0,
+  "best_edges_open": null,
+  "recovered": 0.8348,
+  "first_token": 0.8504,
+  "baseline_first_token": 0.9843,
+  "train_accuracy": 0.9584,
+  "complement_accuracy": 0.4646,
   "baseline_accuracy": 1.0,
   "band_control": {
     "open": 1.0,
@@ -21,6 +30,7 @@
   "settings": {
     "size": 512,
     "seed": 0,
+    "probe_size": 128,
     "steps": 2000,
     "batch": 8,
     "rate": 0.1,
@@ -33,8 +43,17 @@
     "init": 1.0,
     "temperature": 1.0,
     "anneal": false,
-    "target": 0.03
+    "target": 0.03,
+    "protect": 0.0,
+    "warmup": null,
+    "dual_rate": null,
+    "dual_restart": false,
+    "granular": null,
+    "attribute": 0,
+    "init_low": 2.0
   },
+  "units": null,
+  "edges_open": null,
   "budget": {
     "gates": 85017600,
     "optimizer_gib": 1.27,
@@ -55,62 +74,62 @@
     },
     {
       "step": 333,
-      "loss": 5.3281,
-      "faith": 1.7532,
-      "open": 0.5687,
-      "complete": 0.7116,
-      "price": 5.91
+      "loss": 5.2854,
+      "faith": 1.6853,
+      "open": 0.5695,
+      "complete": 0.712,
+      "price": 5.95
     },
     {
       "step": 666,
-      "loss": 9.1962,
-      "faith": 0.1746,
-      "open": 0.3989,
-      "complete": 0.7014,
-      "price": 22.09
+      "loss": 10.8983,
+      "faith": 0.0027,
+      "open": 0.399,
+      "complete": 0.7075,
+      "price": 26.78
     },
     {
       "step": 999,
-      "loss": 20.4035,
-      "faith": 0.0583,
-      "open": 0.2009,
-      "complete": 0.705,
-      "price": 100.22
+      "loss": 24.4138,
+      "faith": 0.7471,
+      "open": 0.2085,
+      "complete": 0.7167,
+      "price": 112.5
     },
     {
       "step": 1332,
-      "loss": 12.3184,
-      "faith": 0.0006,
-      "open": 0.1017,
-      "complete": 0.7074,
-      "price": 119.04
+      "loss": 14.2153,
+      "faith": 0.068,
+      "open": 0.1064,
+      "complete": 0.7023,
+      "price": 130.92
     },
     {
       "step": 1665,
-      "loss": 8.0385,
-      "faith": 0.0001,
-      "open": 0.0702,
-      "complete": 0.697,
-      "price": 111.59
+      "loss": 9.6718,
+      "faith": 0.0161,
+      "open": 0.0739,
+      "complete": 0.701,
+      "price": 127.79
     },
     {
       "step": 1998,
-      "loss": 6.6843,
-      "faith": 0.0063,
-      "open": 0.0674,
-      "complete": 0.6968,
-      "price": 95.98
+      "loss": 7.5523,
+      "faith": 0.332,
+      "open": 0.0624,
+      "complete": 0.6982,
+      "price": 112.27
     },
     {
       "step": 1999,
-      "loss": 6.6716,
-      "faith": 0.0007,
-      "open": 0.0673,
-      "complete": 0.7016,
-      "price": 95.93
+      "loss": 7.7699,
+      "faith": 0.5464,
+      "open": 0.0625,
+      "complete": 0.7007,
+      "price": 112.24
     }
   ],
   "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by e4c92bb (gates were sampled at evaluation, so accuracy never depended on them); with that fixed the density/accuracy relation is incoherent rather than poor. Read this artifact as a run of the method, not as a result from it, until a sweep is monotone in density.",
-  "journal": "journals/20260902-235004-gpt2-small-ioi",
-  "command": "uv run python -m scripts.sheaf_prune gpt2-small --task ioi --steps 2000 --size 512 --faith nll --seed 0 --batch 8 --target 0.03 --no-save-gates"
+  "journal": "journals/20260904-180823-gpt2-small-ioi",
+  "command": "uv run python -m scripts.sheaf run=gpt2-ioi-nll-t003"
 }

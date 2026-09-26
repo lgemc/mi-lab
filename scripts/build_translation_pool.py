@@ -72,6 +72,7 @@ from src.data.tasks import single_tokens
 from src.data.translation import WORD_FRAME, pool_path
 from src.model.adapter import load_adapter
 from src.telemetry.observe import Progress, banner, log
+from src.telemetry.tracking import tracked_main
 
 MUSE = "https://dl.fbaipublicfiles.com/arrival/dictionaries/es-en.txt"
 EXTERNAL = Path("data/external/translation")
@@ -235,4 +236,4 @@ def main() -> None:
         f"against 18 / 7 from the built-in list")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[Path("data")])

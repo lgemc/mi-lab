@@ -1,0 +1,1146 @@
+{
+  "protocol": "an edge circuit reduced to components and the paths between them. Degrees are against what each source could reach, never against the model: a source at layer 0 can reach every later destination and one at the last layer can reach almost none, so a raw out-degree means opposite things at the two ends. `sources_split` is the count kept for some readers and cut for others, which is the claim no weight mask can express.",
+  "config": "gpt2-small",
+  "task": "ioi",
+  "n_edges": 2028,
+  "n_edges_open": 155,
+  "edge_density": 0.07643,
+  "n_sources": 168,
+  "sources_all_kept": 1,
+  "sources_all_cut": 114,
+  "sources_split": 53,
+  "heads_in_circuit": [
+    "head:0:9",
+    "head:0:1",
+    "head:0:8",
+    "head:0:7",
+    "head:0:2",
+    "head:0:5",
+    "head:1:11",
+    "head:1:4",
+    "head:2:8",
+    "head:4:0",
+    "head:0:0",
+    "head:0:10",
+    "head:0:11",
+    "head:1:8",
+    "head:3:0",
+    "head:7:9",
+    "head:0:6",
+    "head:10:10",
+    "head:10:4",
+    "head:1:0",
+    "head:1:10",
+    "head:1:3",
+    "head:1:5",
+    "head:1:7",
+    "head:1:9",
+    "head:2:0",
+    "head:2:10",
+    "head:2:11",
+    "head:2:7",
+    "head:3:4",
+    "head:4:10",
+    "head:4:4",
+    "head:5:9",
+    "head:6:11",
+    "head:7:3",
+    "head:8:0",
+    "head:9:2",
+    "head:9:6",
+    "head:9:8",
+    "head:9:9"
+  ],
+  "mlps_in_circuit": [
+    "mlp:0",
+    "mlp:1",
+    "mlp:3",
+    "mlp:7",
+    "mlp:2",
+    "mlp:8",
+    "mlp:10",
+    "mlp:4",
+    "mlp:5",
+    "mlp:9",
+    "mlp:6"
+  ],
+  "components": [
+    {
+      "component": "mlp:0",
+      "kind": "mlp",
+      "layer": 0,
+      "head": null,
+      "out_kept": 21,
+      "out_available": 22,
+      "reach": 0.9545,
+      "split": true,
+      "readers": [
+        "attn:1",
+        "attn:10",
+        "attn:11",
+        "attn:2",
+        "attn:3",
+        "attn:4",
+        "attn:5",
+        "attn:6",
+        "attn:7",
+        "attn:8",
+        "attn:9",
+        "mlp:1",
+        "mlp:10",
+        "mlp:11",
+        "mlp:3",
+        "mlp:4",
+        "mlp:5",
+        "mlp:6",
+        "mlp:7",
+        "mlp:8",
+        "mlp:9"
+      ]
+    },
+    {
+      "component": "mlp:1",
+      "kind": "mlp",
+      "layer": 1,
+      "head": null,
+      "out_kept": 13,
+      "out_available": 20,
+      "reach": 0.65,
+      "split": true,
+      "readers": [
+        "attn:2",
+        "attn:3",
+        "attn:5",
+        "attn:6",
+        "attn:7",
+        "attn:9",
+        "mlp:10",
+        "mlp:3",
+        "mlp:5",
+        "mlp:6",
+        "mlp:7",
+        "mlp:8",
+        "mlp:9"
+      ]
+    },
+    {
+      "component": "bias:0",
+      "kind": "bias",
+      "layer": 0,
+      "head": null,
+      "out_kept": 9,
+      "out_available": 23,
+      "reach": 0.3913,
+      "split": true,
+      "readers": [
+        "attn:1",
+        "mlp:0",
+        "mlp:1",
+        "mlp:2",
+        "mlp:4",
+        "mlp:5",
+        "mlp:6",
+        "mlp:8",
+        "mlp:9"
+      ]
+    },
+    {
+      "component": "head:0:9",
+      "kind": "head",
+      "layer": 0,
+      "head": 9,
+      "out_kept": 9,
+      "out_available": 23,
+      "reach": 0.3913,
+      "split": true,
+      "readers": [
+        "attn:1",
+        "attn:2",
+        "mlp:1",
+        "mlp:2",
+        "mlp:3",
+        "mlp:4",
+        "mlp:6",
+        "mlp:7",
+        "mlp:8"
+      ]
+    },
+    {
+      "component": "head:0:1",
+      "kind": "head",
+      "layer": 0,
+      "head": 1,
+      "out_kept": 7,
+      "out_available": 23,
+      "reach": 0.3043,
+      "split": true,
+      "readers": [
+        "attn:1",
+        "attn:10",
+        "attn:4",
+        "mlp:0",
+        "mlp:4",
+        "mlp:5",
+        "mlp:7"
+      ]
+    },
+    {
+      "component": "head:0:8",
+      "kind": "head",
+      "layer": 0,
+      "head": 8,
+      "out_kept": 6,
+      "out_available": 23,
+      "reach": 0.2609,
+      "split": true,
+      "readers": [
+        "attn:1",
+        "attn:10",
+        "attn:9",
+        "mlp:0",
+        "mlp:1",
+        "mlp:2"
+      ]
+    },
+    {
+      "component": "mlp:3",
+      "kind": "mlp",
+      "layer": 3,
+      "head": null,
+      "out_kept": 6,
+      "out_available": 16,
+      "reach": 0.375,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "attn:7",
+        "attn:9",
+        "mlp:11",
+        "mlp:5",
+        "mlp:9"
+      ]
+    },
+    {
+      "component": "mlp:7",
+      "kind": "mlp",
+      "layer": 7,
+      "head": null,
+      "out_kept": 5,
+      "out_available": 8,
+      "reach": 0.625,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "attn:9",
+        "mlp:10",
+        "mlp:11",
+        "mlp:9"
+      ]
+    },
+    {
+      "component": "head:0:7",
+      "kind": "head",
+      "layer": 0,
+      "head": 7,
+      "out_kept": 4,
+      "out_available": 23,
+      "reach": 0.1739,
+      "split": true,
+      "readers": [
+        "attn:1",
+        "mlp:0",
+        "mlp:1",
+        "mlp:2"
+      ]
+    },
+    {
+      "component": "mlp:2",
+      "kind": "mlp",
+      "layer": 2,
+      "head": null,
+      "out_kept": 4,
+      "out_available": 18,
+      "reach": 0.2222,
+      "split": true,
+      "readers": [
+        "attn:11",
+        "attn:4",
+        "attn:6",
+        "attn:8"
+      ]
+    },
+    {
+      "component": "mlp:8",
+      "kind": "mlp",
+      "layer": 8,
+      "head": null,
+      "out_kept": 4,
+      "out_available": 6,
+      "reach": 0.6667,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "attn:9",
+        "mlp:10",
+        "mlp:11"
+      ]
+    },
+    {
+      "component": "embed",
+      "kind": "embed",
+      "layer": null,
+      "head": null,
+      "out_kept": 3,
+      "out_available": 24,
+      "reach": 0.125,
+      "split": true,
+      "readers": [
+        "attn:0",
+        "mlp:0",
+        "mlp:1"
+      ]
+    },
+    {
+      "component": "head:0:2",
+      "kind": "head",
+      "layer": 0,
+      "head": 2,
+      "out_kept": 3,
+      "out_available": 23,
+      "reach": 0.1304,
+      "split": true,
+      "readers": [
+        "mlp:0",
+        "mlp:7",
+        "mlp:8"
+      ]
+    },
+    {
+      "component": "head:0:5",
+      "kind": "head",
+      "layer": 0,
+      "head": 5,
+      "out_kept": 3,
+      "out_available": 23,
+      "reach": 0.1304,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "attn:9",
+        "mlp:0"
+      ]
+    },
+    {
+      "component": "head:1:11",
+      "kind": "head",
+      "layer": 1,
+      "head": 11,
+      "out_kept": 3,
+      "out_available": 21,
+      "reach": 0.1429,
+      "split": true,
+      "readers": [
+        "attn:7",
+        "mlp:1",
+        "mlp:3"
+      ]
+    },
+    {
+      "component": "head:1:4",
+      "kind": "head",
+      "layer": 1,
+      "head": 4,
+      "out_kept": 3,
+      "out_available": 21,
+      "reach": 0.1429,
+      "split": true,
+      "readers": [
+        "attn:2",
+        "attn:3",
+        "mlp:9"
+      ]
+    },
+    {
+      "component": "head:2:8",
+      "kind": "head",
+      "layer": 2,
+      "head": 8,
+      "out_kept": 3,
+      "out_available": 19,
+      "reach": 0.1579,
+      "split": true,
+      "readers": [
+        "mlp:3",
+        "mlp:5",
+        "mlp:7"
+      ]
+    },
+    {
+      "component": "head:4:0",
+      "kind": "head",
+      "layer": 4,
+      "head": 0,
+      "out_kept": 3,
+      "out_available": 15,
+      "reach": 0.2,
+      "split": true,
+      "readers": [
+        "mlp:4",
+        "mlp:5",
+        "mlp:7"
+      ]
+    },
+    {
+      "component": "head:0:0",
+      "kind": "head",
+      "layer": 0,
+      "head": 0,
+      "out_kept": 2,
+      "out_available": 23,
+      "reach": 0.087,
+      "split": true,
+      "readers": [
+        "attn:7",
+        "mlp:0"
+      ]
+    },
+    {
+      "component": "head:0:10",
+      "kind": "head",
+      "layer": 0,
+      "head": 10,
+      "out_kept": 2,
+      "out_available": 23,
+      "reach": 0.087,
+      "split": true,
+      "readers": [
+        "attn:3",
+        "attn:7"
+      ]
+    },
+    {
+      "component": "head:0:11",
+      "kind": "head",
+      "layer": 0,
+      "head": 11,
+      "out_kept": 2,
+      "out_available": 23,
+      "reach": 0.087,
+      "split": true,
+      "readers": [
+        "mlp:0",
+        "mlp:1"
+      ]
+    },
+    {
+      "component": "head:1:8",
+      "kind": "head",
+      "layer": 1,
+      "head": 8,
+      "out_kept": 2,
+      "out_available": 21,
+      "reach": 0.0952,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "attn:9"
+      ]
+    },
+    {
+      "component": "head:3:0",
+      "kind": "head",
+      "layer": 3,
+      "head": 0,
+      "out_kept": 2,
+      "out_available": 17,
+      "reach": 0.1176,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "attn:9"
+      ]
+    },
+    {
+      "component": "head:7:9",
+      "kind": "head",
+      "layer": 7,
+      "head": 9,
+      "out_kept": 2,
+      "out_available": 9,
+      "reach": 0.2222,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "attn:9"
+      ]
+    },
+    {
+      "component": "mlp:10",
+      "kind": "mlp",
+      "layer": 10,
+      "head": null,
+      "out_kept": 2,
+      "out_available": 2,
+      "reach": 1.0,
+      "split": false,
+      "readers": [
+        "attn:11",
+        "mlp:11"
+      ]
+    },
+    {
+      "component": "mlp:4",
+      "kind": "mlp",
+      "layer": 4,
+      "head": null,
+      "out_kept": 2,
+      "out_available": 14,
+      "reach": 0.1429,
+      "split": true,
+      "readers": [
+        "attn:9",
+        "mlp:10"
+      ]
+    },
+    {
+      "component": "mlp:5",
+      "kind": "mlp",
+      "layer": 5,
+      "head": null,
+      "out_kept": 2,
+      "out_available": 12,
+      "reach": 0.1667,
+      "split": true,
+      "readers": [
+        "mlp:10",
+        "mlp:8"
+      ]
+    },
+    {
+      "component": "mlp:9",
+      "kind": "mlp",
+      "layer": 9,
+      "head": null,
+      "out_kept": 2,
+      "out_available": 4,
+      "reach": 0.5,
+      "split": true,
+      "readers": [
+        "attn:10",
+        "mlp:11"
+      ]
+    },
+    {
+      "component": "bias:1",
+      "kind": "bias",
+      "layer": 1,
+      "head": null,
+      "out_kept": 1,
+      "out_available": 21,
+      "reach": 0.0476,
+      "split": true,
+      "readers": [
+        "mlp:1"
+      ]
+    },
+    {
+      "component": "head:0:6",
+      "kind": "head",
+      "layer": 0,
+      "head": 6,
+      "out_kept": 1,
+      "out_available": 23,
+      "reach": 0.0435,
+      "split": true,
+      "readers": [
+        "mlp:3"
+      ]
+    },
+    {
+      "component": "head:10:10",
+      "kind": "head",
+      "layer": 10,
+      "head": 10,
+      "out_kept": 1,
+      "out_available": 3,
+      "reach": 0.3333,
+      "split": true,
+      "readers": [
+        "mlp:10"
+      ]
+    },
+    {
+      "component": "head:10:4",
+      "kind": "head",
+      "layer": 10,
+      "head": 4,
+      "out_kept": 1,
+      "out_available": 3,
+      "reach": 0.3333,
+      "split": true,
+      "readers": [
+        "mlp:11"
+      ]
+    },
+    {
+      "component": "head:1:0",
+      "kind": "head",
+      "layer": 1,
+      "head": 0,
+      "out_kept": 1,
+      "out_available": 21,
+      "reach": 0.0476,
+      "split": true,
+      "readers": [
+        "mlp:1"
+      ]
+    },
+    {
+      "component": "head:1:10",
+      "kind": "head",
+      "layer": 1,
+      "head": 10,
+      "out_kept": 1,
+      "out_available": 21,
+      "reach": 0.0476,
+      "split": true,
+      "readers": [
+        "mlp:7"
+      ]
+    },
+    {
+      "component": "head:1:3",
+      "kind": "head",
+      "layer": 1,
+      "head": 3,
+      "out_kept": 1,
+      "out_available": 21,
+      "reach": 0.0476,
+      "split": true,
+      "readers": [
+        "mlp:8"
+      ]
+    },
+    {
+      "component": "head:1:5",
+      "kind": "head",
+      "layer": 1,
+      "head": 5,
+      "out_kept": 1,
+      "out_available": 21,
+      "reach": 0.0476,
+      "split": true,
+      "readers": [
+        "attn:2"
+      ]
+    },
+    {
+      "component": "head:1:7",
+      "kind": "head",
+      "layer": 1,
+      "head": 7,
+      "out_kept": 1,
+      "out_available": 21,
+      "reach": 0.0476,
+      "split": true,
+      "readers": [
+        "mlp:1"
+      ]
+    },
+    {
+      "component": "head:1:9",
+      "kind": "head",
+      "layer": 1,
+      "head": 9,
+      "out_kept": 1,
+      "out_available": 21,
+      "reach": 0.0476,
+      "split": true,
+      "readers": [
+        "attn:7"
+      ]
+    },
+    {
+      "component": "head:2:0",
+      "kind": "head",
+      "layer": 2,
+      "head": 0,
+      "out_kept": 1,
+      "out_available": 19,
+      "reach": 0.0526,
+      "split": true,
+      "readers": [
+        "mlp:3"
+      ]
+    },
+    {
+      "component": "head:2:10",
+      "kind": "head",
+      "layer": 2,
+      "head": 10,
+      "out_kept": 1,
+      "out_available": 19,
+      "reach": 0.0526,
+      "split": true,
+      "readers": [
+        "attn:3"
+      ]
+    },
+    {
+      "component": "head:2:11",
+      "kind": "head",
+      "layer": 2,
+      "head": 11,
+      "out_kept": 1,
+      "out_available": 19,
+      "reach": 0.0526,
+      "split": true,
+      "readers": [
+        "attn:10"
+      ]
+    },
+    {
+      "component": "head:2:7",
+      "kind": "head",
+      "layer": 2,
+      "head": 7,
+      "out_kept": 1,
+      "out_available": 19,
+      "reach": 0.0526,
+      "split": true,
+      "readers": [
+        "mlp:9"
+      ]
+    },
+    {
+      "component": "head:3:4",
+      "kind": "head",
+      "layer": 3,
+      "head": 4,
+      "out_kept": 1,
+      "out_available": 17,
+      "reach": 0.0588,
+      "split": true,
+      "readers": [
+        "attn:7"
+      ]
+    },
+    {
+      "component": "head:4:10",
+      "kind": "head",
+      "layer": 4,
+      "head": 10,
+      "out_kept": 1,
+      "out_available": 15,
+      "reach": 0.0667,
+      "split": true,
+      "readers": [
+        "mlp:6"
+      ]
+    },
+    {
+      "component": "head:4:4",
+      "kind": "head",
+      "layer": 4,
+      "head": 4,
+      "out_kept": 1,
+      "out_available": 15,
+      "reach": 0.0667,
+      "split": true,
+      "readers": [
+        "mlp:5"
+      ]
+    },
+    {
+      "component": "head:5:9",
+      "kind": "head",
+      "layer": 5,
+      "head": 9,
+      "out_kept": 1,
+      "out_available": 13,
+      "reach": 0.0769,
+      "split": true,
+      "readers": [
+        "mlp:6"
+      ]
+    },
+    {
+      "component": "head:6:11",
+      "kind": "head",
+      "layer": 6,
+      "head": 11,
+      "out_kept": 1,
+      "out_available": 11,
+      "reach": 0.0909,
+      "split": true,
+      "readers": [
+        "mlp:6"
+      ]
+    },
+    {
+      "component": "head:7:3",
+      "kind": "head",
+      "layer": 7,
+      "head": 3,
+      "out_kept": 1,
+      "out_available": 9,
+      "reach": 0.1111,
+      "split": true,
+      "readers": [
+        "attn:10"
+      ]
+    },
+    {
+      "component": "head:8:0",
+      "kind": "head",
+      "layer": 8,
+      "head": 0,
+      "out_kept": 1,
+      "out_available": 7,
+      "reach": 0.1429,
+      "split": true,
+      "readers": [
+        "attn:10"
+      ]
+    },
+    {
+      "component": "head:9:2",
+      "kind": "head",
+      "layer": 9,
+      "head": 2,
+      "out_kept": 1,
+      "out_available": 5,
+      "reach": 0.2,
+      "split": true,
+      "readers": [
+        "attn:10"
+      ]
+    },
+    {
+      "component": "head:9:6",
+      "kind": "head",
+      "layer": 9,
+      "head": 6,
+      "out_kept": 1,
+      "out_available": 5,
+      "reach": 0.2,
+      "split": true,
+      "readers": [
+        "attn:10"
+      ]
+    },
+    {
+      "component": "head:9:8",
+      "kind": "head",
+      "layer": 9,
+      "head": 8,
+      "out_kept": 1,
+      "out_available": 5,
+      "reach": 0.2,
+      "split": true,
+      "readers": [
+        "attn:10"
+      ]
+    },
+    {
+      "component": "head:9:9",
+      "kind": "head",
+      "layer": 9,
+      "head": 9,
+      "out_kept": 1,
+      "out_available": 5,
+      "reach": 0.2,
+      "split": true,
+      "readers": [
+        "mlp:10"
+      ]
+    },
+    {
+      "component": "mlp:6",
+      "kind": "mlp",
+      "layer": 6,
+      "head": null,
+      "out_kept": 1,
+      "out_available": 10,
+      "reach": 0.1,
+      "split": true,
+      "readers": [
+        "mlp:7"
+      ]
+    }
+  ],
+  "destinations": [
+    {
+      "destination": "attn:0",
+      "kind": "attn",
+      "layer": 0,
+      "in_kept": 1,
+      "in_available": 1,
+      "reach": 1.0
+    },
+    {
+      "destination": "mlp:0",
+      "kind": "mlp",
+      "layer": 0,
+      "in_kept": 9,
+      "in_available": 14,
+      "reach": 0.6429
+    },
+    {
+      "destination": "attn:1",
+      "kind": "attn",
+      "layer": 1,
+      "in_kept": 6,
+      "in_available": 15,
+      "reach": 0.4
+    },
+    {
+      "destination": "mlp:1",
+      "kind": "mlp",
+      "layer": 1,
+      "in_kept": 11,
+      "in_available": 28,
+      "reach": 0.3929
+    },
+    {
+      "destination": "attn:2",
+      "kind": "attn",
+      "layer": 2,
+      "in_kept": 5,
+      "in_available": 29,
+      "reach": 0.1724
+    },
+    {
+      "destination": "mlp:2",
+      "kind": "mlp",
+      "layer": 2,
+      "in_kept": 4,
+      "in_available": 42,
+      "reach": 0.0952
+    },
+    {
+      "destination": "attn:3",
+      "kind": "attn",
+      "layer": 3,
+      "in_kept": 5,
+      "in_available": 43,
+      "reach": 0.1163
+    },
+    {
+      "destination": "mlp:3",
+      "kind": "mlp",
+      "layer": 3,
+      "in_kept": 7,
+      "in_available": 56,
+      "reach": 0.125
+    },
+    {
+      "destination": "attn:4",
+      "kind": "attn",
+      "layer": 4,
+      "in_kept": 3,
+      "in_available": 57,
+      "reach": 0.0526
+    },
+    {
+      "destination": "mlp:4",
+      "kind": "mlp",
+      "layer": 4,
+      "in_kept": 5,
+      "in_available": 70,
+      "reach": 0.0714
+    },
+    {
+      "destination": "attn:5",
+      "kind": "attn",
+      "layer": 5,
+      "in_kept": 2,
+      "in_available": 71,
+      "reach": 0.0282
+    },
+    {
+      "destination": "mlp:5",
+      "kind": "mlp",
+      "layer": 5,
+      "in_kept": 8,
+      "in_available": 84,
+      "reach": 0.0952
+    },
+    {
+      "destination": "attn:6",
+      "kind": "attn",
+      "layer": 6,
+      "in_kept": 3,
+      "in_available": 85,
+      "reach": 0.0353
+    },
+    {
+      "destination": "mlp:6",
+      "kind": "mlp",
+      "layer": 6,
+      "in_kept": 7,
+      "in_available": 98,
+      "reach": 0.0714
+    },
+    {
+      "destination": "attn:7",
+      "kind": "attn",
+      "layer": 7,
+      "in_kept": 8,
+      "in_available": 99,
+      "reach": 0.0808
+    },
+    {
+      "destination": "mlp:7",
+      "kind": "mlp",
+      "layer": 7,
+      "in_kept": 9,
+      "in_available": 112,
+      "reach": 0.0804
+    },
+    {
+      "destination": "attn:8",
+      "kind": "attn",
+      "layer": 8,
+      "in_kept": 2,
+      "in_available": 113,
+      "reach": 0.0177
+    },
+    {
+      "destination": "mlp:8",
+      "kind": "mlp",
+      "layer": 8,
+      "in_kept": 7,
+      "in_available": 126,
+      "reach": 0.0556
+    },
+    {
+      "destination": "attn:9",
+      "kind": "attn",
+      "layer": 9,
+      "in_kept": 11,
+      "in_available": 127,
+      "reach": 0.0866
+    },
+    {
+      "destination": "mlp:9",
+      "kind": "mlp",
+      "layer": 9,
+      "in_kept": 7,
+      "in_available": 140,
+      "reach": 0.05
+    },
+    {
+      "destination": "attn:10",
+      "kind": "attn",
+      "layer": 10,
+      "in_kept": 17,
+      "in_available": 141,
+      "reach": 0.1206
+    },
+    {
+      "destination": "mlp:10",
+      "kind": "mlp",
+      "layer": 10,
+      "in_kept": 8,
+      "in_available": 154,
+      "reach": 0.0519
+    },
+    {
+      "destination": "attn:11",
+      "kind": "attn",
+      "layer": 11,
+      "in_kept": 3,
+      "in_available": 155,
+      "reach": 0.0194
+    },
+    {
+      "destination": "mlp:11",
+      "kind": "mlp",
+      "layer": 11,
+      "in_kept": 7,
+      "in_available": 168,
+      "reach": 0.0417
+    }
+  ],
+  "by_layer": {
+    "0": 10,
+    "1": 17,
+    "2": 9,
+    "3": 12,
+    "4": 8,
+    "5": 10,
+    "6": 10,
+    "7": 17,
+    "8": 9,
+    "9": 18,
+    "10": 25,
+    "11": 10
+  },
+  "published_comparison": {
+    "kept": 40,
+    "of_total": 144,
+    "reference": 26,
+    "found": 9,
+    "expected_by_chance": 7.22,
+    "p_value": 0.2638,
+    "matches": [
+      {
+        "head": "0.1",
+        "role": "duplicate-token"
+      },
+      {
+        "head": "0.10",
+        "role": "duplicate-token"
+      },
+      {
+        "head": "10.10",
+        "role": "backup-name-mover"
+      },
+      {
+        "head": "3.0",
+        "role": "duplicate-token"
+      },
+      {
+        "head": "5.9",
+        "role": "induction"
+      },
+      {
+        "head": "7.3",
+        "role": "s-inhibition"
+      },
+      {
+        "head": "7.9",
+        "role": "s-inhibition"
+      },
+      {
+        "head": "9.6",
+        "role": "name-mover"
+      },
+      {
+        "head": "9.9",
+        "role": "name-mover"
+      }
+    ],
+    "missing": [
+      "10.0",
+      "10.1",
+      "10.2",
+      "10.6",
+      "10.7",
+      "11.10",
+      "11.2",
+      "11.6",
+      "2.2",
+      "4.11",
+      "5.5",
+      "5.8",
+      "6.9",
+      "8.10",
+      "8.6",
+      "9.0",
+      "9.7"
+    ]
+  },
+  "command": "uv run python -m scripts.sheaf_extract gpt2-small results/gpt2-sweep/edges-t005 --task ioi"
+}

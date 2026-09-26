@@ -44,6 +44,7 @@ from src.methods.gates import GateError, circuit_path, load_circuit, masked_weig
 from src.methods.wiring import against, reduce
 from src.model.adapter import load_adapter
 from src.telemetry.observe import banner, log
+from src.telemetry.tracking import tracked_main
 
 TOP_HEADS = 10
 TOP_EDGES = 12
@@ -190,4 +191,4 @@ def main() -> None:
         log(f"-> {path}")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-sheaves", outputs=[])

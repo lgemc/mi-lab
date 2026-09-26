@@ -21,6 +21,8 @@ from src.experiment import translation_study as study
 from src.model.adapter import load_adapter
 from src.telemetry.observe import host_memory_gib
 from src.telemetry.results import guard, merge_section, result
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 RESULTS = result("phase0-feasibility.json")
 
@@ -70,4 +72,4 @@ def main() -> None:
     print(json.dumps(json.loads(RESULTS.read_text())["model_smoke"], indent=2, ensure_ascii=False))
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

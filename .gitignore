@@ -39,3 +39,14 @@ results/**/sheaf-*-mask.pt
 results/**/*.log
 results/*.log
 *.bak
+
+# Attribution graphs: a dense adjacency over every active feature, error and
+# token node -- 2 GB for one 131-token prompt on the 1.7B, twenty times
+# GitHub's file limit. `phase1c-graphs.json` beside it carries the summary;
+# `phase1c_graphs <config> graph` rebuilds the tensor in about two minutes.
+results/**/phase1c-attribution-graph-*.pt
+
+# LaTeX build byproducts; the .tex is the source and the .pdf the output
+docs/*.aux
+docs/*.log
+docs/*.out

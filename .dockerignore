@@ -1,0 +1,12 @@
+# the image holds the code; models and circuits are mounted at run time
+results/
+journals/
+outputs/
+runs/
+multirun/
+.venv/
+.git/
+docs/
+**/__pycache__/
+*.pt
+*.pyc

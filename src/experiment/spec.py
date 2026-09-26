@@ -177,8 +177,11 @@ class TrackingSpec:
     belong in an experiment. Excluded from spec_hash with `output`, and for the
     same reason: mirroring a run's metrics somewhere does not change them, so
     a tracked run and an untracked one are the same experiment.
+
+    `auto` is the default and means tracked unless the environment or the
+    test runner says otherwise (`telemetry.tracking.default_tracking`).
     """
-    name: str = "none"
+    name: str = "auto"
 
 @dataclass
 class ExperimentSpec:

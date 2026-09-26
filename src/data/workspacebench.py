@@ -44,6 +44,29 @@ FAMILIES = (
     "relational_multihop", "role_bound_association", "typo", "typo_mt", "user_modeling",
 )
 
+# The banks a single-token readout can be asked at all: their items name a
+# prompt, the intermediates to find in it, and a read position that is one
+# token. The other sixteen either want prose back (moral_rationale,
+# agentic_misalignment) or carry no intermediates to score against, and
+# running a lens on them produces a zero that says nothing about the lens.
+SINGLE_TOKEN_BANKS = (
+    "association", "basic_readout", "basic_readout_mt", "multihop", "multihop_mt", "multilingual",
+    "multilingual_mt", "multilingual_multihop", "multilingual_typo", "typo", "typo_mt",
+)
+SINGLE_TOKEN_KINDS = ("final_prompt_token", "last_word_token")
+
+def readable(items: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The items of a bank that a one-token readout can be scored on
+
+    An item qualifies by carrying all three of the things the scoring needs --
+    a prompt to run, intermediates to look for, and a read position naming a
+    single token -- rather than by belonging to a bank named above, so a bank
+    that mixes read positions loses only the items that do not fit.
+    """
+    return [item for item in items
+            if isinstance(item.get("prompt"), str) and item.get("intermediates")
+            and (item.get("readout") or {}).get("kind") in SINGLE_TOKEN_KINDS]
+
 def fetch_bank(family: str, ref: str = COMMIT) -> Dict[str, Any]:
     """One bank whole, from GitHub: its items under 'items', and whatever else it carries
 

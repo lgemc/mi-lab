@@ -72,6 +72,40 @@ class TestConfigValidation(TestCase):
         cfg = from_mapping({"backend": "transformers", "hf_name": "gpt2"}, default_id="from-file")
         self.assertEqual("from-file", cfg.id)
 
+class TestDictionaryBlocks(TestCase):
+    """A config may name a dictionary for a model; a typo in one is an error like any other key"""
+
+    def base(self, **blocks):
+        return {"id": "x", "backend": "transformers", "hf_name": "gpt2", **blocks}
+
+    def test_a_transcoder_block_is_parsed_into_its_own_type(self):
+        cfg = from_mapping(self.base(transcoder={
+            "source": "bluelightai", "release": "bluelightai/clt-qwen3-1.7b-base-20k",
+            "kind": "cross-layer", "variance_unexplained": 0.23,
+        }))
+        self.assertEqual("cross-layer", cfg.transcoder.kind)
+        self.assertAlmostEqual(0.23, cfg.transcoder.variance_unexplained)
+        self.assertIsNone(cfg.sae)
+
+    def test_a_mistyped_key_inside_a_block_is_not_silently_dropped(self):
+        with self.assertRaises(ConfigError):
+            from_mapping(self.base(transcoder={"source": "a", "release": "b", "kindd": "per-layer"}))
+        with self.assertRaises(ConfigError):
+            from_mapping(self.base(sae={"source": "a", "release": "b", "activation": "relu"}))
+
+    def test_a_transcoder_kind_outside_the_two_that_exist_is_refused(self):
+        with self.assertRaises(ConfigError) as caught:
+            from_mapping(self.base(transcoder={"source": "a", "release": "b", "kind": "residual"}))
+        self.assertIn("cross-layer", str(caught.exception))
+
+    def test_unexplained_variance_is_a_fraction(self):
+        with self.assertRaises(ConfigError):
+            from_mapping(self.base(transcoder={"source": "a", "release": "b", "variance_unexplained": 23}))
+
+    def test_both_blocks_can_be_absent_and_usually_are(self):
+        self.assertIsNone(from_mapping(self.base()).transcoder)
+
+
 class TestShippedConfigs(TestCase):
     def test_every_shipped_config_parses(self):
         self.assertTrue(presets(), f"no configs found in {CONFIG_DIR}")

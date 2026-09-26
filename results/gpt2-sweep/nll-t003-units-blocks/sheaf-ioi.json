@@ -1,0 +1,328 @@
+{
+  "protocol": "DiscoGP (2407.03779) joint weight pruning: a gate per weight, the weights frozen, the gates trained on faith + sparsity + completeness. `density` is the fraction of *gated* weights left open, so it is only comparable across runs that gated the same band.",
+  "config": "gpt2-small",
+  "task": "ioi",
+  "layers": null,
+  "n_layers": 12,
+  "gates": 85017600,
+  "open": 2912902,
+  "density": 0.034262,
+  "n_edges": 0,
+  "n_edges_open": 0,
+  "n_pinned": 0,
+  "n_restarts": 0,
+  "edge_density": null,
+  "accuracy": 0.7165,
+  "train_accuracy": 0.8909,
+  "complement_accuracy": 0.3543,
+  "baseline_accuracy": 1.0,
+  "band_control": {
+    "open": 1.0,
+    "shut": 0.5234
+  },
+  "settings": {
+    "size": 512,
+    "seed": 0,
+    "steps": 2000,
+    "batch": 8,
+    "rate": 0.1,
+    "sparsity": 1.0,
+    "completeness": 0.3,
+    "max_times": 1000.0,
+    "holdout": 0.25,
+    "edge_sparsity": 0.0,
+    "faith": "nll",
+    "init": 1.0,
+    "temperature": 1.0,
+    "anneal": false,
+    "target": 0.03,
+    "protect": 0.0,
+    "warmup": null,
+    "dual_rate": null,
+    "dual_restart": false,
+    "granular": true,
+    "attribute": 8,
+    "init_low": 0.25
+  },
+  "units": {
+    "counts": {
+      "block": {
+        "open": 3,
+        "total": 24
+      },
+      "head": {
+        "open": 37,
+        "total": 144
+      },
+      "neuron": {
+        "open": 17684,
+        "total": 36864
+      }
+    },
+    "heads_open": [
+      [
+        0,
+        3
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        5
+      ],
+      [
+        1,
+        6
+      ],
+      [
+        1,
+        7
+      ],
+      [
+        1,
+        10
+      ],
+      [
+        2,
+        0
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        2,
+        3
+      ],
+      [
+        2,
+        4
+      ],
+      [
+        2,
+        5
+      ],
+      [
+        2,
+        6
+      ],
+      [
+        2,
+        7
+      ],
+      [
+        2,
+        8
+      ],
+      [
+        2,
+        9
+      ],
+      [
+        2,
+        10
+      ],
+      [
+        2,
+        11
+      ],
+      [
+        3,
+        1
+      ],
+      [
+        3,
+        2
+      ],
+      [
+        3,
+        3
+      ],
+      [
+        3,
+        7
+      ],
+      [
+        3,
+        9
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        4,
+        1
+      ],
+      [
+        4,
+        2
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        4,
+        5
+      ],
+      [
+        4,
+        9
+      ],
+      [
+        4,
+        11
+      ],
+      [
+        5,
+        6
+      ],
+      [
+        5,
+        8
+      ],
+      [
+        8,
+        1
+      ],
+      [
+        8,
+        5
+      ],
+      [
+        8,
+        10
+      ],
+      [
+        9,
+        3
+      ],
+      [
+        9,
+        5
+      ]
+    ],
+    "blocks_closed": [
+      "block:0:attn",
+      "block:0:mlp",
+      "block:10:attn",
+      "block:10:mlp",
+      "block:11:attn",
+      "block:11:mlp",
+      "block:1:mlp",
+      "block:2:mlp",
+      "block:3:attn",
+      "block:3:mlp",
+      "block:4:mlp",
+      "block:5:attn",
+      "block:5:mlp",
+      "block:6:attn",
+      "block:6:mlp",
+      "block:7:attn",
+      "block:7:mlp",
+      "block:8:attn",
+      "block:8:mlp",
+      "block:9:attn",
+      "block:9:mlp"
+    ],
+    "neurons_open_by_layer": {
+      "0": 1506,
+      "1": 1644,
+      "2": 1055,
+      "3": 1501,
+      "4": 1463,
+      "5": 1806,
+      "6": 1366,
+      "7": 1646,
+      "8": 1550,
+      "9": 1641,
+      "10": 1163,
+      "11": 1343
+    }
+  },
+  "budget": {
+    "gates": 85017600,
+    "optimizer_gib": 1.27,
+    "originals_gib": 0.32,
+    "model_gib": 0.46,
+    "graph_gib": 6.4,
+    "total_gib": 1.58,
+    "peak_gib": 8.44
+  },
+  "history": [
+    {
+      "step": 0,
+      "loss": 10.4849,
+      "faith": 10.0392,
+      "open": 0.2808,
+      "complete": 1.4856,
+      "price": 0.0
+    },
+    {
+      "step": 333,
+      "loss": -1.0979,
+      "faith": 1.4704,
+      "open": 0.5754,
+      "complete": 0.7504,
+      "price": -4.85
+    },
+    {
+      "step": 666,
+      "loss": 0.332,
+      "faith": 0.0879,
+      "open": 0.2402,
+      "complete": 0.7094,
+      "price": 0.13
+    },
+    {
+      "step": 999,
+      "loss": 4.6078,
+      "faith": 4.0278,
+      "open": 0.0791,
+      "complete": 0.8631,
+      "price": 4.06
+    },
+    {
+      "step": 1332,
+      "loss": 1.1349,
+      "faith": 0.9015,
+      "open": 0.0131,
+      "complete": 0.7867,
+      "price": -0.2
+    },
+    {
+      "step": 1665,
+      "loss": 1.0537,
+      "faith": 1.0165,
+      "open": 0.0193,
+      "complete": 0.7609,
+      "price": -9.88
+    },
+    {
+      "step": 1998,
+      "loss": 0.5382,
+      "faith": 0.5446,
+      "open": 0.0391,
+      "complete": 0.7021,
+      "price": -5.55
+    },
+    {
+      "step": 1999,
+      "loss": 0.0257,
+      "faith": 0.03,
+      "open": 0.0391,
+      "complete": 0.7048,
+      "price": -5.52
+    }
+  ],
+  "standing": "the method is not reproduced here. 5cc8dc3's numbers were withdrawn by e4c92bb (gates were sampled at evaluation, so accuracy never depended on them); with that fixed the density/accuracy relation is incoherent rather than poor. Read this artifact as a run of the method, not as a result from it, until a sweep is monotone in density.",
+  "journal": "journals/20260903-162843-gpt2-small-ioi",
+  "command": "uv run python -m scripts.sheaf_prune gpt2-small --task ioi --steps 2000 --size 512 --faith nll --seed 0 --batch 8 --target 0.03 --granular --attribute 8 --init-low 0.25"
+}

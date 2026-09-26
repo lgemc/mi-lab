@@ -1,0 +1,73 @@
+{
+  "protocol": "the circuit multiplied into the weights and run as an ordinary model, on a fresh draw of the task at a seed the run never used. Ranking is the objective the mask was trained on; generation is the question it was never asked, and the gap between them is the point.",
+  "config": "qwen3-1.7b",
+  "task": "ioi",
+  "seed": 99,
+  "size": 128,
+  "n_gates": 1409286144,
+  "n_open": 450145899,
+  "density": 0.31941412,
+  "full_model": {
+    "ranking": 1.0,
+    "first_token": 0.5781,
+    "contains_answer": 0.7578,
+    "contains_distractor": 0.0781
+  },
+  "circuit": {
+    "ranking": 0.9375,
+    "first_token": 0.5078,
+    "contains_answer": 0.7812,
+    "contains_distractor": 0.6953
+  },
+  "samples": [
+    {
+      "prompt": "Then, Jack and Rose went to the market. Rose gave a book to",
+      "answer": " Jack",
+      "full": " Jack. Jack gave a book",
+      "circuit": " Jack Jack Rose a Rose a"
+    },
+    {
+      "prompt": "Then, Rose and Kate went to the store. Rose gave a drink to",
+      "answer": " Kate",
+      "full": " each of the 12",
+      "circuit": " a a a a a Rose"
+    },
+    {
+      "prompt": "Then, Jack and Alex went to the store. Alex gave a ball to",
+      "answer": " Jack",
+      "full": " Jack. Jack gave a ball",
+      "circuit": " Jack Jack a Alex Jack a"
+    },
+    {
+      "prompt": "Then, Paul and Lee went to the market. Paul gave a ball to",
+      "answer": " Lee",
+      "full": " Lee. Then, they went",
+      "circuit": " a a a a a a"
+    },
+    {
+      "prompt": "Then, Paul and Henry went to the school. Henry gave a book to",
+      "answer": " Paul",
+      "full": " a child. 1.",
+      "circuit": " Paul the a a a a"
+    },
+    {
+      "prompt": "Then, Anna and Jim went to the store. Anna gave a ball to",
+      "answer": " Jim",
+      "full": " Jim, and Jim gave a",
+      "circuit": " Jim a Anna Anna Anna a"
+    },
+    {
+      "prompt": "Then, Tom and Lee went to the station. Lee gave a ring to",
+      "answer": " Tom",
+      "full": " the station.  The ring",
+      "circuit": " Tom Tom the a a a"
+    },
+    {
+      "prompt": "Then, Emma and Alice went to the station. Emma gave a book to",
+      "answer": " Alice",
+      "full": " Alice. They were both happy",
+      "circuit": " Alice Alice the a a a"
+    }
+  ],
+  "command": "uv run python -m scripts.sheaf_infer qwen3-1.7b results/qwen3-1.7b-sweep/ioi-s0.03 --task ioi --seed 99"
+}

@@ -34,7 +34,15 @@ Credentials, if the server ever enforces them, come from the environment
 (`MLFLOW_TRACKING_USERNAME` / `MLFLOW_TRACKING_PASSWORD`, the names the real
 client uses) and never from the config file, which is committed.
 
-A common pipe could be: config | tracker | log per step | flush | mlflow
+Every run in this repo goes through `track`, which is the whole of the policy:
+one MLflow run per invocation, tagged with the commit and whether the tree was
+dirty, closed FINISHED or FAILED with the error, and carrying as artifacts
+every file the run wrote under the paths it names. A result on disk that
+MLflow does not know about is a result nobody can trace back to the code that
+made it. On by default; `MI_LAB_TRACKING=none` turns it off, and so does
+running under `python -m unittest`, so the suite never posts.
+
+A common pipe could be: track | tracker.log per step | finish | mlflow
 
 Run: uv run python -m scripts.sheaf_prune gpt2-small --tracking mlflow
 """
@@ -42,13 +50,17 @@ Run: uv run python -m scripts.sheaf_prune gpt2-small --tracking mlflow
 import base64
 import json
 import os
+import socket
+import subprocess
+import sys
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from dataclasses import dataclass, field
+from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence
 
 CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs" / "tracking"
 
@@ -58,6 +70,17 @@ CONFIG_DIR = Path(__file__).resolve().parents[2] / "configs" / "tracking"
 # who it is. The in-cluster address is unaffected, which is exactly what made
 # the first diagnosis wrong -- curl worked, the client did not, same URL.
 USER_AGENT = "mi-lab-telemetry/1.0"
+
+# The largest file `track` uploads as an artifact. Results are JSON, logs and
+# plots; what is bigger than this is weights, masks and caches, which have a
+# home on disk and would turn every run into a multi-gigabyte upload.
+MAX_ARTIFACT_BYTES = 64 * 1024 * 1024
+
+# The run id a tracked process hands to the processes it starts. The pipeline
+# runs each step as a subprocess, and a step that finds this in its
+# environment files itself under that run -- MLflow's own parent tag -- so a
+# phase reads as one run with its steps inside it instead of nine strangers.
+PARENT = "MI_LAB_MLFLOW_PARENT"
 
 class TrackingError(ValueError):
     """A tracking config that cannot be read, said with the way out"""
@@ -124,6 +147,7 @@ class Tracker:
         self.config = config
         self.active = False
         self.run_id: Optional[str] = None
+        self.artifact_root = ""
         self.failure: Optional[str] = None
         self._buffer: List[dict] = []
         if not config.enabled or not config.uri:
@@ -137,6 +161,7 @@ class Tracker:
                 "tags": [{"key": k, "value": str(v)} for k, v in config.tags.items()],
             })
             self.run_id = body["run"]["info"]["run_id"]
+            self.artifact_root = body["run"]["info"].get("artifact_uri", "")
             self.active = True
             if params:
                 self.log_params(params)
@@ -204,6 +229,45 @@ class Tracker:
         except Exception as error:
             self._disable(error)
 
+    def set_tags(self, tags: Dict[str, Any]) -> None:
+        """Tags are how a run is found again: the commit, the script, the config"""
+        if not self.active:
+            return
+        try:
+            self._post("runs/log-batch", {
+                "run_id": self.run_id,
+                "tags": [{"key": str(k), "value": str(v)[:5000]} for k, v in tags.items()],
+            })
+        except Exception as error:
+            self._disable(error)
+
+    def log_artifact(self, path: Path, name: Optional[str] = None) -> bool:
+        """Upload one file through the server's artifact proxy; False if it was not sent
+
+        The run's artifact root is `s3://<bucket>/<experiment>/<run>/artifacts`
+        and the proxy is addressed by the part after the bucket, which is what
+        the stock client does too. A failed upload disables the sink like any
+        other failure, and a file over MAX_ARTIFACT_BYTES is skipped, not sent.
+        """
+        if not self.active or not self.artifact_root:
+            return False
+        path = Path(path)
+        if not path.is_file() or path.stat().st_size > MAX_ARTIFACT_BYTES:
+            return False
+        location = urllib.parse.urlparse(self.artifact_root)
+        prefix = location.path.lstrip("/") if location.scheme in ("mlflow-artifacts", "") else \
+            f"{location.netloc}{location.path}".split("/", 1)[1]
+        target = urllib.parse.quote(f"{prefix}/{name or path.name}")
+        url = f"{self.config.uri.rstrip('/')}/api/2.0/mlflow-artifacts/artifacts/{target}"
+        request = urllib.request.Request(url, data=path.read_bytes(), method="PUT")
+        request.add_header("User-Agent", USER_AGENT)
+        try:
+            with urllib.request.urlopen(request, timeout=max(self.config.timeout, 60.0)):
+                return True
+        except Exception as error:
+            self._disable(error)
+            return False
+
     def log(self, step: int, metrics: Dict[str, Any]) -> None:
         """Buffer one step; flush when the buffer is full"""
         if not self.active:
@@ -247,3 +311,124 @@ class Tracker:
         except Exception as error:
             self._disable(error)
         self.active = False
+
+def default_tracking() -> str:
+    """'mlflow' unless the environment says otherwise, and 'none' under the test runner
+
+    Tracking is the default because a run that was not recorded cannot be
+    traced, and "I forgot the flag" is how that happens. The suite is the one
+    caller that must never post, and it is recognized by its entry point so no
+    test has to remember to switch it off.
+    """
+    if "MI_LAB_TRACKING" in os.environ:
+        return os.environ["MI_LAB_TRACKING"]
+    entry = Path(sys.argv[0]) if sys.argv and sys.argv[0] else Path()
+    if entry.parent.name == "unittest" or "unittest" in entry.name:
+        return "none"
+    return "mlflow"
+
+def provenance() -> Dict[str, str]:
+    """What a result has to carry to be traced back: the commit, whether it was the whole story, the command
+
+    `dirty` matters as much as the commit. This repo is routinely run from an
+    uncommitted tree, and a run tagged with a commit it did not actually use
+    is a trace that points at the wrong code with complete confidence.
+    """
+    def git(*args: str) -> str:
+        try:
+            return subprocess.run(["git", *args], capture_output=True, text=True, timeout=10,
+                                  check=False).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return ""
+    return {
+        "git_commit": git("rev-parse", "HEAD") or "unknown",
+        "git_branch": git("rev-parse", "--abbrev-ref", "HEAD") or "unknown",
+        "git_dirty": str(bool(git("status", "--porcelain", "--untracked-files=no"))).lower(),
+        "command": " ".join(sys.argv),
+        "host": socket.gethostname(),
+        "mlflow.source.name": sys.argv[0] if sys.argv else "",
+        # The MI_LAB_* variables move results roots and corpus sizes, so they are part of what ran
+        **{f"env.{key}": value for key, value in sorted(os.environ.items())
+           if key.startswith("MI_LAB_") and key != PARENT},
+    }
+
+def _written_since(paths: Sequence[Path], since: float) -> List[Path]:
+    """Every file under `paths` modified at or after `since`, which is what this run wrote"""
+    found = []
+    for base in paths:
+        base = Path(base)
+        candidates = [base] if base.is_file() else sorted(base.rglob("*")) if base.is_dir() else []
+        found.extend(path for path in candidates
+                     if path.is_file() and path.stat().st_mtime >= since and "__pycache__" not in path.parts)
+    return found
+
+@contextmanager
+def track(name: str, experiment: str, params: Optional[Dict[str, Any]] = None,
+          outputs: Sequence[Path] = (), tracking: Optional[str] = None,
+          tags: Optional[Dict[str, Any]] = None) -> Iterator[Tracker]:
+    """One MLflow run around a block: provenance in, status and written files out
+
+    `experiment` groups runs of one question -- a script, a study -- and
+    replaces the config's own, which names the one experiment `sheaf_prune`
+    reports to. `outputs` are the directories or files this run writes into;
+    whatever in them changed while the block ran is uploaded when it ends,
+    whether it ended well or not, because the log of a failed run is the part
+    most worth having.
+
+    Yields the Tracker, inactive when tracking is off or the server is
+    unreachable, so the body can `log` unconditionally. The block's own
+    exception is re-raised untouched after the run is marked FAILED.
+    """
+    config = replace(load_tracking(tracking if tracking is not None else default_tracking()),
+                     experiment=experiment)
+    started = time.time() - 1.0
+    tracker = Tracker(config, name=name, params=params)
+    parent = os.environ.get(PARENT)
+    tracker.set_tags({**provenance(), **({"mlflow.parentRunId": parent} if parent else {}), **(tags or {})})
+    if tracker.active:
+        os.environ[PARENT] = tracker.run_id
+    status = "FINISHED"
+    try:
+        yield tracker
+    except SystemExit as error:
+        # `--help`, and a main returning 0 through sys.exit, are clean exits and not failures
+        if error.code not in (None, 0):
+            status = "FAILED"
+            tracker.set_tags({"error": f"SystemExit: {error.code}"})
+        raise
+    except BaseException as error:
+        status = "KILLED" if isinstance(error, KeyboardInterrupt) else "FAILED"
+        tracker.set_tags({"error": f"{type(error).__name__}: {error}"})
+        raise
+    finally:
+        if tracker.active:
+            if parent:
+                os.environ[PARENT] = parent
+            else:
+                os.environ.pop(PARENT, None)
+        for path in _written_since([Path(p) for p in outputs], started):
+            tracker.log_artifact(path, name=str(path).lstrip("/"))
+        tracker.finish(status)
+
+def tracked_main(main: Callable[[], Any], experiment: str, outputs: Sequence[Path] = ()) -> Any:
+    """Run a script's `main` inside `track`, named after the script and its arguments
+
+    The one line every `scripts/*.py` ends with. The script's own metrics are
+    in the files it writes, so those are what go up: everything under
+    `outputs` (the results root, for the phase scripts) that changed while it
+    ran. A script with numbers worth charting also calls `track` itself --
+    `wsbench_baseline` and `sheaf_prune` do -- and does not use this.
+
+    A main that returns an exit code gets it back, and a nonzero one closes
+    the run FAILED on its way out, the same as an exception would.
+    """
+    script = Path(sys.argv[0]).stem if sys.argv and sys.argv[0] else "script"
+    arguments = sys.argv[1:]
+    # a directory named on the command line is where scripts like sheaf_infer write
+    named = [Path(argument) for argument in arguments if Path(argument).is_dir()]
+    with track(" ".join([script, *arguments]), experiment, outputs=[*outputs, *named],
+               params={"script": script, "argv": " ".join(arguments)}, tags={"script": script}):
+        code = main()
+        if code not in (None, 0):
+            raise SystemExit(code)
+        return code

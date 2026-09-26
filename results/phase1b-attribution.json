@@ -1,0 +1,1215 @@
+{
+  "method": "eap",
+  "metric": "target",
+  "granularity": "node",
+  "units": "target drop per example (first order)",
+  "layers": [
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35
+  ],
+  "steps": 1,
+  "examples": 32,
+  "passes": 32,
+  "seconds": 11.6,
+  "notes": {
+    "metric_description": "the model's log-likelihood of the continuation being scored, per token",
+    "n_heads": 32
+  },
+  "ranked": [
+    {
+      "unit": "mlp:35",
+      "score": 0.055128
+    },
+    {
+      "unit": "mlp:34",
+      "score": 0.011027
+    },
+    {
+      "unit": "head:27:3",
+      "score": 0.006876
+    },
+    {
+      "unit": "head:32:27",
+      "score": 0.006723
+    },
+    {
+      "unit": "mlp:32",
+      "score": 0.005224
+    },
+    {
+      "unit": "mlp:33",
+      "score": 0.004061
+    },
+    {
+      "unit": "mlp:27",
+      "score": 0.003132
+    },
+    {
+      "unit": "head:30:26",
+      "score": 0.002268
+    },
+    {
+      "unit": "head:34:22",
+      "score": 0.002232
+    },
+    {
+      "unit": "mlp:28",
+      "score": 0.002037
+    },
+    {
+      "unit": "head:33:19",
+      "score": 0.001847
+    },
+    {
+      "unit": "head:32:12",
+      "score": 0.001763
+    },
+    {
+      "unit": "head:34:12",
+      "score": 0.00163
+    },
+    {
+      "unit": "head:30:5",
+      "score": 0.001608
+    },
+    {
+      "unit": "head:32:17",
+      "score": 0.001516
+    },
+    {
+      "unit": "head:31:19",
+      "score": 0.001375
+    },
+    {
+      "unit": "head:33:7",
+      "score": 0.001319
+    },
+    {
+      "unit": "head:32:22",
+      "score": 0.001244
+    },
+    {
+      "unit": "head:35:1",
+      "score": 0.001205
+    },
+    {
+      "unit": "head:27:8",
+      "score": 0.001192
+    },
+    {
+      "unit": "head:30:24",
+      "score": 0.001163
+    },
+    {
+      "unit": "head:27:1",
+      "score": 0.00115
+    },
+    {
+      "unit": "head:30:8",
+      "score": 0.001091
+    },
+    {
+      "unit": "head:32:26",
+      "score": 0.001079
+    },
+    {
+      "unit": "head:28:7",
+      "score": 0.001057
+    },
+    {
+      "unit": "head:33:3",
+      "score": 0.001039
+    },
+    {
+      "unit": "head:33:28",
+      "score": 0.001029
+    },
+    {
+      "unit": "head:32:16",
+      "score": 0.001013
+    },
+    {
+      "unit": "head:27:12",
+      "score": 0.000873
+    },
+    {
+      "unit": "head:30:21",
+      "score": 0.000839
+    },
+    {
+      "unit": "head:27:27",
+      "score": 0.000834
+    },
+    {
+      "unit": "head:31:30",
+      "score": 0.000818
+    },
+    {
+      "unit": "head:35:25",
+      "score": 0.000813
+    },
+    {
+      "unit": "head:35:13",
+      "score": 0.000788
+    },
+    {
+      "unit": "head:27:20",
+      "score": 0.000786
+    },
+    {
+      "unit": "head:31:31",
+      "score": 0.000782
+    },
+    {
+      "unit": "head:29:2",
+      "score": 0.000778
+    },
+    {
+      "unit": "head:31:11",
+      "score": 0.000753
+    },
+    {
+      "unit": "head:27:11",
+      "score": 0.00075
+    },
+    {
+      "unit": "head:34:31",
+      "score": 0.000728
+    },
+    {
+      "unit": "head:29:3",
+      "score": 0.000717
+    },
+    {
+      "unit": "head:28:29",
+      "score": 0.000714
+    },
+    {
+      "unit": "head:28:10",
+      "score": 0.000707
+    },
+    {
+      "unit": "head:34:28",
+      "score": 0.0007
+    },
+    {
+      "unit": "head:28:15",
+      "score": 0.000648
+    },
+    {
+      "unit": "head:34:16",
+      "score": 0.000642
+    },
+    {
+      "unit": "head:33:0",
+      "score": 0.000636
+    },
+    {
+      "unit": "head:30:20",
+      "score": 0.000621
+    },
+    {
+      "unit": "head:30:14",
+      "score": 0.000606
+    },
+    {
+      "unit": "head:28:22",
+      "score": 0.000595
+    },
+    {
+      "unit": "head:32:28",
+      "score": 0.000594
+    },
+    {
+      "unit": "head:28:18",
+      "score": 0.000585
+    },
+    {
+      "unit": "head:35:28",
+      "score": 0.000567
+    },
+    {
+      "unit": "head:31:16",
+      "score": 0.000563
+    },
+    {
+      "unit": "head:29:4",
+      "score": 0.000553
+    },
+    {
+      "unit": "head:30:25",
+      "score": 0.000548
+    },
+    {
+      "unit": "head:33:21",
+      "score": 0.000529
+    },
+    {
+      "unit": "head:32:10",
+      "score": 0.00052
+    },
+    {
+      "unit": "head:27:18",
+      "score": 0.000512
+    },
+    {
+      "unit": "head:35:0",
+      "score": 0.000507
+    },
+    {
+      "unit": "head:28:24",
+      "score": 0.000502
+    },
+    {
+      "unit": "head:34:4",
+      "score": 0.0005
+    },
+    {
+      "unit": "head:34:10",
+      "score": 0.000457
+    },
+    {
+      "unit": "head:34:21",
+      "score": 0.00045
+    },
+    {
+      "unit": "head:30:22",
+      "score": 0.000447
+    },
+    {
+      "unit": "head:32:5",
+      "score": 0.00044
+    },
+    {
+      "unit": "head:34:20",
+      "score": 0.00042
+    },
+    {
+      "unit": "head:28:8",
+      "score": 0.000403
+    },
+    {
+      "unit": "head:35:17",
+      "score": 0.0004
+    },
+    {
+      "unit": "head:34:2",
+      "score": 0.000399
+    },
+    {
+      "unit": "head:30:12",
+      "score": 0.000395
+    },
+    {
+      "unit": "head:33:22",
+      "score": 0.000394
+    },
+    {
+      "unit": "head:35:20",
+      "score": 0.000381
+    },
+    {
+      "unit": "head:34:7",
+      "score": 0.000348
+    },
+    {
+      "unit": "head:30:9",
+      "score": 0.000341
+    },
+    {
+      "unit": "head:30:4",
+      "score": 0.000332
+    },
+    {
+      "unit": "head:32:8",
+      "score": 0.000321
+    },
+    {
+      "unit": "head:27:19",
+      "score": 0.000321
+    },
+    {
+      "unit": "head:35:11",
+      "score": 0.000314
+    },
+    {
+      "unit": "head:32:4",
+      "score": 0.000311
+    },
+    {
+      "unit": "head:30:3",
+      "score": 0.000292
+    },
+    {
+      "unit": "head:28:31",
+      "score": 0.000291
+    },
+    {
+      "unit": "head:29:14",
+      "score": 0.000276
+    },
+    {
+      "unit": "head:27:28",
+      "score": 0.000264
+    },
+    {
+      "unit": "head:32:0",
+      "score": 0.000256
+    },
+    {
+      "unit": "head:31:23",
+      "score": 0.000253
+    },
+    {
+      "unit": "head:31:10",
+      "score": 0.000249
+    },
+    {
+      "unit": "head:33:12",
+      "score": 0.000244
+    },
+    {
+      "unit": "head:32:2",
+      "score": 0.000235
+    },
+    {
+      "unit": "head:31:25",
+      "score": 0.000231
+    },
+    {
+      "unit": "head:32:18",
+      "score": 0.000214
+    },
+    {
+      "unit": "head:31:6",
+      "score": 0.000202
+    },
+    {
+      "unit": "head:29:30",
+      "score": 0.000195
+    },
+    {
+      "unit": "head:33:27",
+      "score": 0.000195
+    },
+    {
+      "unit": "head:31:24",
+      "score": 0.000193
+    },
+    {
+      "unit": "head:34:23",
+      "score": 0.000192
+    },
+    {
+      "unit": "head:29:8",
+      "score": 0.000192
+    },
+    {
+      "unit": "head:32:13",
+      "score": 0.00019
+    },
+    {
+      "unit": "head:28:13",
+      "score": 0.000189
+    },
+    {
+      "unit": "head:33:17",
+      "score": 0.000177
+    },
+    {
+      "unit": "head:29:28",
+      "score": 0.000171
+    },
+    {
+      "unit": "head:33:14",
+      "score": 0.000162
+    },
+    {
+      "unit": "head:32:14",
+      "score": 0.000161
+    },
+    {
+      "unit": "head:31:28",
+      "score": 0.000156
+    },
+    {
+      "unit": "head:31:22",
+      "score": 0.000149
+    },
+    {
+      "unit": "head:28:25",
+      "score": 0.000145
+    },
+    {
+      "unit": "head:34:30",
+      "score": 0.00013
+    },
+    {
+      "unit": "head:34:26",
+      "score": 0.000128
+    },
+    {
+      "unit": "head:31:2",
+      "score": 0.000127
+    },
+    {
+      "unit": "head:30:23",
+      "score": 0.000126
+    },
+    {
+      "unit": "head:31:21",
+      "score": 0.000124
+    },
+    {
+      "unit": "head:29:17",
+      "score": 0.00012
+    },
+    {
+      "unit": "head:34:27",
+      "score": 0.000117
+    },
+    {
+      "unit": "head:28:3",
+      "score": 0.000115
+    },
+    {
+      "unit": "head:30:17",
+      "score": 0.000111
+    },
+    {
+      "unit": "head:30:19",
+      "score": 0.000107
+    },
+    {
+      "unit": "head:27:26",
+      "score": 9.6e-05
+    },
+    {
+      "unit": "head:29:21",
+      "score": 9.1e-05
+    },
+    {
+      "unit": "head:28:5",
+      "score": 9.1e-05
+    },
+    {
+      "unit": "head:27:0",
+      "score": 8.6e-05
+    },
+    {
+      "unit": "head:34:5",
+      "score": 7.3e-05
+    },
+    {
+      "unit": "head:33:2",
+      "score": 6.5e-05
+    },
+    {
+      "unit": "head:35:22",
+      "score": 6.5e-05
+    },
+    {
+      "unit": "head:32:6",
+      "score": 6.2e-05
+    },
+    {
+      "unit": "head:29:5",
+      "score": 5.4e-05
+    },
+    {
+      "unit": "head:29:25",
+      "score": 5e-05
+    },
+    {
+      "unit": "head:33:15",
+      "score": 4.6e-05
+    },
+    {
+      "unit": "head:34:0",
+      "score": 4.6e-05
+    },
+    {
+      "unit": "head:28:9",
+      "score": 4.3e-05
+    },
+    {
+      "unit": "head:35:6",
+      "score": 4.1e-05
+    },
+    {
+      "unit": "head:35:12",
+      "score": 4.1e-05
+    },
+    {
+      "unit": "head:30:13",
+      "score": 4e-05
+    },
+    {
+      "unit": "head:31:0",
+      "score": 3.2e-05
+    },
+    {
+      "unit": "head:32:1",
+      "score": 2.9e-05
+    },
+    {
+      "unit": "head:28:4",
+      "score": 1.8e-05
+    },
+    {
+      "unit": "head:35:30",
+      "score": 1.8e-05
+    },
+    {
+      "unit": "head:35:21",
+      "score": 1.7e-05
+    },
+    {
+      "unit": "head:29:20",
+      "score": 1.2e-05
+    },
+    {
+      "unit": "head:35:10",
+      "score": 1.1e-05
+    },
+    {
+      "unit": "head:35:23",
+      "score": 6e-06
+    },
+    {
+      "unit": "head:35:31",
+      "score": 5e-06
+    },
+    {
+      "unit": "head:30:28",
+      "score": -1e-06
+    },
+    {
+      "unit": "head:27:30",
+      "score": -3e-06
+    },
+    {
+      "unit": "head:31:20",
+      "score": -8e-06
+    },
+    {
+      "unit": "head:34:18",
+      "score": -1.2e-05
+    },
+    {
+      "unit": "head:29:6",
+      "score": -1.4e-05
+    },
+    {
+      "unit": "head:27:29",
+      "score": -2.3e-05
+    },
+    {
+      "unit": "head:30:10",
+      "score": -2.5e-05
+    },
+    {
+      "unit": "head:35:3",
+      "score": -2.6e-05
+    },
+    {
+      "unit": "head:30:1",
+      "score": -2.8e-05
+    },
+    {
+      "unit": "head:30:11",
+      "score": -3e-05
+    },
+    {
+      "unit": "head:28:16",
+      "score": -3.3e-05
+    },
+    {
+      "unit": "head:33:8",
+      "score": -4e-05
+    },
+    {
+      "unit": "head:31:7",
+      "score": -4.9e-05
+    },
+    {
+      "unit": "head:29:22",
+      "score": -5e-05
+    },
+    {
+      "unit": "head:27:17",
+      "score": -5.1e-05
+    },
+    {
+      "unit": "head:34:24",
+      "score": -5.4e-05
+    },
+    {
+      "unit": "head:28:27",
+      "score": -5.6e-05
+    },
+    {
+      "unit": "head:35:4",
+      "score": -6.5e-05
+    },
+    {
+      "unit": "head:30:18",
+      "score": -6.7e-05
+    },
+    {
+      "unit": "head:33:9",
+      "score": -6.7e-05
+    },
+    {
+      "unit": "head:32:20",
+      "score": -6.9e-05
+    },
+    {
+      "unit": "head:29:29",
+      "score": -7.2e-05
+    },
+    {
+      "unit": "head:32:7",
+      "score": -7.4e-05
+    },
+    {
+      "unit": "head:30:16",
+      "score": -8e-05
+    },
+    {
+      "unit": "head:27:5",
+      "score": -8.3e-05
+    },
+    {
+      "unit": "head:29:31",
+      "score": -8.5e-05
+    },
+    {
+      "unit": "head:35:18",
+      "score": -8.7e-05
+    },
+    {
+      "unit": "head:28:21",
+      "score": -8.8e-05
+    },
+    {
+      "unit": "head:28:2",
+      "score": -8.8e-05
+    },
+    {
+      "unit": "head:29:24",
+      "score": -8.9e-05
+    },
+    {
+      "unit": "head:30:6",
+      "score": -9.2e-05
+    },
+    {
+      "unit": "head:30:31",
+      "score": -9.6e-05
+    },
+    {
+      "unit": "head:33:11",
+      "score": -0.000101
+    },
+    {
+      "unit": "head:28:17",
+      "score": -0.000102
+    },
+    {
+      "unit": "head:32:23",
+      "score": -0.000105
+    },
+    {
+      "unit": "head:29:15",
+      "score": -0.00011
+    },
+    {
+      "unit": "head:32:11",
+      "score": -0.000119
+    },
+    {
+      "unit": "head:29:19",
+      "score": -0.000127
+    },
+    {
+      "unit": "head:31:15",
+      "score": -0.000132
+    },
+    {
+      "unit": "head:33:26",
+      "score": -0.000132
+    },
+    {
+      "unit": "head:28:28",
+      "score": -0.000133
+    },
+    {
+      "unit": "head:33:25",
+      "score": -0.000136
+    },
+    {
+      "unit": "head:31:8",
+      "score": -0.000136
+    },
+    {
+      "unit": "head:28:19",
+      "score": -0.000137
+    },
+    {
+      "unit": "head:27:24",
+      "score": -0.000142
+    },
+    {
+      "unit": "head:33:20",
+      "score": -0.000147
+    },
+    {
+      "unit": "head:31:14",
+      "score": -0.000147
+    },
+    {
+      "unit": "head:29:13",
+      "score": -0.000149
+    },
+    {
+      "unit": "head:29:10",
+      "score": -0.000156
+    },
+    {
+      "unit": "head:31:12",
+      "score": -0.000158
+    },
+    {
+      "unit": "head:32:19",
+      "score": -0.000165
+    },
+    {
+      "unit": "head:27:21",
+      "score": -0.000165
+    },
+    {
+      "unit": "head:34:1",
+      "score": -0.000168
+    },
+    {
+      "unit": "head:29:9",
+      "score": -0.000171
+    },
+    {
+      "unit": "head:33:24",
+      "score": -0.000176
+    },
+    {
+      "unit": "head:27:25",
+      "score": -0.000177
+    },
+    {
+      "unit": "head:35:29",
+      "score": -0.000185
+    },
+    {
+      "unit": "head:35:5",
+      "score": -0.00019
+    },
+    {
+      "unit": "head:35:16",
+      "score": -0.000201
+    },
+    {
+      "unit": "head:31:29",
+      "score": -0.000206
+    },
+    {
+      "unit": "head:34:19",
+      "score": -0.000219
+    },
+    {
+      "unit": "head:27:9",
+      "score": -0.00022
+    },
+    {
+      "unit": "head:32:29",
+      "score": -0.000223
+    },
+    {
+      "unit": "head:27:6",
+      "score": -0.000226
+    },
+    {
+      "unit": "head:29:7",
+      "score": -0.000227
+    },
+    {
+      "unit": "head:27:13",
+      "score": -0.000231
+    },
+    {
+      "unit": "head:32:3",
+      "score": -0.000238
+    },
+    {
+      "unit": "head:28:6",
+      "score": -0.000267
+    },
+    {
+      "unit": "head:30:29",
+      "score": -0.000267
+    },
+    {
+      "unit": "head:32:9",
+      "score": -0.000277
+    },
+    {
+      "unit": "head:30:15",
+      "score": -0.000278
+    },
+    {
+      "unit": "head:35:7",
+      "score": -0.000284
+    },
+    {
+      "unit": "head:29:16",
+      "score": -0.000288
+    },
+    {
+      "unit": "head:27:22",
+      "score": -0.000301
+    },
+    {
+      "unit": "head:31:13",
+      "score": -0.000304
+    },
+    {
+      "unit": "head:30:30",
+      "score": -0.000317
+    },
+    {
+      "unit": "head:27:15",
+      "score": -0.000322
+    },
+    {
+      "unit": "head:34:14",
+      "score": -0.000327
+    },
+    {
+      "unit": "head:33:16",
+      "score": -0.000338
+    },
+    {
+      "unit": "head:34:9",
+      "score": -0.000349
+    },
+    {
+      "unit": "head:29:12",
+      "score": -0.000354
+    },
+    {
+      "unit": "head:27:31",
+      "score": -0.000356
+    },
+    {
+      "unit": "head:31:18",
+      "score": -0.000362
+    },
+    {
+      "unit": "head:27:14",
+      "score": -0.000362
+    },
+    {
+      "unit": "head:29:27",
+      "score": -0.000367
+    },
+    {
+      "unit": "head:28:1",
+      "score": -0.000368
+    },
+    {
+      "unit": "head:34:25",
+      "score": -0.000375
+    },
+    {
+      "unit": "head:29:18",
+      "score": -0.000379
+    },
+    {
+      "unit": "head:27:7",
+      "score": -0.00038
+    },
+    {
+      "unit": "head:31:4",
+      "score": -0.000391
+    },
+    {
+      "unit": "head:31:5",
+      "score": -0.000405
+    },
+    {
+      "unit": "head:33:10",
+      "score": -0.000406
+    },
+    {
+      "unit": "head:28:12",
+      "score": -0.000408
+    },
+    {
+      "unit": "head:29:23",
+      "score": -0.000409
+    },
+    {
+      "unit": "head:33:13",
+      "score": -0.000414
+    },
+    {
+      "unit": "head:28:0",
+      "score": -0.00043
+    },
+    {
+      "unit": "head:35:27",
+      "score": -0.000447
+    },
+    {
+      "unit": "head:28:14",
+      "score": -0.000455
+    },
+    {
+      "unit": "head:27:4",
+      "score": -0.00047
+    },
+    {
+      "unit": "head:31:27",
+      "score": -0.000478
+    },
+    {
+      "unit": "head:31:3",
+      "score": -0.000496
+    },
+    {
+      "unit": "head:34:17",
+      "score": -0.000521
+    },
+    {
+      "unit": "head:35:8",
+      "score": -0.000532
+    },
+    {
+      "unit": "head:32:31",
+      "score": -0.000542
+    },
+    {
+      "unit": "head:35:19",
+      "score": -0.000565
+    },
+    {
+      "unit": "head:30:0",
+      "score": -0.000575
+    },
+    {
+      "unit": "head:28:20",
+      "score": -0.000626
+    },
+    {
+      "unit": "head:31:9",
+      "score": -0.000626
+    },
+    {
+      "unit": "head:33:23",
+      "score": -0.00063
+    },
+    {
+      "unit": "head:29:1",
+      "score": -0.000667
+    },
+    {
+      "unit": "head:31:17",
+      "score": -0.000669
+    },
+    {
+      "unit": "head:27:16",
+      "score": -0.000685
+    },
+    {
+      "unit": "head:33:31",
+      "score": -0.000721
+    },
+    {
+      "unit": "head:28:26",
+      "score": -0.000755
+    },
+    {
+      "unit": "head:30:2",
+      "score": -0.000764
+    },
+    {
+      "unit": "head:32:21",
+      "score": -0.000783
+    },
+    {
+      "unit": "head:31:1",
+      "score": -0.000791
+    },
+    {
+      "unit": "head:27:23",
+      "score": -0.00082
+    },
+    {
+      "unit": "head:32:30",
+      "score": -0.000945
+    },
+    {
+      "unit": "head:32:15",
+      "score": -0.000971
+    },
+    {
+      "unit": "head:29:26",
+      "score": -0.000982
+    },
+    {
+      "unit": "head:30:27",
+      "score": -0.000984
+    },
+    {
+      "unit": "head:35:26",
+      "score": -0.000992
+    },
+    {
+      "unit": "head:35:24",
+      "score": -0.001001
+    },
+    {
+      "unit": "head:33:6",
+      "score": -0.001013
+    },
+    {
+      "unit": "head:30:7",
+      "score": -0.00102
+    },
+    {
+      "unit": "head:33:4",
+      "score": -0.001023
+    },
+    {
+      "unit": "head:29:0",
+      "score": -0.001155
+    },
+    {
+      "unit": "head:33:29",
+      "score": -0.001181
+    },
+    {
+      "unit": "head:28:23",
+      "score": -0.001182
+    },
+    {
+      "unit": "head:31:26",
+      "score": -0.00123
+    },
+    {
+      "unit": "head:34:13",
+      "score": -0.001283
+    },
+    {
+      "unit": "head:28:11",
+      "score": -0.001406
+    },
+    {
+      "unit": "head:33:30",
+      "score": -0.001443
+    },
+    {
+      "unit": "head:34:11",
+      "score": -0.001447
+    },
+    {
+      "unit": "head:34:3",
+      "score": -0.001475
+    },
+    {
+      "unit": "head:34:8",
+      "score": -0.001616
+    },
+    {
+      "unit": "head:32:25",
+      "score": -0.001636
+    },
+    {
+      "unit": "head:33:5",
+      "score": -0.001713
+    },
+    {
+      "unit": "head:34:29",
+      "score": -0.001734
+    },
+    {
+      "unit": "head:35:14",
+      "score": -0.001803
+    },
+    {
+      "unit": "head:33:18",
+      "score": -0.001823
+    },
+    {
+      "unit": "head:35:9",
+      "score": -0.001899
+    },
+    {
+      "unit": "head:28:30",
+      "score": -0.001949
+    },
+    {
+      "unit": "mlp:31",
+      "score": -0.002085
+    },
+    {
+      "unit": "head:34:15",
+      "score": -0.002152
+    },
+    {
+      "unit": "head:29:11",
+      "score": -0.002302
+    },
+    {
+      "unit": "head:27:2",
+      "score": -0.002471
+    },
+    {
+      "unit": "head:35:15",
+      "score": -0.002509
+    },
+    {
+      "unit": "head:35:2",
+      "score": -0.002693
+    },
+    {
+      "unit": "head:34:6",
+      "score": -0.00297
+    },
+    {
+      "unit": "mlp:30",
+      "score": -0.003086
+    },
+    {
+      "unit": "mlp:29",
+      "score": -0.003925
+    },
+    {
+      "unit": "head:33:1",
+      "score": -0.004443
+    },
+    {
+      "unit": "head:32:24",
+      "score": -0.006774
+    },
+    {
+      "unit": "head:27:10",
+      "score": -0.008242
+    }
+  ]
+}

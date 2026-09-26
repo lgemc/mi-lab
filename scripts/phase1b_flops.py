@@ -20,6 +20,8 @@ from src.experiment import translation_study as study
 from src.methods import components as comp
 from src.methods.cost import CostModel, read_dimensions, report
 from src.telemetry.results import guard
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 DEFAULT_CONTEXT = 160    # tokens per few-shot eval prompt, measured on the WMT shortlist
 
@@ -50,4 +52,4 @@ def main() -> None:
     print("head MACs", cost.head_macs, "| mlp MACs", cost.mlp_macs, "| total/token", cost.total_macs)
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

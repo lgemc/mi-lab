@@ -21,6 +21,8 @@ from src.experiment import translation_study as study
 from src.methods import neurons
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard, result
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 RESULTS = result("phase1b-outlier-inspection.json")
 
@@ -65,4 +67,4 @@ def main() -> None:
     print("->", RESULTS)
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

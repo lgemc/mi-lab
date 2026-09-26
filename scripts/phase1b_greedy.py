@@ -35,6 +35,8 @@ from src.experiment import translation_study as study
 from src.methods.quality import Comet
 from src.telemetry.observe import Budget, banner, duration, log, set_log_file
 from src.telemetry.results import guard, load_state
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 CANDIDATE = study.artifact("candidate")
 FRONTIER = study.artifact("frontier")
@@ -357,4 +359,4 @@ def main() -> None:
         raise SystemExit(f"unknown stage '{stage}'; stages are combo, greedy, comet")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

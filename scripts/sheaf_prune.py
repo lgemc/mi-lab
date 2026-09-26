@@ -56,7 +56,7 @@ from src.model.adapter import load_adapter
 from src.telemetry.journal import Journal, env_root, run_id
 from src.telemetry.observe import banner, host_memory_gib, log, set_log_file, step
 from src.telemetry.results import guard, result
-from src.telemetry.tracking import Tracker, load_tracking
+from src.telemetry.tracking import Tracker, default_tracking, load_tracking, provenance
 
 
 def run(args: argparse.Namespace) -> None:
@@ -162,6 +162,8 @@ def run(args: argparse.Namespace) -> None:
     # did not answer, and the run proceeds either way.
     tracking = load_tracking(args.tracking)
     tracker = Tracker(tracking, name=directory.name, params=journal.params)
+    # the same provenance `track` stamps on every other run: commit, dirty tree, command
+    tracker.set_tags({**provenance(), "script": "sheaf_prune"})
     if tracker.active:
         log(f"mlflow: {tracking.uri} experiment '{tracking.experiment}' run {tracker.run_id}")
     elif tracking.enabled:
@@ -418,7 +420,7 @@ def main() -> None:
     # (telemetry/tracking.py): the row is on disk before it is posted, and a
     # network failure disables the sink and says so once rather than raising
     # into a two-hour training loop -- so defaulting it on cannot cost a run.
-    parser.add_argument("--tracking", default=os.environ.get("MI_LAB_TRACKING", "mlflow"),
+    parser.add_argument("--tracking", default=default_tracking(),
                         help="tracking config in configs/tracking/ ('mlflow', the default), or "
                              "'none' to mirror nowhere; MI_LAB_TRACKING overrides. The journal "
                              "and the artifact are written either way")

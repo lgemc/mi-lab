@@ -84,6 +84,45 @@ class TestArtifacts(TemporaryRoot):
         self.assertEqual(25, study.head_sentences())
 
 
+class TestAttributionInputs(TemporaryRoot):
+    """What an attribution pass is given: which sweep rows it is checked against, and what it scores"""
+
+    def write_sweep(self):
+        study.artifact("sweep").write_text(json.dumps({"ranked": [
+            {"component": "mlp:31", "dbleu": 1.35, "sentences": 200},
+            {"component": "heads:31", "dbleu": 0.42, "sentences": 200},
+            {"component": "head:31:4", "dbleu": 0.11, "sentences": 100},
+            {"component": "head:31:5", "dbleu": -0.09, "sentences": 100},
+        ]}))
+
+    def test_the_sweep_reads_back_as_component_to_dbleu(self):
+        self.write_sweep()
+        measured = study.sweep_measured()
+        self.assertEqual(4, len(measured))
+        self.assertAlmostEqual(1.35, measured["mlp:31"])
+
+    def test_the_half_set_rows_can_be_left_out_because_they_are_a_noise_floor(self):
+        self.write_sweep()
+        full = study.sweep_measured(sentences=200)
+        self.assertEqual({"mlp:31", "heads:31"}, set(full))
+
+    def test_a_missing_sweep_says_which_script_writes_it(self):
+        with self.assertRaises(study.StudyError) as caught:
+            study.sweep_measured()
+        self.assertIn("phase1b_ablation", str(caught.exception))
+
+    def test_scoring_against_something_that_is_not_a_target_is_refused(self):
+        with self.assertRaises(study.StudyError) as caught:
+            study.attribution_spans(None, None, against="bleu")
+        self.assertIn("self", str(caught.exception))
+
+    def test_scoring_against_the_model_needs_the_baseline_it_generated(self):
+        corpus = study.Corpus(pairs=(("hola", "hello"),), split=EvalSplit(shots=(), pairs=()))
+        with self.assertRaises(study.StudyError) as caught:
+            study.attribution_spans(None, corpus, against="self", baseline=None)
+        self.assertIn("phase1b_ablation", str(caught.exception))
+
+
 class TestScope(TestCase):
     def setUp(self):
         self.cfg = ModelConfig(id="depth-12", backend="transformers", hf_name="none/tiny", n_layers=12, n_heads=2)

@@ -1,0 +1,16 @@
+{
+  "0": {
+    "prompt": "Spanish: La palabra no figuraba en la Constitución anterior.\nEnglish: The word was not included in the previous Constitution.\n\nSpanish: Aunque el presidente egipcio debía salir ayer por la noche en la televisión, se prevén manifestaciones para este mediodía.\nEnglish: While the Egyptian President was speaking yesterday evening on television, demonstrations are planned for this afternoon.\n\nSpanish: Los partidarios del jefe de Estado se manifestaron el sábado.\nEnglish: Supporters of the Head of State will march on Saturday.\n\nSpanish: Una estrategia republicana para obstaculizar la reelección de Obama\nEnglish:",
+    "backend": "transformerlens",
+    "transcoder": "bluelightai/clt-qwen3-1.7b-base-20k",
+    "seconds": 113.1,
+    "path": "results/qwen3-1.7b-base/phase1c-attribution-graph-0.pt",
+    "logit_tokens": [
+      "tensor(362, device='cuda:0')",
+      "tensor(1527, device='cuda:0')",
+      "tensor(9356, device='cuda:0')",
+      "tensor(576, device='cuda:0')"
+    ],
+    "variance_unexplained": 0.23
+  }
+}

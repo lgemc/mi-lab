@@ -80,7 +80,20 @@ ARTIFACTS = {
     "weights": "phase1b-circuit-weights.pt",
     "manifest": "phase1b-circuit-manifest.json",
     "extraction": "phase1b-circuit-extraction.json",
+    "attribution": "phase1b-attribution.json",
+    "attribution_agreement": "phase1b-attribution-agreement.json",
 }
+
+# What a component's attribution score is teacher-forced against. `self` is
+# the unablated model's own generations, which is what `dbleu` is a departure
+# from; `gold` is the WMT reference, which the model may never have produced.
+TARGETS = ("self", "gold")
+
+# Sentences an attribution pass runs over. Far fewer than a knockout sweep
+# needs, because the cost is passes-per-sentence and not passes-per-component:
+# the whole lattice is scored in the same two passes, so the sample size is
+# chosen for the variance of the estimate rather than for a budget.
+DEFAULT_ATTRIBUTION_SENTENCES = 50
 
 class StudyError(ValueError):
     """A study file that is missing or was measured under a different protocol, with the way out"""
@@ -254,6 +267,71 @@ def cost_model() -> CostModel:
     if not path.exists():
         raise StudyError(f"no cost model at {path}; run scripts.phase1b_flops first")
     return CostModel.from_dict(load_state(path))
+
+def attribution_spans(adapter, corpus: Corpus, against: str = "self",
+                      baseline: Optional[Dict[str, Any]] = None, size: Optional[int] = None):
+    """The corpus as teacher-forced spans: each eval prompt and the continuation being scored
+
+    `against="self"` scores the likelihood of what the unablated model
+    actually generated, which is the quantity `dbleu` is a difference in:
+    phase 1b measures how far ablation moves the output, and the reference
+    only enters through BLEU. `against="gold"` scores the WMT reference
+    instead, which is a different question -- how far ablation moves the model
+    from a translation it may never have produced -- and on a model whose
+    baseline BLEU is in the thirties those are not the same components.
+
+    A single space is the joiner because the few-shot form ends in `English:`
+    and its worked examples continue `English: <sentence>` -- so the scored
+    continuation has to be tokenized the way the shots above it were, or the
+    model is being scored on a sequence it was never shown the form of.
+    `teacher_forced` refuses the pair if that space ends up inside a merge
+    with the prompt's last token rather than starting the continuation.
+    """
+    from ..model.passes import teacher_forced  # torch stays out of the module import
+
+    if against not in TARGETS:
+        raise StudyError(f"attribution is scored against {' or '.join(TARGETS)}, got '{against}'")
+    size = size if size is not None else DEFAULT_ATTRIBUTION_SENTENCES
+    prompts, references = corpus.prompts[:size], corpus.references[:size]
+    if against == "gold":
+        return teacher_forced(adapter, prompts, references, joiner=" ")
+    if baseline is None:
+        raise StudyError(
+            "scoring against the model's own output needs the baseline record its generations are in; "
+            "run scripts.phase1b_ablation first, or pass against='gold'"
+        )
+    hypotheses = list(baseline.get("hypotheses") or [])
+    if len(hypotheses) < size:
+        raise StudyError(
+            f"the baseline has {len(hypotheses)} generations and {size} sentences were asked for; "
+            f"lower the count or re-measure the baseline at {ENV_EVAL_SENTENCES}={size}"
+        )
+    return teacher_forced(adapter, prompts, hypotheses[:size], joiner=" ")
+
+def sweep_measured(path: Optional[Path] = None, sentences: Optional[int] = None) -> Dict[str, float]:
+    """The knockout sweep as component -> dBLEU: the ranking an attribution estimate is checked against
+
+    This is the expensive number. Each entry is one mean ablation and one
+    generation pass over the scored set, and the file the study already has
+    holds 306 of them for 7,575 seconds of wall clock. An attribution pass
+    that reproduces this ranking has reproduced two hours of GPU time in two
+    passes, and one that does not has said something about the first-order
+    approximation rather than about the model.
+
+    `sentences` filters to the rows measured over that many sentences, and it
+    matters more than it looks. The sweep scored layer-level components on the
+    full set and single heads on half, and on half the corpus a solo head's
+    dBLEU has a spread of ~0.2 around zero while only ten of 288 reach +-0.5.
+    Those rows are a noise floor, not a ranking, and anything compared against
+    all 306 at once is being compared mostly against them.
+    """
+    path = path if path is not None else artifact("sweep")
+    if not path.exists():
+        raise StudyError(f"no knockout sweep at {path}; run scripts.phase1b_ablation assemble first")
+    rows = load_state(path).get("ranked") or []
+    return {row["component"]: float(row["dbleu"]) for row in rows
+            if "component" in row and "dbleu" in row
+            and (sentences is None or row.get("sentences") == sentences)}
 
 def combos(layers: Sequence[int]) -> Dict[str, List[str]]:
     """The three whole-band sets the candidate is compared against"""

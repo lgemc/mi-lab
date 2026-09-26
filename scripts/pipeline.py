@@ -23,6 +23,7 @@ Run: uv run python -m scripts.pipeline run=phase1b-1.7b
 import sys
 
 from src.experiment.pipeline import Pipeline, PipelineError, compose, run
+from src.telemetry.tracking import tracked_main
 
 
 def main() -> None:
@@ -32,4 +33,4 @@ def main() -> None:
         raise SystemExit(str(error)) from None
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[])

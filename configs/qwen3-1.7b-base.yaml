@@ -1,0 +1,53 @@
+# The 1.7B *base* checkpoint, which exists here for one reason: it is the
+# largest model in this repo's reach that has a published cross-layer
+# transcoder, and a CLT is what an attribution graph is made of.
+#
+# It is deliberately a second config rather than a flag on qwen3-1.7b. The
+# post-trained `Qwen/Qwen3-1.7B` and this are different weights, so every
+# number measured on one is a number about that one: the 688-second knockout
+# sweep in `results/qwen3-1.7b/` was measured on the post-trained checkpoint
+# and does not transfer here. `guard` enforces exactly that -- point
+# MI_LAB_RESULTS at a fresh directory and re-measure, which on this model is
+# minutes rather than the 8B's two hours. That re-measurement is the whole
+# point: it puts a knockout ranking, an attribution ranking and a feature-level
+# attribution graph on *one* checkpoint, which is the only way the question
+# "which base should the primitive run on" has an answer rather than an
+# opinion.
+#
+# Not an instruct model, so no `chat:` wrapper -- a raw continuation is the
+# right question here, as it is for every other pruning config in this
+# directory. The few-shot translation form does not need one.
+id: qwen3-1.7b-base
+backend: transformers
+hf_name: Qwen/Qwen3-1.7B-Base
+probe_layer_frac: 0.65
+batch_size: 32
+device: auto           # the best accelerator this machine has; name one to demand it
+dtype: bfloat16
+max_new_tokens: 64
+
+# The dictionary this checkpoint has, and what it costs to believe it.
+#
+# `variance_unexplained` is recorded because it is the size of the thing the
+# method cannot see. An attribution graph routes whatever the transcoder fails
+# to reconstruct into "error nodes", which have no input edges -- they are
+# where the explanation stops. At 0.23 that is roughly a quarter of every MLP
+# output arriving as an unexplained term, and a graph read without that number
+# in view reads as more complete than it is. The paper calls this its "dark
+# matter" and lists it first among its limitations.
+#
+# `resident_gib` is here for the same reason `cost.py` prices a band before
+# the model loads: a cross-layer decoder writes to every later layer, so the
+# weights are a pyramid -- layer 0 alone is 2.3 GiB -- and 43.6 GiB is larger
+# than the 8B checkpoint this repo's headline result runs on.
+transcoder:
+  source: bluelightai
+  release: bluelightai/clt-qwen3-1.7b-base-20k
+  kind: cross-layer
+  activation_fn: jumprelu
+  features_per_layer: 20480
+  expansion: 20
+  l0: 115
+  variance_unexplained: 0.23
+  resident_gib: 43.6
+  license: apache-2.0

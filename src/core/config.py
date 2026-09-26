@@ -59,6 +59,53 @@ class SAEConfig:
     l0_varies: bool = True
 
 @dataclass(frozen=True)
+class TranscoderConfig:
+    """Where a transcoder for this model comes from, and the two numbers that price believing it
+
+    A transcoder is not an SAE and has its own dataclass rather than a flag on
+    one. An SAE reconstructs an activation *from itself*; a transcoder maps an
+    MLP's input to its output, which is what lets it *replace* the MLP --
+    and replacing the MLP is the whole construction an attribution graph rests
+    on (Ameisen et al. 2025). A residual-stream SAE cannot stand in here no
+    matter how good it is.
+
+    `kind` is 'cross-layer' or 'per-layer' and changes what the weights cost
+    as much as what they mean: a cross-layer feature decodes into every later
+    layer, so its decoders are a pyramid, and 20,480 features on a 28-layer
+    1.7B is 43.6 GiB -- larger than the 8B checkpoint this repo's headline
+    result runs on. `resident_gib` is recorded for the reason `cost.py` prices
+    a band before the model loads: a number you find out by running out of
+    disk is a number you should have read off a file.
+
+    `variance_unexplained` is the size of what the method cannot see. Whatever
+    the transcoder fails to reconstruct becomes an "error node" in the graph,
+    and error nodes have no input edges -- they are where the explanation
+    stops. Reading a graph without that fraction in view reads it as more
+    complete than it is.
+    """
+    source: str
+    release: str
+    kind: str = "per-layer"
+    activation_fn: str = "jumprelu"
+    features_per_layer: Optional[int] = None
+    expansion: Optional[int] = None
+    l0: Optional[float] = None
+    variance_unexplained: Optional[float] = None
+    resident_gib: Optional[float] = None
+    license: Optional[str] = None
+
+    def __post_init__(self):
+        if self.kind not in ("cross-layer", "per-layer"):
+            raise ConfigError(
+                f"transcoder kind is 'cross-layer' or 'per-layer', got '{self.kind}'; the two differ in "
+                "what they cost and in whether a feature's decoders reach later layers, so this is not a label"
+            )
+        if self.variance_unexplained is not None and not 0.0 <= self.variance_unexplained <= 1.0:
+            raise ConfigError(
+                f"variance_unexplained is a fraction in [0, 1], got {self.variance_unexplained}"
+            )
+
+@dataclass(frozen=True)
 class ModelConfig:
     """Everything the framework is allowed to know about a model
 
@@ -84,6 +131,7 @@ class ModelConfig:
     # leaves it false, which keeps every existing prompt byte-identical.
     chat: bool = False
     sae: Optional[SAEConfig] = None
+    transcoder: Optional[TranscoderConfig] = None
 
     def __post_init__(self):
         if not 0.0 <= self.probe_layer_frac <= 1.0:
@@ -218,16 +266,19 @@ def from_mapping(data: Dict[str, Any], default_id: Optional[str] = None) -> Mode
     """
     data = dict(data)
     data.setdefault("id", default_id)
-    sae = data.pop("sae", None)
+    nested = {name: data.pop(name, None) for name in ("sae", "transcoder")}
     known = set(ModelConfig.__dataclass_fields__)
     unknown = set(data) - known
     if unknown:
         raise ConfigError(f"unknown config keys {sorted(unknown)}; known keys are {sorted(known)}")
-    if sae is not None:
-        unknown_sae = set(sae) - set(SAEConfig.__dataclass_fields__)
-        if unknown_sae:
-            raise ConfigError(f"unknown sae keys {sorted(unknown_sae)}")
-        data["sae"] = SAEConfig(**sae)
+    for name, block in nested.items():
+        if block is None:
+            continue
+        schema = {"sae": SAEConfig, "transcoder": TranscoderConfig}[name]
+        unknown_keys = set(block) - set(schema.__dataclass_fields__)
+        if unknown_keys:
+            raise ConfigError(f"unknown {name} keys {sorted(unknown_keys)}")
+        data[name] = schema(**block)
     return ModelConfig(**data)
 
 def load_config(reference: str) -> ModelConfig:

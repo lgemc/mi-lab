@@ -26,6 +26,8 @@ from src.experiment import translation_study as study
 from src.methods import neurons
 from src.model.adapter import load_adapter
 from src.telemetry.results import guard, result
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 DEFAULT_TOKENS = 5000    # real tokens per condition; enough for a stable mean over d_ff neurons
 TOP = 50
@@ -79,4 +81,4 @@ def main() -> None:
           f"top {spread['top_quarter_flagged']} of {n_layers} layers -> {RESULTS}")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

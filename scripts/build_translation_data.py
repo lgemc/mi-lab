@@ -17,6 +17,7 @@ import pandas as pd
 
 from src.data.prompts import save_prompts
 from src.data.translation import default_pairs_path, pairs_to_prompts
+from src.telemetry.tracking import tracked_main
 
 EXTERNAL = Path("data/external/translation")
 WMT_SUBSET = 500
@@ -45,4 +46,4 @@ def main() -> None:
     print(f"{path}: {len(subset)} pairs (of {len(rows)})")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[Path("data")])

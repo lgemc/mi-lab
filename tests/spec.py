@@ -144,7 +144,7 @@ class TestHydraComposition(TestCase):
         found = groups()
         self.assertEqual({"data", "method", "model", "preset", "tracking"}, set(found))
         self.assertIn("gpt2-small", found["model"])
-        self.assertEqual({"mlflow", "none"}, set(found["tracking"]))
+        self.assertEqual({"auto", "mlflow", "none"}, set(found["tracking"]))
 
     def test_tracking_stays_out_of_the_spec_hash(self):
         """Mirroring a run's metrics does not change them, so a tracked run and
@@ -152,8 +152,10 @@ class TestHydraComposition(TestCase):
         self.assertEqual(compose_spec().spec_hash,
                          compose_spec(overrides=["tracking=mlflow"]).spec_hash)
 
-    def test_tracking_defaults_to_off(self):
-        self.assertEqual("none", compose_spec().tracking.name)
+    def test_tracking_defaults_to_auto(self):
+        """Tracked unless opted out: `auto` resolves to mlflow outside the test runner"""
+        self.assertEqual("auto", compose_spec().tracking.name)
+        self.assertEqual("none", compose_spec(overrides=["tracking=none"]).tracking.name)
         self.assertEqual("mlflow", compose_spec(overrides=["tracking=mlflow"]).tracking.name)
 
     def test_composing_with_no_overrides_gives_the_defaults(self):

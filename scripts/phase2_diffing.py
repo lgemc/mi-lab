@@ -39,6 +39,8 @@ from src.methods import diffing
 from src.model.replacement import load_replacement
 from src.telemetry.observe import Progress, banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, result, save_state
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 ARTIFACTS = {
     "weights": "phase2-weight-diff.json",
@@ -305,4 +307,4 @@ def main(argv: List[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv[1:]))
+    sys.exit(tracked_main(lambda: main(sys.argv[1:]), "mi-lab-diffing", outputs=[results_root()]))

@@ -44,6 +44,8 @@ from src.methods import components as comp
 from src.methods.knockout import extract
 from src.telemetry.observe import banner, log, set_log_file
 from src.telemetry.results import guard
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 WEIGHTS = study.artifact("weights")
 MANIFEST = study.artifact("manifest")
@@ -153,4 +155,4 @@ def main() -> None:
         raise SystemExit(f"unknown stage '{stage}'; stages are extract, measure")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])

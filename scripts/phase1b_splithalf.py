@@ -44,6 +44,8 @@ from src.experiment import translation_study as study
 from src.methods.quality import agreement
 from src.telemetry.observe import Budget, banner, duration, log, set_log_file
 from src.telemetry.results import guard, load_state, save_state
+from src.telemetry.results import root as results_root
+from src.telemetry.tracking import tracked_main
 
 PROGRESS = study.artifact("splithalf_progress")
 REPORT = study.artifact("splithalf")
@@ -176,4 +178,4 @@ def main() -> None:
         raise SystemExit(f"unknown stage '{stage}'; stages are run, report")
 
 if __name__ == "__main__":
-    main()
+    tracked_main(main, "mi-lab-translation-study", outputs=[results_root()])
