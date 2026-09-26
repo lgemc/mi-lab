@@ -173,7 +173,7 @@ writes, each with the `gate` a judge scores a readout against. No download step:
 fetches one bank from GitHub at construction, pinned to `COMMIT`, and holds it in memory.
 
 ```python
-from src.data.workspacebench import FAMILIES, WorkspaceBench, item_loader
+from src.domains.lm.data.workspacebench import FAMILIES, WorkspaceBench, item_loader
 
 bank = WorkspaceBench("association")        # or any of the 26 in FAMILIES; limit= to take a few
 bank.gate                                   # what a judge scores a readout against

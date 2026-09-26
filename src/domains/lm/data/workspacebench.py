@@ -5,7 +5,7 @@ from urllib.request import urlopen
 
 from torch.utils.data import DataLoader, Dataset
 
-from .dataset import DatasetError
+from ....data.dataset import DatasetError
 
 """
 WorkspaceBench as a torch Dataset: one item bank of

@@ -24,7 +24,7 @@ A common pipe could be: register | load_replacement | setup_attribution
 from contextlib import nullcontext
 from typing import Any, Callable, ContextManager, Dict, Optional, Tuple
 
-from ..core.config import ConfigError
+from ...core.config import ConfigError
 
 BACKENDS = ("transformerlens", "nnsight")
 

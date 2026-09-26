@@ -3,7 +3,7 @@
 The first strategy of `~/main/m/proposals/model-diffing-sdft-transcoders.md`, and
 the one that costs nothing: no forward pass, no transcoder, no training run.
 Two checkpoints, one subtraction per tensor, and three numbers per tensor
-(`src/methods/diffing.py` says what they are and why those three).
+(`src/domains/lm/analysis/diffing.py` says what they are and why those three).
 
 It is here rather than under `phase1` because it is the first thing in this
 repository that takes *two* checkpoints. That breaks an assumption `guard`
@@ -35,8 +35,8 @@ import time
 from typing import Any, Dict, List
 
 from src.core.config import load_config
-from src.methods import diffing
-from src.model.replacement import load_replacement
+from src.domains.lm.analysis import diffing
+from src.domains.lm.replacement import load_replacement
 from src.telemetry.observe import Progress, banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, result, save_state
 from src.telemetry.results import root as results_root

@@ -119,7 +119,7 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
     ),
     "fvu": (
         "squared error of a dictionary's reconstruction of one layer's MLP output over the variance "
-        "of that output around its own mean across token positions; 1.0 is what predicting the mean "
+        "of that output around its own mean across sequence positions; 1.0 is what predicting the mean "
         "everywhere would score, and the figure is meaningless over few positions because the "
         "denominator is the spread across them",
         "share",
@@ -131,7 +131,7 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
         "share",
     ),
     "l0": (
-        "active dictionary features per token position per layer; multiply by the layer count for the "
+        "active dictionary features per sequence position per layer; multiply by the layer count for the "
         "whole-model figure a transcoder release usually quotes",
         "features",
     ),

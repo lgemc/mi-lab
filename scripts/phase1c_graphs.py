@@ -45,7 +45,7 @@ from typing import Any, Dict, List, Optional
 
 from src.core.config import load_config
 from src.domains.lm import study
-from src.model.replacement import load_replacement as load_with_backend
+from src.domains.lm.replacement import load_replacement as load_with_backend
 from src.telemetry.observe import banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, result, save_state
 from src.telemetry.results import root as results_root
@@ -97,7 +97,7 @@ def transcoder_of(config: str):
 def load_replacement(cfg, backend: str = "transformerlens"):
     """The local replacement model: this checkpoint with its MLPs replaced by the transcoder
 
-    The loading itself is `src/model/replacement.py`, which a second script now
+    The loading itself is `src/domains/lm/replacement.py`, which a second script now
     needs too. What stays here is this study's choice of arguments and the log
     lines, because `src/model/` sits below `telemetry` and cannot write them.
     """

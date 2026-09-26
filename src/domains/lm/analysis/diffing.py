@@ -53,7 +53,7 @@ from typing import Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 import torch
 from safetensors import safe_open
 
-from ..core.metrics import MetricError
+from ....core.metrics import MetricError
 
 # The leading directions `top_k_energy` sums over. Eight because that is the
 # order of "a handful of interpretable directions" the weight-diffing claim is

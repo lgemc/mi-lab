@@ -18,7 +18,7 @@ from unittest import TestCase
 import torch
 from safetensors.torch import save_file
 
-from src.methods.diffing import (
+from src.domains.lm.analysis.diffing import (
     ATTENTION,
     FEEDFORWARD,
     TOP_K,

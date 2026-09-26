@@ -51,7 +51,7 @@ uv run python -m unittest tests.core.architecture tests.core.config tests.core.m
     tests.share.artifact tests.serve.serve tests.serve.pool \
     tests.experiment.spec tests.experiment.run tests.experiment.runner \
     tests.experiment.pipeline tests.ie.ie \
-    tests.workspacebench tests.diffing tests.domains.attribution tests.domains.lens tests.hybrid
+    tests.domains.workspacebench tests.domains.diffing tests.domains.attribution tests.domains.lens tests.hybrid
 
 # offline subset: no checkpoint needed, seconds
 uv run python -m unittest tests.core.architecture tests.core.config tests.core.metrics \

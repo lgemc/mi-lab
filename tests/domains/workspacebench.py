@@ -4,7 +4,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from src.data.dataset import DatasetError
-from src.data.workspacebench import FAMILIES, WorkspaceBench, collate_items, fetch_bank, item_loader
+from src.domains.lm.data.workspacebench import FAMILIES, WorkspaceBench, collate_items, fetch_bank, item_loader
 
 """
 The bank is fetched, so every test here stubs the fetch: what is worth testing
@@ -20,7 +20,7 @@ LIST_BANK = [{"id": "mr-1", "stimulus": "...", "gold_reasons": ["harm"]}]
 
 def stub(payload):
     """urlopen's contract, as much of it as fetch_bank uses"""
-    return patch("src.data.workspacebench.urlopen",
+    return patch("src.domains.lm.data.workspacebench.urlopen",
                  return_value=io.BytesIO(json.dumps(payload).encode("utf-8")))
 
 class TestFetchBank(TestCase):
@@ -33,7 +33,7 @@ class TestFetchBank(TestCase):
             self.assertEqual("mr-1", fetch_bank("moral_rationale")["items"][0]["id"])
 
     def test_an_unknown_family_is_refused_without_fetching(self):
-        with patch("src.data.workspacebench.urlopen") as urlopen, self.assertRaises(DatasetError) as caught:
+        with patch("src.domains.lm.data.workspacebench.urlopen") as urlopen, self.assertRaises(DatasetError) as caught:
             fetch_bank("no_such_bank")
         urlopen.assert_not_called()
         self.assertIn("association", str(caught.exception))
