@@ -24,7 +24,7 @@ from src.domains.lm.analysis import attribution as attr
 from src.methods.knockout.ablate import ablate, capture_means
 from src.model.passes import encode, scored_positions, teacher_forced
 
-from .stubs.model import shared_adapter
+from ..stubs.model import shared_adapter
 
 LAYERS = [8, 9, 10, 11]
 PROMPTS = ["The capital of France is", "The capital of Germany is",

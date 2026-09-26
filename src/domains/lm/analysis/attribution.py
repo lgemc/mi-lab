@@ -235,7 +235,7 @@ class Attribution:
         once, so its first-order score is the sum of its edges' -- the same
         sum autograd performs for free when the gradient is read at the
         source's own site instead. Doing it explicitly is what makes the
-        claim checkable, and `tests/attribution.py` checks it: two routes to
+        claim checkable, and `tests/domains/attribution.py` checks it: two routes to
         one number is two chances to be wrong.
 
         The reverse does not exist. Nothing in a node score says which reader

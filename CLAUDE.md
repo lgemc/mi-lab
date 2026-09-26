@@ -51,7 +51,7 @@ uv run python -m unittest tests.core.architecture tests.core.config tests.core.m
     tests.share.artifact tests.serve.serve tests.serve.pool \
     tests.experiment.spec tests.experiment.run tests.experiment.runner \
     tests.experiment.pipeline tests.ie.ie \
-    tests.workspacebench tests.diffing tests.attribution tests.readout tests.hybrid
+    tests.workspacebench tests.diffing tests.domains.attribution tests.domains.lens tests.hybrid
 
 # offline subset: no checkpoint needed, seconds
 uv run python -m unittest tests.core.architecture tests.core.config tests.core.metrics \
@@ -435,7 +435,7 @@ The split, by the question each module answers:
   gradient instead of a generation: `(clean - mean) . d(metric)/d(activation)` at the two sites
   `knockout.ablate` replaces, so what is estimated is the study's own intervention and the sign
   matches `dbleu`. **One clean pass and one backward pass for the whole lattice**, whatever its
-  size (`tests/attribution.py::test_it_costs_the_same_number_of_passes_however_many_components_are_scored`),
+  size (`tests/domains/attribution.py::test_it_costs_the_same_number_of_passes_however_many_components_are_scored`),
   against one generation pass per component for the sweep. The base is fixed — the study's
   `mlp:L` / `head:L:H` lattice — and the three things that are *not* fixed are the module's
   content: `steps` (one gradient at the clean point, or integrated along the path back from the
