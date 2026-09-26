@@ -96,6 +96,45 @@ DEFINITIONS: Dict[str, Tuple[str, str]] = {
         "ceiling that was found",
         "mean activation norms",
     ),
+    "delta_relative": (
+        "Frobenius norm of the difference between one weight tensor in two checkpoints, over that "
+        "tensor's norm in the first; scale-free, so tensors of different widths compare",
+        "share",
+    ),
+    "stable_rank": (
+        "squared Frobenius norm of that difference over its squared largest singular value; one "
+        "dominant direction gives 1 and an equal spread gives the smaller side of the shape, so it "
+        "says how many directions the change used and nothing about how large it was",
+        "directions",
+    ),
+    "top_k_energy": (
+        "share of the difference's squared Frobenius norm held by its leading singular directions, "
+        "with k recorded beside it; the claim that a fine-tune is a handful of directions, as a number",
+        "share",
+    ),
+    "rank_for_half": (
+        "how many leading singular directions of the difference are needed to reach half of its "
+        "squared Frobenius norm; the same curve as top_k_energy without a k fixed in advance",
+        "directions",
+    ),
+    "fvu": (
+        "squared error of a dictionary's reconstruction of one layer's MLP output over the variance "
+        "of that output around its own mean across token positions; 1.0 is what predicting the mean "
+        "everywhere would score, and the figure is meaningless over few positions because the "
+        "denominator is the spread across them",
+        "share",
+    ),
+    "uncentred_error": (
+        "the same squared error over the squared norm of the output rather than its variance; smaller "
+        "than fvu whenever the output has a large mean, and reported beside it because neither is "
+        "'the' reconstruction error",
+        "share",
+    ),
+    "l0": (
+        "active dictionary features per token position per layer; multiply by the layer count for the "
+        "whole-model figure a transcoder release usually quotes",
+        "features",
+    ),
 }
 
 UNKNOWN = "unspecified"
