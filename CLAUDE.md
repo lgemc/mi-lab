@@ -704,6 +704,19 @@ Things to know:
   the top 10 tokens at any layer — **not** WorkspaceBench's official LLM-judged score, and the page
   says so.
 
+### The atlas (`atlas/`): teaching, not research
+
+`atlas/` is the public teaching site at https://interp.atelier.run: lessons from do-calculus to
+crosscoders, each on a toy model (`atlas/api/atlas/*.py`, numpy only) with a React front end
+(`atlas/web`). It is deliberately **outside `src/`** and shares no code with it. The kernel's
+gates (the width grep, the modality grep, import-linter) are about the research code and would
+be noise here, and the atlas must stay a small CPU image. Its own tests run as
+`cd atlas/api && uv run python -m unittest tests.causal tests.models tests.app`, and each one pins
+a sentence a lesson says about its model. `ruff check .` covers it through
+`atlas/api/pyproject.toml`, which extends the root config. Like `serve.py` it is a server, not a
+run, so it is untracked in MLflow. See `atlas/README.md`; it is deployed from
+`~/m/projects/k8s/atlas`.
+
 ### Every run is traced in MLflow — this is a rule, not an option
 
 **Everything this repo runs goes to the cluster's MLflow (`https://mlflow.atelier.run`), and new

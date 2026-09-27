@@ -1,0 +1,24 @@
+[project]
+name = "mi-lab-atlas"
+version = "0.1.0"
+description = "Interpretability ideas small enough to see: the API behind interp.atelier.run"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "numpy>=2.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["httpx>=0.27"]
+
+# The lab's rules, with one addition: `atlas` is this project's own package, which ruff
+# cannot tell from the repository root where the lab's config lives.
+[tool.ruff]
+extend = "../../pyproject.toml"
+
+[tool.ruff.lint.isort]
+known-first-party = ["atlas"]

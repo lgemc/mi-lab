@@ -96,3 +96,26 @@ jobs:
           )))")
           echo "running: $modules"
           uv run --no-sync python -m unittest $modules
+
+  atlas:
+    name: atlas (api tests + web build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: atlas
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: atlas/web/package-lock.json
+      - run: uv sync
+        working-directory: atlas/api
+      - run: uv run --no-sync python -m unittest tests.causal tests.models tests.app
+        working-directory: atlas/api
+      - run: npm ci && npm run build
+        working-directory: atlas/web
