@@ -1,0 +1,4585 @@
+{
+  "pre": "qwen3-0.6b-sdft",
+  "post": "qwen3-0.6b-sdft-tooluse",
+  "top_k": 8,
+  "estimated": false,
+  "n_tensors": 310,
+  "skipped": {
+    "lm_head.weight": "present in pre, absent in post"
+  },
+  "deltas": [
+    {
+      "tensor": "model.embed_tokens.weight",
+      "shape": [
+        151936,
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0055613924862723116,
+      "stable_rank": 10.296127720116779,
+      "full_rank": 1024,
+      "top_k_energy": 0.165299391712439,
+      "rank_for_half": 192
+    },
+    {
+      "tensor": "model.layers.0.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.0.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 0,
+      "kind": "down_proj",
+      "delta_relative": 0.006624710675659859,
+      "stable_rank": 234.55798282783977,
+      "full_rank": 1024,
+      "top_k_energy": 0.02930119518368292,
+      "rank_for_half": 263
+    },
+    {
+      "tensor": "model.layers.0.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 0,
+      "kind": "gate_proj",
+      "delta_relative": 0.00423363883912209,
+      "stable_rank": 120.66986893078456,
+      "full_rank": 1024,
+      "top_k_energy": 0.03338397321374172,
+      "rank_for_half": 264
+    },
+    {
+      "tensor": "model.layers.0.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 0,
+      "kind": "up_proj",
+      "delta_relative": 0.0066460948111553226,
+      "stable_rank": 90.47440558282585,
+      "full_rank": 1024,
+      "top_k_energy": 0.04367528341889465,
+      "rank_for_half": 255
+    },
+    {
+      "tensor": "model.layers.0.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 4.9728439421073844e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.0.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 0,
+      "kind": "k_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.0.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 0,
+      "kind": "k_proj",
+      "delta_relative": 0.005707235367966213,
+      "stable_rank": 46.02110701829183,
+      "full_rank": 1024,
+      "top_k_energy": 0.07840105233298189,
+      "rank_for_half": 153
+    },
+    {
+      "tensor": "model.layers.0.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 0,
+      "kind": "o_proj",
+      "delta_relative": 0.0069429220422377565,
+      "stable_rank": 68.73891515278147,
+      "full_rank": 1024,
+      "top_k_energy": 0.05130363747342524,
+      "rank_for_half": 216
+    },
+    {
+      "tensor": "model.layers.0.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 0,
+      "kind": "q_norm",
+      "delta_relative": 1.1861941531452272e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.0.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 0,
+      "kind": "q_proj",
+      "delta_relative": 0.005700346096880861,
+      "stable_rank": 54.62751036780691,
+      "full_rank": 1024,
+      "top_k_energy": 0.05974481467693218,
+      "rank_for_half": 210
+    },
+    {
+      "tensor": "model.layers.0.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 0,
+      "kind": "v_proj",
+      "delta_relative": 0.006155972024317854,
+      "stable_rank": 52.26925984454436,
+      "full_rank": 1024,
+      "top_k_energy": 0.06110600459693669,
+      "rank_for_half": 164
+    },
+    {
+      "tensor": "model.layers.1.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 7.459658803720059e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.1.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 1,
+      "kind": "down_proj",
+      "delta_relative": 0.008147621700426506,
+      "stable_rank": 144.44503543787974,
+      "full_rank": 1024,
+      "top_k_energy": 0.036280498027369816,
+      "rank_for_half": 251
+    },
+    {
+      "tensor": "model.layers.1.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 1,
+      "kind": "gate_proj",
+      "delta_relative": 0.003290195414698783,
+      "stable_rank": 173.0465564917919,
+      "full_rank": 1024,
+      "top_k_energy": 0.027613989065516584,
+      "rank_for_half": 265
+    },
+    {
+      "tensor": "model.layers.1.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 1,
+      "kind": "up_proj",
+      "delta_relative": 0.007834351362725867,
+      "stable_rank": 85.22452178877417,
+      "full_rank": 1024,
+      "top_k_energy": 0.041102291144277305,
+      "rank_for_half": 248
+    },
+    {
+      "tensor": "model.layers.1.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 5.526836465024095e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.1.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 1,
+      "kind": "k_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.1.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 1,
+      "kind": "k_proj",
+      "delta_relative": 0.005971197061948729,
+      "stable_rank": 58.936183740494116,
+      "full_rank": 1024,
+      "top_k_energy": 0.07245600176371009,
+      "rank_for_half": 150
+    },
+    {
+      "tensor": "model.layers.1.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 1,
+      "kind": "o_proj",
+      "delta_relative": 0.005868799715503777,
+      "stable_rank": 90.98278248817176,
+      "full_rank": 1024,
+      "top_k_energy": 0.05037666416034108,
+      "rank_for_half": 213
+    },
+    {
+      "tensor": "model.layers.1.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 1,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.1.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 1,
+      "kind": "q_proj",
+      "delta_relative": 0.005809373038200062,
+      "stable_rank": 83.76347061542603,
+      "full_rank": 1024,
+      "top_k_energy": 0.06450205783507426,
+      "rank_for_half": 197
+    },
+    {
+      "tensor": "model.layers.1.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 1,
+      "kind": "v_proj",
+      "delta_relative": 0.005275044722242918,
+      "stable_rank": 52.96108939158977,
+      "full_rank": 1024,
+      "top_k_energy": 0.061451467656327786,
+      "rank_for_half": 161
+    },
+    {
+      "tensor": "model.layers.10.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.10.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 10,
+      "kind": "down_proj",
+      "delta_relative": 0.007037670202778069,
+      "stable_rank": 114.75789015914374,
+      "full_rank": 1024,
+      "top_k_energy": 0.045712056087305886,
+      "rank_for_half": 224
+    },
+    {
+      "tensor": "model.layers.10.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 10,
+      "kind": "gate_proj",
+      "delta_relative": 0.0051115198018659635,
+      "stable_rank": 76.15398522212395,
+      "full_rank": 1024,
+      "top_k_energy": 0.05327525361880492,
+      "rank_for_half": 239
+    },
+    {
+      "tensor": "model.layers.10.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 10,
+      "kind": "up_proj",
+      "delta_relative": 0.006456756077185085,
+      "stable_rank": 78.30640466265244,
+      "full_rank": 1024,
+      "top_k_energy": 0.05433011003363018,
+      "rank_for_half": 233
+    },
+    {
+      "tensor": "model.layers.10.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 2.9755244217398974e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.10.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 10,
+      "kind": "k_norm",
+      "delta_relative": 3.5662692298795634e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.10.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 10,
+      "kind": "k_proj",
+      "delta_relative": 0.006474887892585837,
+      "stable_rank": 70.89266485974412,
+      "full_rank": 1024,
+      "top_k_energy": 0.07449974183004632,
+      "rank_for_half": 146
+    },
+    {
+      "tensor": "model.layers.10.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 10,
+      "kind": "o_proj",
+      "delta_relative": 0.006329909132481848,
+      "stable_rank": 101.39901676633481,
+      "full_rank": 1024,
+      "top_k_energy": 0.06158083728124141,
+      "rank_for_half": 188
+    },
+    {
+      "tensor": "model.layers.10.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 10,
+      "kind": "q_norm",
+      "delta_relative": 1.5320696261298153e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.10.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 10,
+      "kind": "q_proj",
+      "delta_relative": 0.0061172746604906255,
+      "stable_rank": 65.78728757302407,
+      "full_rank": 1024,
+      "top_k_energy": 0.06604307900083964,
+      "rank_for_half": 198
+    },
+    {
+      "tensor": "model.layers.10.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 10,
+      "kind": "v_proj",
+      "delta_relative": 0.00530437021775485,
+      "stable_rank": 80.4125988696587,
+      "full_rank": 1024,
+      "top_k_energy": 0.06544925745991362,
+      "rank_for_half": 153
+    },
+    {
+      "tensor": "model.layers.11.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.11.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 11,
+      "kind": "down_proj",
+      "delta_relative": 0.006521018532594712,
+      "stable_rank": 122.30484663742594,
+      "full_rank": 1024,
+      "top_k_energy": 0.043374019533758544,
+      "rank_for_half": 229
+    },
+    {
+      "tensor": "model.layers.11.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 11,
+      "kind": "gate_proj",
+      "delta_relative": 0.005538936944252631,
+      "stable_rank": 79.80017962734537,
+      "full_rank": 1024,
+      "top_k_energy": 0.05291286809262946,
+      "rank_for_half": 244
+    },
+    {
+      "tensor": "model.layers.11.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 11,
+      "kind": "up_proj",
+      "delta_relative": 0.0060203994710357565,
+      "stable_rank": 86.17494248157902,
+      "full_rank": 1024,
+      "top_k_energy": 0.05236549749737678,
+      "rank_for_half": 234
+    },
+    {
+      "tensor": "model.layers.11.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 5.698525672903171e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.11.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 11,
+      "kind": "k_norm",
+      "delta_relative": 4.173382989337531e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.11.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 11,
+      "kind": "k_proj",
+      "delta_relative": 0.00797540733487237,
+      "stable_rank": 38.616813907226096,
+      "full_rank": 1024,
+      "top_k_energy": 0.11299620457824244,
+      "rank_for_half": 115
+    },
+    {
+      "tensor": "model.layers.11.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 11,
+      "kind": "o_proj",
+      "delta_relative": 0.007446653777703439,
+      "stable_rank": 88.89425337235026,
+      "full_rank": 1024,
+      "top_k_energy": 0.05987219644794501,
+      "rank_for_half": 187
+    },
+    {
+      "tensor": "model.layers.11.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 11,
+      "kind": "q_norm",
+      "delta_relative": 1.73558270878721e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.11.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 11,
+      "kind": "q_proj",
+      "delta_relative": 0.006751488519205996,
+      "stable_rank": 46.982103622694794,
+      "full_rank": 1024,
+      "top_k_energy": 0.09446496550787205,
+      "rank_for_half": 156
+    },
+    {
+      "tensor": "model.layers.11.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 11,
+      "kind": "v_proj",
+      "delta_relative": 0.006264463633603645,
+      "stable_rank": 73.45605342785625,
+      "full_rank": 1024,
+      "top_k_energy": 0.07565236929911137,
+      "rank_for_half": 133
+    },
+    {
+      "tensor": "model.layers.12.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.12.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 12,
+      "kind": "down_proj",
+      "delta_relative": 0.006556375974673331,
+      "stable_rank": 102.44839706529805,
+      "full_rank": 1024,
+      "top_k_energy": 0.04616485253609447,
+      "rank_for_half": 227
+    },
+    {
+      "tensor": "model.layers.12.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 12,
+      "kind": "gate_proj",
+      "delta_relative": 0.005842764582815097,
+      "stable_rank": 72.53267887574432,
+      "full_rank": 1024,
+      "top_k_energy": 0.0556473228843027,
+      "rank_for_half": 242
+    },
+    {
+      "tensor": "model.layers.12.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 12,
+      "kind": "up_proj",
+      "delta_relative": 0.006130363842082651,
+      "stable_rank": 80.24179875394334,
+      "full_rank": 1024,
+      "top_k_energy": 0.054647659982323855,
+      "rank_for_half": 234
+    },
+    {
+      "tensor": "model.layers.12.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 3.137766782973454e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.12.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 12,
+      "kind": "k_norm",
+      "delta_relative": 5.34765979191586e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.12.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 12,
+      "kind": "k_proj",
+      "delta_relative": 0.0077083136123324535,
+      "stable_rank": 70.69016595560085,
+      "full_rank": 1024,
+      "top_k_energy": 0.08121415683446791,
+      "rank_for_half": 136
+    },
+    {
+      "tensor": "model.layers.12.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 12,
+      "kind": "o_proj",
+      "delta_relative": 0.0068500557488100425,
+      "stable_rank": 87.290134733708,
+      "full_rank": 1024,
+      "top_k_energy": 0.06063461831922649,
+      "rank_for_half": 187
+    },
+    {
+      "tensor": "model.layers.12.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 12,
+      "kind": "q_norm",
+      "delta_relative": 3.487135167470565e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.12.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 12,
+      "kind": "q_proj",
+      "delta_relative": 0.006417002057754167,
+      "stable_rank": 57.653466469553614,
+      "full_rank": 1024,
+      "top_k_energy": 0.0727351810872824,
+      "rank_for_half": 187
+    },
+    {
+      "tensor": "model.layers.12.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 12,
+      "kind": "v_proj",
+      "delta_relative": 0.005522522110113828,
+      "stable_rank": 71.71066856528093,
+      "full_rank": 1024,
+      "top_k_energy": 0.06983444736574977,
+      "rank_for_half": 147
+    },
+    {
+      "tensor": "model.layers.13.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.13.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 13,
+      "kind": "down_proj",
+      "delta_relative": 0.006995092278508782,
+      "stable_rank": 107.79539922407042,
+      "full_rank": 1024,
+      "top_k_energy": 0.047030845390299114,
+      "rank_for_half": 221
+    },
+    {
+      "tensor": "model.layers.13.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 13,
+      "kind": "gate_proj",
+      "delta_relative": 0.006287746735587139,
+      "stable_rank": 73.92928792893751,
+      "full_rank": 1024,
+      "top_k_energy": 0.057131796456740006,
+      "rank_for_half": 239
+    },
+    {
+      "tensor": "model.layers.13.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 13,
+      "kind": "up_proj",
+      "delta_relative": 0.006505902732170734,
+      "stable_rank": 78.0190132849866,
+      "full_rank": 1024,
+      "top_k_energy": 0.05486676955600498,
+      "rank_for_half": 234
+    },
+    {
+      "tensor": "model.layers.13.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 5.117831468148579e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.13.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 13,
+      "kind": "k_norm",
+      "delta_relative": 4.367890535694183e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.13.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 13,
+      "kind": "k_proj",
+      "delta_relative": 0.007964045100808073,
+      "stable_rank": 66.28234715143373,
+      "full_rank": 1024,
+      "top_k_energy": 0.08734595834979213,
+      "rank_for_half": 133
+    },
+    {
+      "tensor": "model.layers.13.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 13,
+      "kind": "o_proj",
+      "delta_relative": 0.006899577241720099,
+      "stable_rank": 77.50796497945049,
+      "full_rank": 1024,
+      "top_k_energy": 0.07066096733548327,
+      "rank_for_half": 174
+    },
+    {
+      "tensor": "model.layers.13.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 13,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.13.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 13,
+      "kind": "q_proj",
+      "delta_relative": 0.006628655241927823,
+      "stable_rank": 55.558438444915,
+      "full_rank": 1024,
+      "top_k_energy": 0.07742955459735443,
+      "rank_for_half": 180
+    },
+    {
+      "tensor": "model.layers.13.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 13,
+      "kind": "v_proj",
+      "delta_relative": 0.005265764871400236,
+      "stable_rank": 72.51458796689248,
+      "full_rank": 1024,
+      "top_k_energy": 0.07180741984053271,
+      "rank_for_half": 149
+    },
+    {
+      "tensor": "model.layers.14.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.14.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 14,
+      "kind": "down_proj",
+      "delta_relative": 0.0072482397602991015,
+      "stable_rank": 109.58408027815209,
+      "full_rank": 1024,
+      "top_k_energy": 0.047326445299612566,
+      "rank_for_half": 221
+    },
+    {
+      "tensor": "model.layers.14.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 14,
+      "kind": "gate_proj",
+      "delta_relative": 0.006727771417298679,
+      "stable_rank": 65.62127577416321,
+      "full_rank": 1024,
+      "top_k_energy": 0.06070735736206613,
+      "rank_for_half": 234
+    },
+    {
+      "tensor": "model.layers.14.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 14,
+      "kind": "up_proj",
+      "delta_relative": 0.00687515796155493,
+      "stable_rank": 76.31188037207549,
+      "full_rank": 1024,
+      "top_k_energy": 0.057248939709696446,
+      "rank_for_half": 231
+    },
+    {
+      "tensor": "model.layers.14.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 4.3838923968338595e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.14.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 14,
+      "kind": "k_norm",
+      "delta_relative": 2.5708251928051898e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.14.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 14,
+      "kind": "k_proj",
+      "delta_relative": 0.008416630848131053,
+      "stable_rank": 51.01255898921115,
+      "full_rank": 1024,
+      "top_k_energy": 0.09574022326726898,
+      "rank_for_half": 125
+    },
+    {
+      "tensor": "model.layers.14.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 14,
+      "kind": "o_proj",
+      "delta_relative": 0.007607745578107924,
+      "stable_rank": 71.75934669336023,
+      "full_rank": 1024,
+      "top_k_energy": 0.06703164745204267,
+      "rank_for_half": 178
+    },
+    {
+      "tensor": "model.layers.14.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 14,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.14.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 14,
+      "kind": "q_proj",
+      "delta_relative": 0.007033080883159295,
+      "stable_rank": 47.49868584091538,
+      "full_rank": 1024,
+      "top_k_energy": 0.08721730596541977,
+      "rank_for_half": 167
+    },
+    {
+      "tensor": "model.layers.14.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 14,
+      "kind": "v_proj",
+      "delta_relative": 0.0059755717786677395,
+      "stable_rank": 76.77312135159166,
+      "full_rank": 1024,
+      "top_k_energy": 0.06989211185670455,
+      "rank_for_half": 148
+    },
+    {
+      "tensor": "model.layers.15.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.15.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 15,
+      "kind": "down_proj",
+      "delta_relative": 0.007217573678598265,
+      "stable_rank": 90.30304124850655,
+      "full_rank": 1024,
+      "top_k_energy": 0.049789799160459926,
+      "rank_for_half": 219
+    },
+    {
+      "tensor": "model.layers.15.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 15,
+      "kind": "gate_proj",
+      "delta_relative": 0.006817580522774303,
+      "stable_rank": 66.86186829781848,
+      "full_rank": 1024,
+      "top_k_energy": 0.06167857878122899,
+      "rank_for_half": 231
+    },
+    {
+      "tensor": "model.layers.15.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 15,
+      "kind": "up_proj",
+      "delta_relative": 0.006848800126446748,
+      "stable_rank": 70.64665164780807,
+      "full_rank": 1024,
+      "top_k_energy": 0.05873728844164679,
+      "rank_for_half": 228
+    },
+    {
+      "tensor": "model.layers.15.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 7.682132216465114e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.15.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 15,
+      "kind": "k_norm",
+      "delta_relative": 3.0362046350956908e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.15.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 15,
+      "kind": "k_proj",
+      "delta_relative": 0.008645048120737272,
+      "stable_rank": 67.90433986050715,
+      "full_rank": 1024,
+      "top_k_energy": 0.0821006802253245,
+      "rank_for_half": 134
+    },
+    {
+      "tensor": "model.layers.15.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 15,
+      "kind": "o_proj",
+      "delta_relative": 0.007053291175234118,
+      "stable_rank": 64.66860269256105,
+      "full_rank": 1024,
+      "top_k_energy": 0.06879644955945513,
+      "rank_for_half": 177
+    },
+    {
+      "tensor": "model.layers.15.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 15,
+      "kind": "q_norm",
+      "delta_relative": 2.7343984192070678e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.15.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 15,
+      "kind": "q_proj",
+      "delta_relative": 0.006656799356185227,
+      "stable_rank": 59.63543172979487,
+      "full_rank": 1024,
+      "top_k_energy": 0.0788422921311712,
+      "rank_for_half": 176
+    },
+    {
+      "tensor": "model.layers.15.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 15,
+      "kind": "v_proj",
+      "delta_relative": 0.005650435019017392,
+      "stable_rank": 70.94034751994757,
+      "full_rank": 1024,
+      "top_k_energy": 0.07266344345582032,
+      "rank_for_half": 143
+    },
+    {
+      "tensor": "model.layers.16.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.16.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 16,
+      "kind": "down_proj",
+      "delta_relative": 0.007010842634413419,
+      "stable_rank": 95.38153803570613,
+      "full_rank": 1024,
+      "top_k_energy": 0.04858085499420212,
+      "rank_for_half": 230
+    },
+    {
+      "tensor": "model.layers.16.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 16,
+      "kind": "gate_proj",
+      "delta_relative": 0.007112766534093804,
+      "stable_rank": 61.10450661393198,
+      "full_rank": 1024,
+      "top_k_energy": 0.06372535933736943,
+      "rank_for_half": 225
+    },
+    {
+      "tensor": "model.layers.16.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 16,
+      "kind": "up_proj",
+      "delta_relative": 0.006820049314326218,
+      "stable_rank": 67.86370913075577,
+      "full_rank": 1024,
+      "top_k_energy": 0.05853844896835898,
+      "rank_for_half": 224
+    },
+    {
+      "tensor": "model.layers.16.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 6.564377081017572e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.16.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 16,
+      "kind": "k_norm",
+      "delta_relative": 3.6164995026262754e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.16.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 16,
+      "kind": "k_proj",
+      "delta_relative": 0.009301862682205514,
+      "stable_rank": 58.83630699909739,
+      "full_rank": 1024,
+      "top_k_energy": 0.09069937708345,
+      "rank_for_half": 124
+    },
+    {
+      "tensor": "model.layers.16.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 16,
+      "kind": "o_proj",
+      "delta_relative": 0.007198801710107939,
+      "stable_rank": 78.02047920326474,
+      "full_rank": 1024,
+      "top_k_energy": 0.06362752446675494,
+      "rank_for_half": 178
+    },
+    {
+      "tensor": "model.layers.16.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 16,
+      "kind": "q_norm",
+      "delta_relative": 6.084082784593429e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.16.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 16,
+      "kind": "q_proj",
+      "delta_relative": 0.006882139239394829,
+      "stable_rank": 40.73363208614095,
+      "full_rank": 1024,
+      "top_k_energy": 0.09630392164023945,
+      "rank_for_half": 157
+    },
+    {
+      "tensor": "model.layers.16.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 16,
+      "kind": "v_proj",
+      "delta_relative": 0.0061212440882834705,
+      "stable_rank": 64.84873112818711,
+      "full_rank": 1024,
+      "top_k_energy": 0.07314639952389136,
+      "rank_for_half": 144
+    },
+    {
+      "tensor": "model.layers.17.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.17.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 17,
+      "kind": "down_proj",
+      "delta_relative": 0.006937565571295653,
+      "stable_rank": 98.71240768516267,
+      "full_rank": 1024,
+      "top_k_energy": 0.04691025924485171,
+      "rank_for_half": 230
+    },
+    {
+      "tensor": "model.layers.17.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 17,
+      "kind": "gate_proj",
+      "delta_relative": 0.007133858665796537,
+      "stable_rank": 54.37186295978707,
+      "full_rank": 1024,
+      "top_k_energy": 0.06405840491037035,
+      "rank_for_half": 228
+    },
+    {
+      "tensor": "model.layers.17.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 17,
+      "kind": "up_proj",
+      "delta_relative": 0.0065399055646352434,
+      "stable_rank": 64.73303053688771,
+      "full_rank": 1024,
+      "top_k_energy": 0.057923730271119495,
+      "rank_for_half": 228
+    },
+    {
+      "tensor": "model.layers.17.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 5.857891275400908e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.17.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 17,
+      "kind": "k_norm",
+      "delta_relative": 2.63188384839945e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.17.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 17,
+      "kind": "k_proj",
+      "delta_relative": 0.008560710879754742,
+      "stable_rank": 69.6935585452862,
+      "full_rank": 1024,
+      "top_k_energy": 0.08202055870707813,
+      "rank_for_half": 135
+    },
+    {
+      "tensor": "model.layers.17.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 17,
+      "kind": "o_proj",
+      "delta_relative": 0.006983686838282529,
+      "stable_rank": 59.53895264325631,
+      "full_rank": 1024,
+      "top_k_energy": 0.07227845221718576,
+      "rank_for_half": 177
+    },
+    {
+      "tensor": "model.layers.17.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 17,
+      "kind": "q_norm",
+      "delta_relative": 2.6132308859718334e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.17.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 17,
+      "kind": "q_proj",
+      "delta_relative": 0.006793007286579462,
+      "stable_rank": 46.6633945129837,
+      "full_rank": 1024,
+      "top_k_energy": 0.08936502317865516,
+      "rank_for_half": 170
+    },
+    {
+      "tensor": "model.layers.17.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 17,
+      "kind": "v_proj",
+      "delta_relative": 0.005620985769753332,
+      "stable_rank": 75.25089152689013,
+      "full_rank": 1024,
+      "top_k_energy": 0.07402512036661224,
+      "rank_for_half": 145
+    },
+    {
+      "tensor": "model.layers.18.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.18.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 18,
+      "kind": "down_proj",
+      "delta_relative": 0.006723454916259782,
+      "stable_rank": 99.83723754160404,
+      "full_rank": 1024,
+      "top_k_energy": 0.045687377294217034,
+      "rank_for_half": 231
+    },
+    {
+      "tensor": "model.layers.18.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 18,
+      "kind": "gate_proj",
+      "delta_relative": 0.007234570863404772,
+      "stable_rank": 52.72961622826259,
+      "full_rank": 1024,
+      "top_k_energy": 0.06399893145663901,
+      "rank_for_half": 226
+    },
+    {
+      "tensor": "model.layers.18.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 18,
+      "kind": "up_proj",
+      "delta_relative": 0.0065242502811247525,
+      "stable_rank": 70.08858927621006,
+      "full_rank": 1024,
+      "top_k_energy": 0.05508149515669255,
+      "rank_for_half": 231
+    },
+    {
+      "tensor": "model.layers.18.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 2.433974577037189e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.18.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 18,
+      "kind": "k_norm",
+      "delta_relative": 4.031223175611758e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.18.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 18,
+      "kind": "k_proj",
+      "delta_relative": 0.009081435418107622,
+      "stable_rank": 52.823169745079774,
+      "full_rank": 1024,
+      "top_k_energy": 0.09321160032002168,
+      "rank_for_half": 125
+    },
+    {
+      "tensor": "model.layers.18.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 18,
+      "kind": "o_proj",
+      "delta_relative": 0.007465685122209723,
+      "stable_rank": 69.93677663491584,
+      "full_rank": 1024,
+      "top_k_energy": 0.06411721220923539,
+      "rank_for_half": 188
+    },
+    {
+      "tensor": "model.layers.18.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 18,
+      "kind": "q_norm",
+      "delta_relative": 3.2215560408975846e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.18.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 18,
+      "kind": "q_proj",
+      "delta_relative": 0.006875870199264872,
+      "stable_rank": 39.70216415464783,
+      "full_rank": 1024,
+      "top_k_energy": 0.09448180353146898,
+      "rank_for_half": 162
+    },
+    {
+      "tensor": "model.layers.18.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 18,
+      "kind": "v_proj",
+      "delta_relative": 0.005974924296512838,
+      "stable_rank": 50.316153449802066,
+      "full_rank": 1024,
+      "top_k_energy": 0.08119655918676372,
+      "rank_for_half": 144
+    },
+    {
+      "tensor": "model.layers.19.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.19.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 19,
+      "kind": "down_proj",
+      "delta_relative": 0.006389075603122186,
+      "stable_rank": 114.48727768079485,
+      "full_rank": 1024,
+      "top_k_energy": 0.04369261698643664,
+      "rank_for_half": 232
+    },
+    {
+      "tensor": "model.layers.19.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 19,
+      "kind": "gate_proj",
+      "delta_relative": 0.007550769632741585,
+      "stable_rank": 62.232318504743965,
+      "full_rank": 1024,
+      "top_k_energy": 0.06072784995427276,
+      "rank_for_half": 228
+    },
+    {
+      "tensor": "model.layers.19.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 19,
+      "kind": "up_proj",
+      "delta_relative": 0.006349447588034475,
+      "stable_rank": 68.92644214956991,
+      "full_rank": 1024,
+      "top_k_energy": 0.053751689472097484,
+      "rank_for_half": 233
+    },
+    {
+      "tensor": "model.layers.19.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 2.4821940651288457e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.19.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 19,
+      "kind": "k_norm",
+      "delta_relative": 2.26099117174262e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.19.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 19,
+      "kind": "k_proj",
+      "delta_relative": 0.008991711754954832,
+      "stable_rank": 47.623792504628575,
+      "full_rank": 1024,
+      "top_k_energy": 0.0927507534236514,
+      "rank_for_half": 129
+    },
+    {
+      "tensor": "model.layers.19.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 19,
+      "kind": "o_proj",
+      "delta_relative": 0.007079050276915369,
+      "stable_rank": 77.2120675359313,
+      "full_rank": 1024,
+      "top_k_energy": 0.06033614907100679,
+      "rank_for_half": 189
+    },
+    {
+      "tensor": "model.layers.19.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 19,
+      "kind": "q_norm",
+      "delta_relative": 2.966810201562304e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.19.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 19,
+      "kind": "q_proj",
+      "delta_relative": 0.0067976466275166516,
+      "stable_rank": 32.13148106056892,
+      "full_rank": 1024,
+      "top_k_energy": 0.10963078003178436,
+      "rank_for_half": 151
+    },
+    {
+      "tensor": "model.layers.19.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 19,
+      "kind": "v_proj",
+      "delta_relative": 0.00617089129901146,
+      "stable_rank": 68.4583615845964,
+      "full_rank": 1024,
+      "top_k_energy": 0.07334158893696295,
+      "rank_for_half": 145
+    },
+    {
+      "tensor": "model.layers.2.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 5.698116056530903e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.2.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 2,
+      "kind": "down_proj",
+      "delta_relative": 0.007697793967662815,
+      "stable_rank": 179.03809647430626,
+      "full_rank": 1024,
+      "top_k_energy": 0.034088290140120714,
+      "rank_for_half": 256
+    },
+    {
+      "tensor": "model.layers.2.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 2,
+      "kind": "gate_proj",
+      "delta_relative": 0.0038995343328214996,
+      "stable_rank": 171.84663046988817,
+      "full_rank": 1024,
+      "top_k_energy": 0.027597001118501656,
+      "rank_for_half": 266
+    },
+    {
+      "tensor": "model.layers.2.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 2,
+      "kind": "up_proj",
+      "delta_relative": 0.007514545885981478,
+      "stable_rank": 105.53943378981587,
+      "full_rank": 1024,
+      "top_k_energy": 0.03852340148769093,
+      "rank_for_half": 254
+    },
+    {
+      "tensor": "model.layers.2.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 8.897186259488428e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.2.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 2,
+      "kind": "k_norm",
+      "delta_relative": 1.7487505905676474e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.2.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 2,
+      "kind": "k_proj",
+      "delta_relative": 0.006875518050136465,
+      "stable_rank": 52.46883848785427,
+      "full_rank": 1024,
+      "top_k_energy": 0.09248994027839431,
+      "rank_for_half": 135
+    },
+    {
+      "tensor": "model.layers.2.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 2,
+      "kind": "o_proj",
+      "delta_relative": 0.006370312284565727,
+      "stable_rank": 85.53986539767985,
+      "full_rank": 1024,
+      "top_k_energy": 0.054650455686183326,
+      "rank_for_half": 212
+    },
+    {
+      "tensor": "model.layers.2.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 2,
+      "kind": "q_norm",
+      "delta_relative": 2.5379409451935165e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.2.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 2,
+      "kind": "q_proj",
+      "delta_relative": 0.00636895971641886,
+      "stable_rank": 59.721824611413574,
+      "full_rank": 1024,
+      "top_k_energy": 0.06786419747447422,
+      "rank_for_half": 197
+    },
+    {
+      "tensor": "model.layers.2.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 2,
+      "kind": "v_proj",
+      "delta_relative": 0.005696297838811572,
+      "stable_rank": 60.63609254850413,
+      "full_rank": 1024,
+      "top_k_energy": 0.06526691762056623,
+      "rank_for_half": 157
+    },
+    {
+      "tensor": "model.layers.20.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.20.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 20,
+      "kind": "down_proj",
+      "delta_relative": 0.006030705467066463,
+      "stable_rank": 115.17680282646225,
+      "full_rank": 1024,
+      "top_k_energy": 0.043878175502941104,
+      "rank_for_half": 232
+    },
+    {
+      "tensor": "model.layers.20.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 20,
+      "kind": "gate_proj",
+      "delta_relative": 0.007313407169392424,
+      "stable_rank": 65.36202777185491,
+      "full_rank": 1024,
+      "top_k_energy": 0.05845236996310578,
+      "rank_for_half": 235
+    },
+    {
+      "tensor": "model.layers.20.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 20,
+      "kind": "up_proj",
+      "delta_relative": 0.005939782385745507,
+      "stable_rank": 70.11454904340728,
+      "full_rank": 1024,
+      "top_k_energy": 0.05274705320136081,
+      "rank_for_half": 236
+    },
+    {
+      "tensor": "model.layers.20.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 3.37134299858613e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.20.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 20,
+      "kind": "k_norm",
+      "delta_relative": 3.2869731350772206e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.20.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 20,
+      "kind": "k_proj",
+      "delta_relative": 0.008428331052154377,
+      "stable_rank": 60.24775307892741,
+      "full_rank": 1024,
+      "top_k_energy": 0.08425129197811494,
+      "rank_for_half": 131
+    },
+    {
+      "tensor": "model.layers.20.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 20,
+      "kind": "o_proj",
+      "delta_relative": 0.007167423963685296,
+      "stable_rank": 67.88822476980555,
+      "full_rank": 1024,
+      "top_k_energy": 0.061689356948534786,
+      "rank_for_half": 192
+    },
+    {
+      "tensor": "model.layers.20.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 20,
+      "kind": "q_norm",
+      "delta_relative": 3.963233433573375e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.20.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 20,
+      "kind": "q_proj",
+      "delta_relative": 0.0064250890110427025,
+      "stable_rank": 41.44532016482171,
+      "full_rank": 1024,
+      "top_k_energy": 0.08930723293142381,
+      "rank_for_half": 165
+    },
+    {
+      "tensor": "model.layers.20.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 20,
+      "kind": "v_proj",
+      "delta_relative": 0.006245908783619941,
+      "stable_rank": 43.72543539964547,
+      "full_rank": 1024,
+      "top_k_energy": 0.08329699345669933,
+      "rank_for_half": 144
+    },
+    {
+      "tensor": "model.layers.21.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.21.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 21,
+      "kind": "down_proj",
+      "delta_relative": 0.005696317510038416,
+      "stable_rank": 112.58732932196072,
+      "full_rank": 1024,
+      "top_k_energy": 0.043545887809104934,
+      "rank_for_half": 234
+    },
+    {
+      "tensor": "model.layers.21.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 21,
+      "kind": "gate_proj",
+      "delta_relative": 0.00729750505523805,
+      "stable_rank": 62.58867002945507,
+      "full_rank": 1024,
+      "top_k_energy": 0.05984471721548307,
+      "rank_for_half": 236
+    },
+    {
+      "tensor": "model.layers.21.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 21,
+      "kind": "up_proj",
+      "delta_relative": 0.0055073727745967955,
+      "stable_rank": 72.92087814898005,
+      "full_rank": 1024,
+      "top_k_energy": 0.05295244246334094,
+      "rank_for_half": 240
+    },
+    {
+      "tensor": "model.layers.21.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 3.0194749557572178e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.21.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 21,
+      "kind": "k_norm",
+      "delta_relative": 3.2227871899158004e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.21.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 21,
+      "kind": "k_proj",
+      "delta_relative": 0.008541702433138154,
+      "stable_rank": 33.56749738840612,
+      "full_rank": 1024,
+      "top_k_energy": 0.1194349050521894,
+      "rank_for_half": 109
+    },
+    {
+      "tensor": "model.layers.21.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 21,
+      "kind": "o_proj",
+      "delta_relative": 0.007032152196796297,
+      "stable_rank": 77.76214480913872,
+      "full_rank": 1024,
+      "top_k_energy": 0.060589665622355314,
+      "rank_for_half": 193
+    },
+    {
+      "tensor": "model.layers.21.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 21,
+      "kind": "q_norm",
+      "delta_relative": 2.30618679184543e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.21.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 21,
+      "kind": "q_proj",
+      "delta_relative": 0.006482964038846278,
+      "stable_rank": 40.946495569692686,
+      "full_rank": 1024,
+      "top_k_energy": 0.09855755274887451,
+      "rank_for_half": 155
+    },
+    {
+      "tensor": "model.layers.21.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 21,
+      "kind": "v_proj",
+      "delta_relative": 0.005974710837383646,
+      "stable_rank": 47.624212860929184,
+      "full_rank": 1024,
+      "top_k_energy": 0.09029586950246182,
+      "rank_for_half": 132
+    },
+    {
+      "tensor": "model.layers.22.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.22.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 22,
+      "kind": "down_proj",
+      "delta_relative": 0.005567018376696313,
+      "stable_rank": 119.16687884326304,
+      "full_rank": 1024,
+      "top_k_energy": 0.04526637968634779,
+      "rank_for_half": 233
+    },
+    {
+      "tensor": "model.layers.22.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 22,
+      "kind": "gate_proj",
+      "delta_relative": 0.0072255661286170295,
+      "stable_rank": 61.58687489268258,
+      "full_rank": 1024,
+      "top_k_energy": 0.06015146726785347,
+      "rank_for_half": 239
+    },
+    {
+      "tensor": "model.layers.22.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 22,
+      "kind": "up_proj",
+      "delta_relative": 0.0053929087201675325,
+      "stable_rank": 69.69671110794779,
+      "full_rank": 1024,
+      "top_k_energy": 0.053325465238270954,
+      "rank_for_half": 243
+    },
+    {
+      "tensor": "model.layers.22.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 2.7798806092138315e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.22.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 22,
+      "kind": "k_norm",
+      "delta_relative": 8.736565396175167e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.22.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 22,
+      "kind": "k_proj",
+      "delta_relative": 0.007614985197815256,
+      "stable_rank": 50.96049758726969,
+      "full_rank": 1024,
+      "top_k_energy": 0.09849530201830711,
+      "rank_for_half": 124
+    },
+    {
+      "tensor": "model.layers.22.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 22,
+      "kind": "o_proj",
+      "delta_relative": 0.006254372953251951,
+      "stable_rank": 62.83974414055794,
+      "full_rank": 1024,
+      "top_k_energy": 0.0595626368656052,
+      "rank_for_half": 191
+    },
+    {
+      "tensor": "model.layers.22.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 22,
+      "kind": "q_norm",
+      "delta_relative": 6.0607257756935077e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.22.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 22,
+      "kind": "q_proj",
+      "delta_relative": 0.006154376236369922,
+      "stable_rank": 41.38661003466767,
+      "full_rank": 1024,
+      "top_k_energy": 0.09666788398907154,
+      "rank_for_half": 154
+    },
+    {
+      "tensor": "model.layers.22.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 22,
+      "kind": "v_proj",
+      "delta_relative": 0.005531464330125428,
+      "stable_rank": 43.88507245732426,
+      "full_rank": 1024,
+      "top_k_energy": 0.09027536037762812,
+      "rank_for_half": 139
+    },
+    {
+      "tensor": "model.layers.23.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.23.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 23,
+      "kind": "down_proj",
+      "delta_relative": 0.005522355618343558,
+      "stable_rank": 115.44915913725102,
+      "full_rank": 1024,
+      "top_k_energy": 0.04645335082827273,
+      "rank_for_half": 233
+    },
+    {
+      "tensor": "model.layers.23.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 23,
+      "kind": "gate_proj",
+      "delta_relative": 0.007089858718148442,
+      "stable_rank": 65.97694757351034,
+      "full_rank": 1024,
+      "top_k_energy": 0.05734583931308171,
+      "rank_for_half": 242
+    },
+    {
+      "tensor": "model.layers.23.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 23,
+      "kind": "up_proj",
+      "delta_relative": 0.005335690533376469,
+      "stable_rank": 72.11679222830193,
+      "full_rank": 1024,
+      "top_k_energy": 0.050823496246918086,
+      "rank_for_half": 247
+    },
+    {
+      "tensor": "model.layers.23.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 4.430505133803242e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.23.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 23,
+      "kind": "k_norm",
+      "delta_relative": 3.354716761892442e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.23.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 23,
+      "kind": "k_proj",
+      "delta_relative": 0.008287384042457806,
+      "stable_rank": 62.459065121418,
+      "full_rank": 1024,
+      "top_k_energy": 0.08952123433277893,
+      "rank_for_half": 126
+    },
+    {
+      "tensor": "model.layers.23.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 23,
+      "kind": "o_proj",
+      "delta_relative": 0.006396641735380071,
+      "stable_rank": 66.2123121461482,
+      "full_rank": 1024,
+      "top_k_energy": 0.0639524128972155,
+      "rank_for_half": 193
+    },
+    {
+      "tensor": "model.layers.23.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 23,
+      "kind": "q_norm",
+      "delta_relative": 1.4031082346019917e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.23.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 23,
+      "kind": "q_proj",
+      "delta_relative": 0.0067078925613982526,
+      "stable_rank": 41.31098786804554,
+      "full_rank": 1024,
+      "top_k_energy": 0.0914627112770291,
+      "rank_for_half": 172
+    },
+    {
+      "tensor": "model.layers.23.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 23,
+      "kind": "v_proj",
+      "delta_relative": 0.0058309682654201014,
+      "stable_rank": 43.68924849911043,
+      "full_rank": 1024,
+      "top_k_energy": 0.08844086750541821,
+      "rank_for_half": 140
+    },
+    {
+      "tensor": "model.layers.24.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.24.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 24,
+      "kind": "down_proj",
+      "delta_relative": 0.00530286194953911,
+      "stable_rank": 117.2127775625046,
+      "full_rank": 1024,
+      "top_k_energy": 0.047245710518117864,
+      "rank_for_half": 235
+    },
+    {
+      "tensor": "model.layers.24.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 24,
+      "kind": "gate_proj",
+      "delta_relative": 0.007269933524804514,
+      "stable_rank": 52.40962503741163,
+      "full_rank": 1024,
+      "top_k_energy": 0.05977081219850528,
+      "rank_for_half": 242
+    },
+    {
+      "tensor": "model.layers.24.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 24,
+      "kind": "up_proj",
+      "delta_relative": 0.005247503937663517,
+      "stable_rank": 60.61846348441821,
+      "full_rank": 1024,
+      "top_k_energy": 0.051570556065097174,
+      "rank_for_half": 248
+    },
+    {
+      "tensor": "model.layers.24.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 2.646307339853616e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.24.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 24,
+      "kind": "k_norm",
+      "delta_relative": 2.1236469824106707e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.24.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 24,
+      "kind": "k_proj",
+      "delta_relative": 0.008342972430548745,
+      "stable_rank": 49.151677038258796,
+      "full_rank": 1024,
+      "top_k_energy": 0.09839562786942144,
+      "rank_for_half": 116
+    },
+    {
+      "tensor": "model.layers.24.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 24,
+      "kind": "o_proj",
+      "delta_relative": 0.006447339480379338,
+      "stable_rank": 40.20866334354399,
+      "full_rank": 1024,
+      "top_k_energy": 0.07688108664049473,
+      "rank_for_half": 186
+    },
+    {
+      "tensor": "model.layers.24.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 24,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.24.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 24,
+      "kind": "q_proj",
+      "delta_relative": 0.006670070979926429,
+      "stable_rank": 32.24469073309702,
+      "full_rank": 1024,
+      "top_k_energy": 0.11228010306807121,
+      "rank_for_half": 152
+    },
+    {
+      "tensor": "model.layers.24.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 24,
+      "kind": "v_proj",
+      "delta_relative": 0.006101342093720655,
+      "stable_rank": 36.06725118869991,
+      "full_rank": 1024,
+      "top_k_energy": 0.10155103235874265,
+      "rank_for_half": 133
+    },
+    {
+      "tensor": "model.layers.25.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.25.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 25,
+      "kind": "down_proj",
+      "delta_relative": 0.005163400812237232,
+      "stable_rank": 117.85533311240965,
+      "full_rank": 1024,
+      "top_k_energy": 0.0414842347342105,
+      "rank_for_half": 244
+    },
+    {
+      "tensor": "model.layers.25.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 25,
+      "kind": "gate_proj",
+      "delta_relative": 0.007430586327531435,
+      "stable_rank": 52.84554110629584,
+      "full_rank": 1024,
+      "top_k_energy": 0.05632411788986828,
+      "rank_for_half": 246
+    },
+    {
+      "tensor": "model.layers.25.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 25,
+      "kind": "up_proj",
+      "delta_relative": 0.0051078985211798385,
+      "stable_rank": 61.0438482418098,
+      "full_rank": 1024,
+      "top_k_energy": 0.049671311845190975,
+      "rank_for_half": 249
+    },
+    {
+      "tensor": "model.layers.25.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 1.3461105948759738e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.25.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 25,
+      "kind": "k_norm",
+      "delta_relative": 6.641389908196516e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.25.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 25,
+      "kind": "k_proj",
+      "delta_relative": 0.00944526279630767,
+      "stable_rank": 52.54146617436518,
+      "full_rank": 1024,
+      "top_k_energy": 0.10205208916855285,
+      "rank_for_half": 119
+    },
+    {
+      "tensor": "model.layers.25.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 25,
+      "kind": "o_proj",
+      "delta_relative": 0.0061442220313565835,
+      "stable_rank": 74.05862697674088,
+      "full_rank": 1024,
+      "top_k_energy": 0.05873455928098225,
+      "rank_for_half": 199
+    },
+    {
+      "tensor": "model.layers.25.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 25,
+      "kind": "q_norm",
+      "delta_relative": 4.14577999021684e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.25.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 25,
+      "kind": "q_proj",
+      "delta_relative": 0.0068637260127337426,
+      "stable_rank": 35.35549118099554,
+      "full_rank": 1024,
+      "top_k_energy": 0.10522439247314837,
+      "rank_for_half": 146
+    },
+    {
+      "tensor": "model.layers.25.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 25,
+      "kind": "v_proj",
+      "delta_relative": 0.005516475321741203,
+      "stable_rank": 44.27443117441524,
+      "full_rank": 1024,
+      "top_k_energy": 0.0998905308351932,
+      "rank_for_half": 133
+    },
+    {
+      "tensor": "model.layers.26.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.26.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 26,
+      "kind": "down_proj",
+      "delta_relative": 0.005244120319359547,
+      "stable_rank": 83.23123294079485,
+      "full_rank": 1024,
+      "top_k_energy": 0.0453112640499935,
+      "rank_for_half": 245
+    },
+    {
+      "tensor": "model.layers.26.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 26,
+      "kind": "gate_proj",
+      "delta_relative": 0.007548587485556574,
+      "stable_rank": 48.02492442497084,
+      "full_rank": 1024,
+      "top_k_energy": 0.06106133319702887,
+      "rank_for_half": 242
+    },
+    {
+      "tensor": "model.layers.26.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 26,
+      "kind": "up_proj",
+      "delta_relative": 0.005181303698435501,
+      "stable_rank": 55.20430682199825,
+      "full_rank": 1024,
+      "top_k_energy": 0.054539590586146075,
+      "rank_for_half": 243
+    },
+    {
+      "tensor": "model.layers.26.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.26.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 26,
+      "kind": "k_norm",
+      "delta_relative": 5.702753675969557e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.26.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 26,
+      "kind": "k_proj",
+      "delta_relative": 0.00908228400860801,
+      "stable_rank": 44.29041402837653,
+      "full_rank": 1024,
+      "top_k_energy": 0.10575808450539263,
+      "rank_for_half": 121
+    },
+    {
+      "tensor": "model.layers.26.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 26,
+      "kind": "o_proj",
+      "delta_relative": 0.006217266037620895,
+      "stable_rank": 49.27420082711107,
+      "full_rank": 1024,
+      "top_k_energy": 0.08009437739186771,
+      "rank_for_half": 186
+    },
+    {
+      "tensor": "model.layers.26.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 26,
+      "kind": "q_norm",
+      "delta_relative": 6.746590365545707e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.26.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 26,
+      "kind": "q_proj",
+      "delta_relative": 0.006084163332349642,
+      "stable_rank": 30.47099110030496,
+      "full_rank": 1024,
+      "top_k_energy": 0.11546928907642574,
+      "rank_for_half": 135
+    },
+    {
+      "tensor": "model.layers.26.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 26,
+      "kind": "v_proj",
+      "delta_relative": 0.005245966149662786,
+      "stable_rank": 38.129427460912794,
+      "full_rank": 1024,
+      "top_k_energy": 0.09503924022487653,
+      "rank_for_half": 140
+    },
+    {
+      "tensor": "model.layers.27.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.27.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 27,
+      "kind": "down_proj",
+      "delta_relative": 0.006285285369406748,
+      "stable_rank": 71.42603264184186,
+      "full_rank": 1024,
+      "top_k_energy": 0.06144025116394401,
+      "rank_for_half": 223
+    },
+    {
+      "tensor": "model.layers.27.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 27,
+      "kind": "gate_proj",
+      "delta_relative": 0.006754025729816134,
+      "stable_rank": 45.800685655746356,
+      "full_rank": 1024,
+      "top_k_energy": 0.06270403581813713,
+      "rank_for_half": 237
+    },
+    {
+      "tensor": "model.layers.27.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 27,
+      "kind": "up_proj",
+      "delta_relative": 0.005683711332901363,
+      "stable_rank": 53.208754833665026,
+      "full_rank": 1024,
+      "top_k_energy": 0.056761379074700045,
+      "rank_for_half": 238
+    },
+    {
+      "tensor": "model.layers.27.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.27.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 27,
+      "kind": "k_norm",
+      "delta_relative": 4.019305437589756e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.27.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 27,
+      "kind": "k_proj",
+      "delta_relative": 0.0063447300721285104,
+      "stable_rank": 41.68047560548149,
+      "full_rank": 1024,
+      "top_k_energy": 0.09797470215885076,
+      "rank_for_half": 134
+    },
+    {
+      "tensor": "model.layers.27.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 27,
+      "kind": "o_proj",
+      "delta_relative": 0.005033770295418371,
+      "stable_rank": 60.647232430762024,
+      "full_rank": 1024,
+      "top_k_energy": 0.06220402870292564,
+      "rank_for_half": 194
+    },
+    {
+      "tensor": "model.layers.27.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 27,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.27.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 27,
+      "kind": "q_proj",
+      "delta_relative": 0.005890286533989621,
+      "stable_rank": 47.31848395796592,
+      "full_rank": 1024,
+      "top_k_energy": 0.08947413971112475,
+      "rank_for_half": 183
+    },
+    {
+      "tensor": "model.layers.27.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 27,
+      "kind": "v_proj",
+      "delta_relative": 0.00424164568901878,
+      "stable_rank": 55.03217088937529,
+      "full_rank": 1024,
+      "top_k_energy": 0.07175989073463594,
+      "rank_for_half": 147
+    },
+    {
+      "tensor": "model.layers.3.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.3.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 3,
+      "kind": "down_proj",
+      "delta_relative": 0.007503256154343897,
+      "stable_rank": 145.2767182604626,
+      "full_rank": 1024,
+      "top_k_energy": 0.034740070962928145,
+      "rank_for_half": 254
+    },
+    {
+      "tensor": "model.layers.3.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 3,
+      "kind": "gate_proj",
+      "delta_relative": 0.003919787315567356,
+      "stable_rank": 135.50428395718976,
+      "full_rank": 1024,
+      "top_k_energy": 0.029874396059943412,
+      "rank_for_half": 266
+    },
+    {
+      "tensor": "model.layers.3.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 3,
+      "kind": "up_proj",
+      "delta_relative": 0.007115418392362806,
+      "stable_rank": 90.85657731598361,
+      "full_rank": 1024,
+      "top_k_energy": 0.04189510805077336,
+      "rank_for_half": 253
+    },
+    {
+      "tensor": "model.layers.3.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 9.763734662622452e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.3.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 3,
+      "kind": "k_norm",
+      "delta_relative": 2.508974266729357e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.3.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 3,
+      "kind": "k_proj",
+      "delta_relative": 0.006318025333489344,
+      "stable_rank": 67.35446506091624,
+      "full_rank": 1024,
+      "top_k_energy": 0.07810672126740557,
+      "rank_for_half": 139
+    },
+    {
+      "tensor": "model.layers.3.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 3,
+      "kind": "o_proj",
+      "delta_relative": 0.005822122272772826,
+      "stable_rank": 105.70464309420235,
+      "full_rank": 1024,
+      "top_k_energy": 0.046517783401943846,
+      "rank_for_half": 212
+    },
+    {
+      "tensor": "model.layers.3.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 3,
+      "kind": "q_norm",
+      "delta_relative": 6.600099711006384e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.3.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 3,
+      "kind": "q_proj",
+      "delta_relative": 0.006139892394298534,
+      "stable_rank": 76.03121968973583,
+      "full_rank": 1024,
+      "top_k_energy": 0.05810920258804422,
+      "rank_for_half": 198
+    },
+    {
+      "tensor": "model.layers.3.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 3,
+      "kind": "v_proj",
+      "delta_relative": 0.005078169903508208,
+      "stable_rank": 78.75960215623766,
+      "full_rank": 1024,
+      "top_k_energy": 0.0562289758056351,
+      "rank_for_half": 157
+    },
+    {
+      "tensor": "model.layers.4.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.4.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 4,
+      "kind": "down_proj",
+      "delta_relative": 0.007180301990793633,
+      "stable_rank": 150.90375562005607,
+      "full_rank": 1024,
+      "top_k_energy": 0.03365297189980257,
+      "rank_for_half": 252
+    },
+    {
+      "tensor": "model.layers.4.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 4,
+      "kind": "gate_proj",
+      "delta_relative": 0.0040808906358942255,
+      "stable_rank": 122.5859179093701,
+      "full_rank": 1024,
+      "top_k_energy": 0.03142279769904269,
+      "rank_for_half": 263
+    },
+    {
+      "tensor": "model.layers.4.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 4,
+      "kind": "up_proj",
+      "delta_relative": 0.006777359608096804,
+      "stable_rank": 98.03444699357571,
+      "full_rank": 1024,
+      "top_k_energy": 0.04002848019007752,
+      "rank_for_half": 251
+    },
+    {
+      "tensor": "model.layers.4.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 1.3374381258754503e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.4.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 4,
+      "kind": "k_norm",
+      "delta_relative": 1.2177385762050754e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.4.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 4,
+      "kind": "k_proj",
+      "delta_relative": 0.006398220143220067,
+      "stable_rank": 60.87717986865277,
+      "full_rank": 1024,
+      "top_k_energy": 0.08493865676844108,
+      "rank_for_half": 143
+    },
+    {
+      "tensor": "model.layers.4.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 4,
+      "kind": "o_proj",
+      "delta_relative": 0.006090238804564622,
+      "stable_rank": 97.34903559550118,
+      "full_rank": 1024,
+      "top_k_energy": 0.05088339157898574,
+      "rank_for_half": 214
+    },
+    {
+      "tensor": "model.layers.4.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 4,
+      "kind": "q_norm",
+      "delta_relative": 4.343368527965219e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.4.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 4,
+      "kind": "q_proj",
+      "delta_relative": 0.006049048767814461,
+      "stable_rank": 65.34303962049218,
+      "full_rank": 1024,
+      "top_k_energy": 0.05840973425312703,
+      "rank_for_half": 200
+    },
+    {
+      "tensor": "model.layers.4.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 4,
+      "kind": "v_proj",
+      "delta_relative": 0.005341755975871251,
+      "stable_rank": 77.28933136913443,
+      "full_rank": 1024,
+      "top_k_energy": 0.05425417451085422,
+      "rank_for_half": 163
+    },
+    {
+      "tensor": "model.layers.5.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.5.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 5,
+      "kind": "down_proj",
+      "delta_relative": 0.006585910875999369,
+      "stable_rank": 197.94136622062388,
+      "full_rank": 1024,
+      "top_k_energy": 0.03226270089099376,
+      "rank_for_half": 253
+    },
+    {
+      "tensor": "model.layers.5.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 5,
+      "kind": "gate_proj",
+      "delta_relative": 0.004581416172070068,
+      "stable_rank": 87.35410476656133,
+      "full_rank": 1024,
+      "top_k_energy": 0.037929913566056676,
+      "rank_for_half": 258
+    },
+    {
+      "tensor": "model.layers.5.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 5,
+      "kind": "up_proj",
+      "delta_relative": 0.006246547576466314,
+      "stable_rank": 88.49815005272295,
+      "full_rank": 1024,
+      "top_k_energy": 0.04339603314799373,
+      "rank_for_half": 249
+    },
+    {
+      "tensor": "model.layers.5.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 1.0537326240120065e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.5.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 5,
+      "kind": "k_norm",
+      "delta_relative": 5.979723040837209e-07,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.5.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 5,
+      "kind": "k_proj",
+      "delta_relative": 0.005969996723130387,
+      "stable_rank": 73.4395659599985,
+      "full_rank": 1024,
+      "top_k_energy": 0.0733142090862859,
+      "rank_for_half": 150
+    },
+    {
+      "tensor": "model.layers.5.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 5,
+      "kind": "o_proj",
+      "delta_relative": 0.005964533703584798,
+      "stable_rank": 139.63865913601043,
+      "full_rank": 1024,
+      "top_k_energy": 0.04091773958002413,
+      "rank_for_half": 213
+    },
+    {
+      "tensor": "model.layers.5.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 5,
+      "kind": "q_norm",
+      "delta_relative": 2.1062322094683034e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.5.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 5,
+      "kind": "q_proj",
+      "delta_relative": 0.005487879818577704,
+      "stable_rank": 74.01096219667858,
+      "full_rank": 1024,
+      "top_k_energy": 0.060168953790344544,
+      "rank_for_half": 200
+    },
+    {
+      "tensor": "model.layers.5.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 5,
+      "kind": "v_proj",
+      "delta_relative": 0.005441224870142522,
+      "stable_rank": 79.01349847202943,
+      "full_rank": 1024,
+      "top_k_energy": 0.055473717913433376,
+      "rank_for_half": 158
+    },
+    {
+      "tensor": "model.layers.6.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.6.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 6,
+      "kind": "down_proj",
+      "delta_relative": 0.006721099646969231,
+      "stable_rank": 173.0234418806794,
+      "full_rank": 1024,
+      "top_k_energy": 0.033634545988713384,
+      "rank_for_half": 248
+    },
+    {
+      "tensor": "model.layers.6.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 6,
+      "kind": "gate_proj",
+      "delta_relative": 0.004817272609167806,
+      "stable_rank": 90.27397271971643,
+      "full_rank": 1024,
+      "top_k_energy": 0.03733819440532328,
+      "rank_for_half": 258
+    },
+    {
+      "tensor": "model.layers.6.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 6,
+      "kind": "up_proj",
+      "delta_relative": 0.006267830961367296,
+      "stable_rank": 92.97670980119287,
+      "full_rank": 1024,
+      "top_k_energy": 0.04161800604176597,
+      "rank_for_half": 249
+    },
+    {
+      "tensor": "model.layers.6.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 1.244967997244827e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.6.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 6,
+      "kind": "k_norm",
+      "delta_relative": 1.9762722460479904e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.6.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 6,
+      "kind": "k_proj",
+      "delta_relative": 0.007529840837611484,
+      "stable_rank": 30.076968237580658,
+      "full_rank": 1024,
+      "top_k_energy": 0.1333674851376507,
+      "rank_for_half": 113
+    },
+    {
+      "tensor": "model.layers.6.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 6,
+      "kind": "o_proj",
+      "delta_relative": 0.0067400823932724846,
+      "stable_rank": 113.3226896940555,
+      "full_rank": 1024,
+      "top_k_energy": 0.05301471319362018,
+      "rank_for_half": 199
+    },
+    {
+      "tensor": "model.layers.6.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 6,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.6.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 6,
+      "kind": "q_proj",
+      "delta_relative": 0.006636710993770364,
+      "stable_rank": 42.51073269663846,
+      "full_rank": 1024,
+      "top_k_energy": 0.09166233844817595,
+      "rank_for_half": 176
+    },
+    {
+      "tensor": "model.layers.6.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 6,
+      "kind": "v_proj",
+      "delta_relative": 0.005366355692609945,
+      "stable_rank": 74.1966600678534,
+      "full_rank": 1024,
+      "top_k_energy": 0.06044911693464527,
+      "rank_for_half": 154
+    },
+    {
+      "tensor": "model.layers.7.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.7.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 7,
+      "kind": "down_proj",
+      "delta_relative": 0.006788648603945151,
+      "stable_rank": 138.92987622277082,
+      "full_rank": 1024,
+      "top_k_energy": 0.038567718889442576,
+      "rank_for_half": 238
+    },
+    {
+      "tensor": "model.layers.7.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 7,
+      "kind": "gate_proj",
+      "delta_relative": 0.004850610942179854,
+      "stable_rank": 100.89984286610519,
+      "full_rank": 1024,
+      "top_k_energy": 0.03880461157255911,
+      "rank_for_half": 256
+    },
+    {
+      "tensor": "model.layers.7.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 7,
+      "kind": "up_proj",
+      "delta_relative": 0.006240068558887212,
+      "stable_rank": 83.92914225983768,
+      "full_rank": 1024,
+      "top_k_energy": 0.04612993607522664,
+      "rank_for_half": 244
+    },
+    {
+      "tensor": "model.layers.7.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 5.1022703530415035e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.7.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 7,
+      "kind": "k_norm",
+      "delta_relative": 3.9088559475923905e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.7.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 7,
+      "kind": "k_proj",
+      "delta_relative": 0.006373386397712598,
+      "stable_rank": 81.96922140836767,
+      "full_rank": 1024,
+      "top_k_energy": 0.07203115740255003,
+      "rank_for_half": 149
+    },
+    {
+      "tensor": "model.layers.7.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 7,
+      "kind": "o_proj",
+      "delta_relative": 0.006138608651024195,
+      "stable_rank": 93.5233746331237,
+      "full_rank": 1024,
+      "top_k_energy": 0.05136868426148933,
+      "rank_for_half": 200
+    },
+    {
+      "tensor": "model.layers.7.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 7,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.7.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 7,
+      "kind": "q_proj",
+      "delta_relative": 0.005850655249461586,
+      "stable_rank": 77.5875027558,
+      "full_rank": 1024,
+      "top_k_energy": 0.06323938214173803,
+      "rank_for_half": 198
+    },
+    {
+      "tensor": "model.layers.7.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 7,
+      "kind": "v_proj",
+      "delta_relative": 0.005215147177864721,
+      "stable_rank": 69.79671280304507,
+      "full_rank": 1024,
+      "top_k_energy": 0.060850676142543046,
+      "rank_for_half": 156
+    },
+    {
+      "tensor": "model.layers.8.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.8.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 8,
+      "kind": "down_proj",
+      "delta_relative": 0.0066523743013519624,
+      "stable_rank": 152.81345600734642,
+      "full_rank": 1024,
+      "top_k_energy": 0.03900656005620309,
+      "rank_for_half": 234
+    },
+    {
+      "tensor": "model.layers.8.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 8,
+      "kind": "gate_proj",
+      "delta_relative": 0.005051472323822845,
+      "stable_rank": 96.13920676189598,
+      "full_rank": 1024,
+      "top_k_energy": 0.03975701399949143,
+      "rank_for_half": 256
+    },
+    {
+      "tensor": "model.layers.8.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 8,
+      "kind": "up_proj",
+      "delta_relative": 0.0062515747605805935,
+      "stable_rank": 89.06378352545335,
+      "full_rank": 1024,
+      "top_k_energy": 0.04497631764180301,
+      "rank_for_half": 243
+    },
+    {
+      "tensor": "model.layers.8.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 5.761782641760456e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.8.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 8,
+      "kind": "k_norm",
+      "delta_relative": 5.004852004350643e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.8.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 8,
+      "kind": "k_proj",
+      "delta_relative": 0.006879352843063849,
+      "stable_rank": 58.10452831995599,
+      "full_rank": 1024,
+      "top_k_energy": 0.08039510758448681,
+      "rank_for_half": 139
+    },
+    {
+      "tensor": "model.layers.8.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 8,
+      "kind": "o_proj",
+      "delta_relative": 0.006319422171507914,
+      "stable_rank": 95.66346385641029,
+      "full_rank": 1024,
+      "top_k_energy": 0.057808058544882,
+      "rank_for_half": 195
+    },
+    {
+      "tensor": "model.layers.8.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 8,
+      "kind": "q_norm",
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.8.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 8,
+      "kind": "q_proj",
+      "delta_relative": 0.006367787946132469,
+      "stable_rank": 51.67602838472352,
+      "full_rank": 1024,
+      "top_k_energy": 0.0707065625658746,
+      "rank_for_half": 185
+    },
+    {
+      "tensor": "model.layers.8.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 8,
+      "kind": "v_proj",
+      "delta_relative": 0.005303766807831907,
+      "stable_rank": 72.71959244323125,
+      "full_rank": 1024,
+      "top_k_energy": 0.06297287501884641,
+      "rank_for_half": 153
+    },
+    {
+      "tensor": "model.layers.9.input_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.9.mlp.down_proj.weight",
+      "shape": [
+        1024,
+        3072
+      ],
+      "layer": 9,
+      "kind": "down_proj",
+      "delta_relative": 0.006805880941223928,
+      "stable_rank": 137.03723842898538,
+      "full_rank": 1024,
+      "top_k_energy": 0.04127001338543555,
+      "rank_for_half": 230
+    },
+    {
+      "tensor": "model.layers.9.mlp.gate_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 9,
+      "kind": "gate_proj",
+      "delta_relative": 0.004965287542311001,
+      "stable_rank": 86.10485150772647,
+      "full_rank": 1024,
+      "top_k_energy": 0.04409165987576604,
+      "rank_for_half": 250
+    },
+    {
+      "tensor": "model.layers.9.mlp.up_proj.weight",
+      "shape": [
+        3072,
+        1024
+      ],
+      "layer": 9,
+      "kind": "up_proj",
+      "delta_relative": 0.006260932167018658,
+      "stable_rank": 88.17674301818653,
+      "full_rank": 1024,
+      "top_k_energy": 0.04800434326980899,
+      "rank_for_half": 239
+    },
+    {
+      "tensor": "model.layers.9.post_attention_layernorm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 4.984506452859877e-06,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.9.self_attn.k_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 9,
+      "kind": "k_norm",
+      "delta_relative": 3.88772885785781e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.9.self_attn.k_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 9,
+      "kind": "k_proj",
+      "delta_relative": 0.006587527046909707,
+      "stable_rank": 78.92722424481038,
+      "full_rank": 1024,
+      "top_k_energy": 0.07505463810359331,
+      "rank_for_half": 139
+    },
+    {
+      "tensor": "model.layers.9.self_attn.o_proj.weight",
+      "shape": [
+        1024,
+        2048
+      ],
+      "layer": 9,
+      "kind": "o_proj",
+      "delta_relative": 0.0060826157073357,
+      "stable_rank": 86.70069094438091,
+      "full_rank": 1024,
+      "top_k_energy": 0.05577994101940881,
+      "rank_for_half": 193
+    },
+    {
+      "tensor": "model.layers.9.self_attn.q_norm.weight",
+      "shape": [
+        128
+      ],
+      "layer": 9,
+      "kind": "q_norm",
+      "delta_relative": 1.0753144349621686e-05,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    },
+    {
+      "tensor": "model.layers.9.self_attn.q_proj.weight",
+      "shape": [
+        2048,
+        1024
+      ],
+      "layer": 9,
+      "kind": "q_proj",
+      "delta_relative": 0.006195563761802053,
+      "stable_rank": 55.911369478894876,
+      "full_rank": 1024,
+      "top_k_energy": 0.07369088113842139,
+      "rank_for_half": 181
+    },
+    {
+      "tensor": "model.layers.9.self_attn.v_proj.weight",
+      "shape": [
+        1024,
+        1024
+      ],
+      "layer": 9,
+      "kind": "v_proj",
+      "delta_relative": 0.005561626050388885,
+      "stable_rank": 81.2170989539556,
+      "full_rank": 1024,
+      "top_k_energy": 0.06517450114014507,
+      "rank_for_half": 144
+    },
+    {
+      "tensor": "model.norm.weight",
+      "shape": [
+        1024
+      ],
+      "layer": null,
+      "kind": null,
+      "delta_relative": 0.0,
+      "stable_rank": null,
+      "full_rank": null,
+      "top_k_energy": null,
+      "rank_for_half": null
+    }
+  ],
+  "profiles": {
+    "attention": {
+      "0": {
+        "delta_relative": 0.006126618882850671,
+        "stable_rank": 55.41419809585614,
+        "top_k_energy": 0.062638877270069,
+        "n": 4
+      },
+      "1": {
+        "delta_relative": 0.005731103634473871,
+        "stable_rank": 71.66088155892042,
+        "top_k_energy": 0.062196547853863304,
+        "n": 4
+      },
+      "2": {
+        "delta_relative": 0.006327771972483156,
+        "stable_rank": 64.59165526136296,
+        "top_k_energy": 0.07006787776490453,
+        "n": 4
+      },
+      "3": {
+        "delta_relative": 0.005839552476017228,
+        "stable_rank": 81.96248250027303,
+        "top_k_energy": 0.05974067076575719,
+        "n": 4
+      },
+      "4": {
+        "delta_relative": 0.0059698159228676,
+        "stable_rank": 75.21464661344514,
+        "top_k_energy": 0.06212148927785202,
+        "n": 4
+      },
+      "5": {
+        "delta_relative": 0.005715908778858853,
+        "stable_rank": 91.52567144117924,
+        "top_k_energy": 0.057468655092521984,
+        "n": 4
+      },
+      "6": {
+        "delta_relative": 0.00656824747931607,
+        "stable_rank": 65.026762674032,
+        "top_k_energy": 0.08462341342852303,
+        "n": 4
+      },
+      "7": {
+        "delta_relative": 0.005894449369015775,
+        "stable_rank": 80.71920290008411,
+        "top_k_energy": 0.06187247498708011,
+        "n": 4
+      },
+      "8": {
+        "delta_relative": 0.006217582442134034,
+        "stable_rank": 69.54090325108027,
+        "top_k_energy": 0.06797065092852246,
+        "n": 4
+      },
+      "9": {
+        "delta_relative": 0.006106833141609086,
+        "stable_rank": 75.68909590551044,
+        "top_k_energy": 0.06742499035039215,
+        "n": 4
+      },
+      "10": {
+        "delta_relative": 0.00605661047582829,
+        "stable_rank": 79.62289201719042,
+        "top_k_energy": 0.06689322889301025,
+        "n": 4
+      },
+      "11": {
+        "delta_relative": 0.007109503316346362,
+        "stable_rank": 61.98730608253185,
+        "top_k_energy": 0.08574643395829272,
+        "n": 4
+      },
+      "12": {
+        "delta_relative": 0.006624473382252622,
+        "stable_rank": 71.83610893103585,
+        "top_k_energy": 0.07110460090168164,
+        "n": 4
+      },
+      "13": {
+        "delta_relative": 0.006689510613964058,
+        "stable_rank": 67.96583463567292,
+        "top_k_energy": 0.07681097503079064,
+        "n": 4
+      },
+      "14": {
+        "delta_relative": 0.007258257272016503,
+        "stable_rank": 61.76092821876961,
+        "top_k_energy": 0.07997032213535898,
+        "n": 4
+      },
+      "15": {
+        "delta_relative": 0.007001393417793502,
+        "stable_rank": 65.78718045070266,
+        "top_k_energy": 0.07560071634294278,
+        "n": 4
+      },
+      "16": {
+        "delta_relative": 0.007376011929997938,
+        "stable_rank": 60.609787354172546,
+        "top_k_energy": 0.08094430567858393,
+        "n": 4
+      },
+      "17": {
+        "delta_relative": 0.006989597693592516,
+        "stable_rank": 62.78669930710409,
+        "top_k_energy": 0.07942228861738282,
+        "n": 4
+      },
+      "18": {
+        "delta_relative": 0.0073494787590237635,
+        "stable_rank": 53.19456599611138,
+        "top_k_energy": 0.08325179381187245,
+        "n": 4
+      },
+      "19": {
+        "delta_relative": 0.007259824989599578,
+        "stable_rank": 56.356425671431296,
+        "top_k_energy": 0.08401481786585138,
+        "n": 4
+      },
+      "20": {
+        "delta_relative": 0.007066688202625579,
+        "stable_rank": 53.326683353300034,
+        "top_k_energy": 0.07963621882869322,
+        "n": 4
+      },
+      "21": {
+        "delta_relative": 0.0070078823765410934,
+        "stable_rank": 49.975087657041676,
+        "top_k_energy": 0.09221949823147026,
+        "n": 4
+      },
+      "22": {
+        "delta_relative": 0.006388799679390639,
+        "stable_rank": 49.76798105495489,
+        "top_k_energy": 0.08625029581265299,
+        "n": 4
+      },
+      "23": {
+        "delta_relative": 0.006805721651164057,
+        "stable_rank": 53.41790340868054,
+        "top_k_energy": 0.08334430650311044,
+        "n": 4
+      },
+      "24": {
+        "delta_relative": 0.006890431246143792,
+        "stable_rank": 39.41807057589993,
+        "top_k_energy": 0.09727696248418251,
+        "n": 4
+      },
+      "25": {
+        "delta_relative": 0.0069924215405348,
+        "stable_rank": 51.55750387662921,
+        "top_k_energy": 0.09147539293946917,
+        "n": 4
+      },
+      "26": {
+        "delta_relative": 0.006657419882060333,
+        "stable_rank": 40.54125835417634,
+        "top_k_energy": 0.09909024779964065,
+        "n": 4
+      },
+      "27": {
+        "delta_relative": 0.00537760814763882,
+        "stable_rank": 51.16959072089618,
+        "top_k_energy": 0.08035319032688427,
+        "n": 4
+      }
+    },
+    "feedforward": {
+      "0": {
+        "delta_relative": 0.0058348147753124234,
+        "stable_rank": 148.56741911381673,
+        "top_k_energy": 0.0354534839387731,
+        "n": 3
+      },
+      "1": {
+        "delta_relative": 0.006424056159283718,
+        "stable_rank": 134.23870457281527,
+        "top_k_energy": 0.03499892607905457,
+        "n": 3
+      },
+      "2": {
+        "delta_relative": 0.006370624728821931,
+        "stable_rank": 152.14138691133675,
+        "top_k_energy": 0.033402897582104435,
+        "n": 3
+      },
+      "3": {
+        "delta_relative": 0.0061794872874246865,
+        "stable_rank": 123.87919317787866,
+        "top_k_energy": 0.03550319169121497,
+        "n": 3
+      },
+      "4": {
+        "delta_relative": 0.006012850744928221,
+        "stable_rank": 123.8413735076673,
+        "top_k_energy": 0.035034749929640924,
+        "n": 3
+      },
+      "5": {
+        "delta_relative": 0.0058046248748452505,
+        "stable_rank": 124.59787367996938,
+        "top_k_energy": 0.03786288253501472,
+        "n": 3
+      },
+      "6": {
+        "delta_relative": 0.005935401072501445,
+        "stable_rank": 118.75804146719622,
+        "top_k_energy": 0.03753024881193421,
+        "n": 3
+      },
+      "7": {
+        "delta_relative": 0.0059597760350040725,
+        "stable_rank": 107.91962044957124,
+        "top_k_energy": 0.0411674221790761,
+        "n": 3
+      },
+      "8": {
+        "delta_relative": 0.005985140461918466,
+        "stable_rank": 112.67214876489858,
+        "top_k_energy": 0.041246630565832505,
+        "n": 3
+      },
+      "9": {
+        "delta_relative": 0.006010700216851195,
+        "stable_rank": 103.77294431829945,
+        "top_k_energy": 0.0444553388436702,
+        "n": 3
+      },
+      "10": {
+        "delta_relative": 0.006201982027276373,
+        "stable_rank": 89.73942668130671,
+        "top_k_energy": 0.05110580657991367,
+        "n": 3
+      },
+      "11": {
+        "delta_relative": 0.006026784982627699,
+        "stable_rank": 96.09332291545012,
+        "top_k_energy": 0.049550795041254925,
+        "n": 3
+      },
+      "12": {
+        "delta_relative": 0.006176501466523693,
+        "stable_rank": 85.07429156499524,
+        "top_k_energy": 0.05215327846757367,
+        "n": 3
+      },
+      "13": {
+        "delta_relative": 0.006596247248755551,
+        "stable_rank": 86.58123347933152,
+        "top_k_energy": 0.0530098038010147,
+        "n": 3
+      },
+      "14": {
+        "delta_relative": 0.0069503897130509034,
+        "stable_rank": 83.83907880813025,
+        "top_k_energy": 0.055094247457125045,
+        "n": 3
+      },
+      "15": {
+        "delta_relative": 0.0069613181092731055,
+        "stable_rank": 75.93718706471104,
+        "top_k_energy": 0.05673522212777857,
+        "n": 3
+      },
+      "16": {
+        "delta_relative": 0.0069812194942778134,
+        "stable_rank": 74.7832512601313,
+        "top_k_energy": 0.056948221099976847,
+        "n": 3
+      },
+      "17": {
+        "delta_relative": 0.006870443267242478,
+        "stable_rank": 72.60576706061248,
+        "top_k_energy": 0.05629746480878051,
+        "n": 3
+      },
+      "18": {
+        "delta_relative": 0.006827425353596435,
+        "stable_rank": 74.2184810153589,
+        "top_k_energy": 0.054922601302516194,
+        "n": 3
+      },
+      "19": {
+        "delta_relative": 0.006763097607966082,
+        "stable_rank": 81.88201277836957,
+        "top_k_energy": 0.05272405213760229,
+        "n": 3
+      },
+      "20": {
+        "delta_relative": 0.006427965007401465,
+        "stable_rank": 83.55112654724148,
+        "top_k_energy": 0.051692532889135896,
+        "n": 3
+      },
+      "21": {
+        "delta_relative": 0.006167065113291088,
+        "stable_rank": 82.69895916679862,
+        "top_k_energy": 0.05211434916264298,
+        "n": 3
+      },
+      "22": {
+        "delta_relative": 0.006061831075160291,
+        "stable_rank": 83.4834882812978,
+        "top_k_energy": 0.052914437397490736,
+        "n": 3
+      },
+      "23": {
+        "delta_relative": 0.005982634956622823,
+        "stable_rank": 84.51429964635443,
+        "top_k_energy": 0.05154089546275751,
+        "n": 3
+      },
+      "24": {
+        "delta_relative": 0.00594009980400238,
+        "stable_rank": 76.74695536144482,
+        "top_k_energy": 0.052862359593906776,
+        "n": 3
+      },
+      "25": {
+        "delta_relative": 0.005900628553649502,
+        "stable_rank": 77.24824082017176,
+        "top_k_energy": 0.04915988815642325,
+        "n": 3
+      },
+      "26": {
+        "delta_relative": 0.005991337167783874,
+        "stable_rank": 62.153488062587975,
+        "top_k_energy": 0.05363739594438948,
+        "n": 3
+      },
+      "27": {
+        "delta_relative": 0.006241007477374748,
+        "stable_rank": 56.81182437708441,
+        "top_k_energy": 0.060301888685593726,
+        "n": 3
+      }
+    }
+  },
+  "pre_name": "Qwen/Qwen3-0.6B",
+  "post_name": "/home/lmanrique/main/Self-Distillation/runs/seq-Qwen3-0.6B/1-tooluse",
+  "pre_path": "/home/lmanrique/.cache/huggingface/hub/models--Qwen--Qwen3-0.6B/snapshots/c1899de289a04d12100db370d81485cdf75e47ca",
+  "post_path": "/home/lmanrique/main/Self-Distillation/runs/seq-Qwen3-0.6B/1-tooluse"
+}

@@ -36,6 +36,7 @@ from typing import Any, Dict, List
 
 from src.core.config import load_config
 from src.domains.lm.analysis import diffing
+from src.domains.lm.data.wikitext import passages
 from src.domains.lm.replacement import load_replacement
 from src.telemetry.observe import Progress, banner, duration, gpu, log, set_log_file, step
 from src.telemetry.results import guard, load_state, result, save_state
@@ -154,27 +155,6 @@ def stage_summarise(options: Dict[str, Any]) -> None:
         log("skipped:")
         for name, why in sorted(report.skipped.items()):
             log(f"{name}: {why}", indent=1)
-
-
-def passages(count: int, min_chars: int = 1200) -> List[str]:
-    """Long stretches of ordinary prose, for measuring a variance over
-
-    Wikitext rather than this study's translation corpus, and long rather than
-    short, for two different reasons. Long because FVU divides by the spread of
-    a layer's MLP output across positions, and over a six-token prompt there is
-    barely any spread to divide by -- the same dictionary reports an FVU half
-    again as large on short prompts as on these. Neutral prose because the two
-    checkpoints being compared are a base model and an instruction-tuned one,
-    and any text shaped like an instruction is text one of them was trained on
-    and the other was not.
-
-    It lives in this script because one stage uses it. A second caller moves it
-    to `src/data/`.
-    """
-    from datasets import load_dataset
-
-    rows = load_dataset("wikitext", "wikitext-103-raw-v1", split="test")["text"]
-    return [row for row in rows if len(row) > min_chars][:count]
 
 
 def measure_fit(config: str, release: str, texts: List[str], options: Dict[str, Any]):
