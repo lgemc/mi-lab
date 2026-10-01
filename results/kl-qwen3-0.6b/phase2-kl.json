@@ -1,0 +1,91 @@
+{
+  "pre": "qwen3-0.6b-sdft",
+  "options": {
+    "pre": "qwen3-0.6b-sdft",
+    "passages": 32,
+    "limit": null,
+    "budget": 2048
+  },
+  "models": {
+    "qwen3-0.6b-sdft-tooluse": {
+      "tooluse": {
+        "sequences": 97,
+        "tokens": 40265,
+        "kl_post_base": 0.2360616350225206,
+        "kl_base_post": 0.16117647145624417
+      },
+      "science": {
+        "sequences": 507,
+        "tokens": 343262,
+        "kl_post_base": 0.03791679483457073,
+        "kl_base_post": 0.02883283394946877
+      },
+      "wikitext": {
+        "sequences": 32,
+        "tokens": 10747,
+        "kl_post_base": 0.018872498542505764,
+        "kl_base_post": 0.018292444328202685
+      }
+    },
+    "qwen3-0.6b-sft-tooluse": {
+      "tooluse": {
+        "sequences": 97,
+        "tokens": 9106,
+        "kl_post_base": 0.9133396888077717,
+        "kl_base_post": 1.2650178699422192
+      },
+      "science": {
+        "sequences": 507,
+        "tokens": 648218,
+        "kl_post_base": 0.10481876417013998,
+        "kl_base_post": 0.14477354504439613
+      },
+      "wikitext": {
+        "sequences": 32,
+        "tokens": 10747,
+        "kl_post_base": 0.13596600834864334,
+        "kl_base_post": 0.13844006186009916
+      }
+    },
+    "qwen3-0.6b-sdft-science": {
+      "tooluse": {
+        "sequences": 97,
+        "tokens": 41596,
+        "kl_post_base": 0.31068990359582377,
+        "kl_base_post": 0.19776242432643149
+      },
+      "science": {
+        "sequences": 507,
+        "tokens": 329784,
+        "kl_post_base": 0.23771338562347408,
+        "kl_base_post": 0.18047358894659232
+      },
+      "wikitext": {
+        "sequences": 32,
+        "tokens": 10747,
+        "kl_post_base": 0.05286597256062807,
+        "kl_base_post": 0.048793250054462105
+      }
+    },
+    "qwen3-0.6b-sft-science": {
+      "tooluse": {
+        "sequences": 97,
+        "tokens": 44731,
+        "kl_post_base": 0.1993660697893092,
+        "kl_base_post": 0.21703109267156068
+      },
+      "science": {
+        "sequences": 507,
+        "tokens": 195552,
+        "kl_post_base": 0.4809653464429774,
+        "kl_base_post": 0.5062719852769255
+      },
+      "wikitext": {
+        "sequences": 32,
+        "tokens": 10747,
+        "kl_post_base": 0.23588641352949447,
+        "kl_base_post": 0.21605706208249387
+      }
+    }
+  }
+}
