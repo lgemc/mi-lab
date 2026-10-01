@@ -1,6 +1,6 @@
 """Phase 2: what a fine-tune did to the weights, before any dictionary is involved.
 
-The first strategy of `~/main/m/proposals/model-diffing-sdft-transcoders.md`, and
+The first strategy of `~/main/m/proposals/sdft-model-diffing/01-model-diffing-sdft-transcoders.md`, and
 the one that costs nothing: no forward pass, no transcoder, no training run.
 Two checkpoints, one subtraction per tensor, and three numbers per tensor
 (`src/domains/lm/analysis/diffing.py` says what they are and why those three).
