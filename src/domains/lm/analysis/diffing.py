@@ -1,6 +1,6 @@
 """What changed between two checkpoints, starting with the part that needs no dictionary.
 
-`~/main/m/proposals/model-diffing-sdft-transcoders.md` asks what a fine-tune does
+`~/main/m/proposals/sdft-model-diffing/01-model-diffing-sdft-transcoders.md` asks what a fine-tune does
 to a model's insides and lists four ways to answer it. This module is the first,
 and first because it is free: the difference between two weight matrices is
 arithmetic over two files, with no forward pass, no dictionary, and no training

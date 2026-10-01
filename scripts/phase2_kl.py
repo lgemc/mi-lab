@@ -1,6 +1,6 @@
 """Phase 2: how far each fine-tune's output distribution moved from the base model's
 
-The second cheap diagnostic of `~/main/m/proposals/model-diffing-sdft-transcoders.md`
+The second cheap diagnostic of `~/main/m/proposals/sdft-model-diffing/01-model-diffing-sdft-transcoders.md`
 (experiment 4, last row): RL's Razor (2509.04259) finds that forgetting tracks the
 KL divergence between the fine-tuned policy and the base policy, measured on the
 new task. `phase2_diffing weights` says how far the *weights* moved; this says how
