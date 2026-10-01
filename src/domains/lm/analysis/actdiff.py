@@ -21,8 +21,9 @@ unembedding reads as noise can still carry what a later layer uses.
 A common pipe could be: mean_difference(pre, post, sequences) | top_vocabulary | cosine across fine-tunes
 """
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, Iterator, List, Optional, Sequence, Tuple
 
 import torch
 
@@ -92,3 +93,32 @@ def top_vocabulary(model, tokenizer, vector: torch.Tensor, k: int = 15) -> Dict[
     up = logits.topk(k).indices.tolist()
     down = (-logits).topk(k).indices.tolist()
     return {"promoted": [tokenizer.decode([i]) for i in up], "suppressed": [tokenizer.decode([i]) for i in down]}
+
+
+@contextmanager
+def edited_stream(model, layer: int, add: Optional[torch.Tensor] = None,
+                  remove: Optional[torch.Tensor] = None) -> Iterator[None]:
+    """Change the stream after block `layer` at every position for the duration: add a vector, project one out
+
+    `add` is added as is (its norm is the intervention's size, so a mean
+    difference added once is exactly what the fine-tune adds on average);
+    `remove` is normalised and its component taken out of every position.
+    Applied to every forward pass inside the block, including each step of a
+    cached generation, which only ever runs the new positions.
+    """
+    unit = None if remove is None else (remove / remove.norm()).to(model.dtype)
+    shift = None if add is None else add.to(model.dtype)
+
+    def edit(_module, _inputs, out):
+        hidden = out[0] if isinstance(out, tuple) else out
+        if unit is not None:
+            hidden = hidden - (hidden @ unit).unsqueeze(-1) * unit
+        if shift is not None:
+            hidden = hidden + shift
+        return (hidden, *out[1:]) if isinstance(out, tuple) else hidden
+
+    handle = _blocks(model)[layer].register_forward_hook(edit)
+    try:
+        yield
+    finally:
+        handle.remove()

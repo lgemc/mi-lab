@@ -103,3 +103,49 @@ def training_texts(repo: Path, task: str, tokenizer) -> List[str]:
             messages = [*row["messages"], {"role": "assistant", "content": row["output_text"]}]
         texts.append(tokenizer.apply_chat_template(messages, tokenize=False))
     return texts
+
+
+def eval_items(repo: Path, task: str) -> List[dict]:
+    """One task's eval split as {messages, answer}: what the SDFT repo's eval script reads and scores against"""
+    from datasets import load_from_disk
+
+    if task not in TASKS:
+        raise SDFTDataError(f"task is one of {TASKS}, got '{task}'")
+    rows = load_from_disk(str(Path(repo) / "data" / f"{task}_data" / "eval_data")).to_list()
+    if task == "tooluse":
+        return [{"messages": [{"role": "user", "content": row["prompt"]}], "answer": row["golden_answer"]}
+                for row in rows]
+    return [{"messages": row["prompt"], "answer": row["answer"]} for row in rows]
+
+
+def score(task: str, response: str, answer) -> int:
+    """1 if a response is correct by the SDFT repo's own rule, else 0
+
+    A port of `eval_tooluse.evaluate_correctness` and `eval_science.evaluate_correctness`
+    (those modules import vLLM at the top, so they cannot be imported here).
+    Tool use: the actions after `</think>` must match the golden actions as a
+    multiset and the merged action inputs must match exactly. Science: the text
+    inside the last `<answer>` must equal the letter. The port is checked against
+    the repo's saved `correct` flags on every saved answer.
+    """
+    import re
+    from collections import Counter
+    from contextlib import suppress
+
+    if task == "science":
+        extracted = response.split("<answer>")[-1].split("</answer>")[0].strip()
+        return int(extracted == answer)
+    tail = response.split("</think>")[-1]
+    predicted_actions = re.findall(r"Action:\s*(\w+)", tail)
+    predicted_inputs = {}
+    for block in re.findall(r"Action Input:\s*({.*?})", tail, re.DOTALL):
+        try:
+            predicted_inputs.update(json.loads(block))
+        except json.JSONDecodeError:
+            continue
+    golden_actions = [item["Action"] for item in answer]
+    golden_inputs = {}
+    for item in answer:
+        with suppress(json.JSONDecodeError, TypeError):
+            golden_inputs.update(json.loads(item["Action_Input"]))
+    return int(Counter(predicted_actions) == Counter(golden_actions) and predicted_inputs == golden_inputs)

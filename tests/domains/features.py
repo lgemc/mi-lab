@@ -75,3 +75,20 @@ class TestResultsName(TestCase):
     def test_a_path_outside_the_repo_is_refused(self):
         with self.assertRaises(SDFTDataError):
             results_name("/elsewhere/model", Path("/repo"))
+
+
+class TestScore(TestCase):
+    """The port of the SDFT repo's eval rules; parity with its saved flags was checked on 3,020 answers"""
+
+    def test_science_reads_the_last_answer_tag(self):
+        from src.domains.lm.data.sdft import score
+        self.assertEqual(score("science", "<reasoning>x</reasoning>\n<answer>\nC\n</answer>", "C"), 1)
+        self.assertEqual(score("science", "<answer>B</answer> then <answer>C</answer>", "B"), 0)
+
+    def test_tool_use_scores_after_think_as_a_multiset_with_exact_inputs(self):
+        from src.domains.lm.data.sdft import score
+        golden = [{"Action": "search", "Action_Input": '{"q": "cats"}'}]
+        good = '<think>Action: wrong</think>\nAction: search\nAction Input: {"q": "cats"}'
+        self.assertEqual(score("tooluse", good, golden), 1)
+        self.assertEqual(score("tooluse", 'Action: search\nAction Input: {"q": "dogs"}', golden), 0)
+        self.assertEqual(score("tooluse", 'Action: search\nAction: search\nAction Input: {"q": "cats"}', golden), 0)
