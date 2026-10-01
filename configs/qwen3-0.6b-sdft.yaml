@@ -27,3 +27,18 @@ dtype: bfloat16
 # so a 64-token budget would cut every answer off inside its own reasoning.
 max_new_tokens: 1024
 chat: true
+# Per-layer transcoders fitted on this exact checkpoint (Qwen/Qwen3-0.6B, not
+# -Base), so the pre side of every diff of the SDFT/SFT fine-tunes has a
+# dictionary of its own. Facts from the release's config.yaml and
+# wandb-config.yaml (d_feature, act_fn) and its safetensors headers (bf16,
+# 0.67 GB a layer). The card states no L0 and no variance figure; they are left
+# unset until measured here rather than guessed.
+transcoder:
+  source: mwhanna
+  release: mwhanna/qwen3-0.6b-transcoders-lowl0
+  kind: per-layer
+  activation_fn: relu
+  features_per_layer: 163840
+  expansion: 160
+  resident_gib: 17.5
+  license: mit

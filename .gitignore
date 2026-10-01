@@ -51,3 +51,6 @@ results/**/phase1c-attribution-graph-*.pt
 docs/*.aux
 docs/*.log
 docs/*.out
+
+# phase 2 diffing: crosscoder weights and stored mean differences, rebuilt by the scripts
+results/**/phase2-*.safetensors

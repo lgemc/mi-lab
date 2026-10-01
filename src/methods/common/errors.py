@@ -80,5 +80,13 @@ class ProbeError(MethodError):
     """Raised when a probe is asked for something it cannot do: wrong width, one-class data, no examples"""
 
 
+class CrosscoderError(MethodError):
+    """Raised when a crosscoder is built, trained or read in a shape it does not have
+
+    Not a `CircuitError`: a crosscoder is a dictionary over two models' activations, and
+    what it claims is which directions they share, not which parts of either model do a task.
+    """
+
+
 class QualityError(MetricError):
     """A comparison that cannot be made of the hypotheses it was given"""
