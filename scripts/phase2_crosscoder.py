@@ -21,7 +21,15 @@ Per set and model, the fraction of variance unexplained; then the latents by
 relative decoder norm, the latent-scaling ratios of every exclusive latent, how
 many survive, where they fire, and the contexts they fire hardest in.
 
+A shared latent can still be *rotated* -- the same feature read along a bent
+direction in the second model -- and that, not exclusivity, is where the first
+pair of runs found the methods differ. So the report also keeps every live
+latent's decoder cosine, relative norm and firing frequency per text set, and
+reads back the contexts of the most rotated active ones. `--evaluate-only`
+reloads a trained crosscoder and redoes only this half.
+
 Run: uv run python -m scripts.phase2_crosscoder qwen3-0.6b-sft-tooluse qwen3-0.6b-sft-science
+     uv run python -m scripts.phase2_crosscoder qwen3-0.6b-sft-tooluse qwen3-0.6b-sft-science --evaluate-only
 """
 
 import dataclasses
@@ -52,6 +60,9 @@ CHUNKS_PER_PASS = 16
 MAX_POSITIONS = 3072
 # An exclusive latent survives latent scaling if the other model explains at most this share along it.
 SURVIVES = 0.3
+# A rotated latent is read back only if it fires on at least this share of some text set's rows.
+ACTIVE = 1e-3
+ROTATED = 15
 
 
 class _StopError(Exception):
@@ -204,6 +215,29 @@ def evaluate(coder, sets, tokenizer, batch: int) -> Dict[str, Any]:
     report["shared_cosine_quartiles"] = quartiles(cosines[classes["shared"]].tolist()) if classes["shared"] else []
     report["classes"] = {name: len(index) for name, index in classes.items()}
 
+    live_index = live.nonzero().flatten().tolist()
+    report["latents"] = {
+        "index": live_index,
+        "relative_norm": norms[live].tolist(),
+        "cosine": cosines[live].tolist(),
+        "frequency": {name: activity[name][live].tolist() for name in sets},
+    }
+    busy = torch.stack([activity[name] for name in sets]).amax(0) >= ACTIVE
+    candidates = [i for i in classes["shared"] if busy[i]]
+    candidates.sort(key=lambda i: float(cosines[i]))
+    report["rotated"] = []
+    for latent in candidates[:ROTATED]:
+        report["rotated"].append({
+            "latent": latent, "cosine": float(cosines[latent]), "relative_norm": float(norms[latent]),
+            "frequency": {name: float(activity[name][latent]) for name in sets},
+            "contexts": top_contexts(coder, sets, tokenizer, latent, batch),
+        })
+    # Where the rotation is: mean frequency per text set of the most rotated tenth of busy shared latents.
+    if candidates:
+        tenth = candidates[: max(1, len(candidates) // 10)]
+        report["rotated_tenth_frequency"] = {name: float(activity[name][tenth].mean()) for name in sets}
+        report["all_busy_frequency"] = {name: float(activity[name][candidates].mean()) for name in sets}
+
     everything = torch.cat([entry["rows"] for entry in sets.values()])
     report["exclusive"] = {}
     for name, side in (("pre_only", cc.PRE), ("post_only", cc.POST)):
@@ -280,6 +314,7 @@ def parse(argv: List[str]) -> Dict[str, Any]:
         "buffer": int(flags.get("buffer", 2 ** 19)),
         "lr": float(flags.get("lr", 2e-4)),
         "seed": int(flags.get("seed", 0)),
+        "evaluate_only": "evaluate-only" in flags,
     }
 
 
@@ -303,6 +338,20 @@ def main(argv: List[str]) -> int:
     started = time.time()
 
     coder = cc.Crosscoder(width, options["latents"], options["k"], seed=options["seed"]).to(device)
+    if options["evaluate_only"]:
+        from safetensors.torch import load_file
+
+        coder.load_state_dict(load_file(str(WEIGHTS), device=str(device)))
+        previous = json.loads(ARTIFACT.read_text()) if ARTIFACT.exists() else {}
+        with step("held-out evaluation of the saved crosscoder"):
+            sets = evaluation_sets(pre, post, tokenizer, layer, device)
+            report = evaluate(coder, sets, tokenizer, options["batch"])
+        report.update({key: previous[key] for key in ("history", "minutes") if key in previous})
+        report.update({"options": options, "layer": layer, "width": width, "survive_threshold": SURVIVES})
+        ARTIFACT.write_text(json.dumps(report, indent=1))
+        log(f"re-evaluated: live {report['live']}, classes {report['classes']}, "
+            f"rotated read back {len(report['rotated'])}")
+        return 0
     optimiser = torch.optim.Adam(coder.parameters(), lr=options["lr"], betas=(0.9, 0.999))
     total = options["positions"] // options["batch"]
     warmup, decay_from = min(200, total // 10), int(0.8 * total)
