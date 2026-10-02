@@ -1,0 +1,16 @@
+# Qwen3-0.6B after SFT on tool use, then science, seed 43 (the replication of the seed-42 run).
+#
+# One of the four checkpoints from the 2026-09-30 SDFT-vs-SFT run in
+# ~/main/Self-Distillation (docs/results-sdft-vs-sft-qwen3-0.6b.md): both
+# methods start from Qwen/Qwen3-0.6B (configs/qwen3-0.6b-sdft.yaml, the pre side
+# of every diff) and learn tool use, then science, with identical settings.
+# hf_name is the trained output directory, as qwen3-0.6b-sdft.yaml says to do.
+id: qwen3-0.6b-sft-science-s43
+backend: transformers
+hf_name: /home/lmanrique/main/Self-Distillation/runs/sft-seq-Qwen3-0.6B-s43/2-science
+probe_layer_frac: 0.65
+batch_size: 8
+device: auto
+dtype: bfloat16
+max_new_tokens: 1024
+chat: true
