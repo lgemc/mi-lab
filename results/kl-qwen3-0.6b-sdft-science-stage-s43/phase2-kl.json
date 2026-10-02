@@ -1,0 +1,31 @@
+{
+  "pre": "qwen3-0.6b-sdft-tooluse-s43",
+  "options": {
+    "pre": "qwen3-0.6b-sdft-tooluse-s43",
+    "passages": 32,
+    "limit": null,
+    "budget": 2048
+  },
+  "models": {
+    "qwen3-0.6b-sdft-science-s43": {
+      "tooluse": {
+        "sequences": 97,
+        "tokens": 42120,
+        "kl_post_base": 0.04302570220358946,
+        "kl_base_post": 0.03698649289137759
+      },
+      "science": {
+        "sequences": 507,
+        "tokens": 310344,
+        "kl_post_base": 0.11710639675392948,
+        "kl_base_post": 0.10128164152152497
+      },
+      "wikitext": {
+        "sequences": 32,
+        "tokens": 10747,
+        "kl_post_base": 0.024278014429649154,
+        "kl_base_post": 0.023227550422822506
+      }
+    }
+  }
+}
