@@ -981,8 +981,9 @@ come back as a working object has shared nothing.
 ### CLI
 
 `src/cli/main.py` aggregates one Typer app per group: `model`, `capture`, `data`, `probe`, `steer`,
-`ioi`, `compare`, `artifact`, `hub`, `run`, `viz`. `hub push` publishes the Self-Distillation runs
-(`share/hub.py`): one file per stage, named by the sequence that produced it. `ioi` answers "which heads do this task"; `compare`
+`ioi`, `compare`, `artifact`, `hub`, `run`, `viz`. `hub models` and `hub crosscoders` publish the
+Self-Distillation runs and the crosscoders trained on them (`share/hub.py`), both named by the
+sequence of stages that produced a checkpoint. `ioi` answers "which heads do this task"; `compare`
 answers the three that come after it, and its commands are ordered by what they cost — `compare
 list` loads no model at all. Command modules only format what `core` returns — anything doable from the shell must
 be doable by importing the same core function. `HelpfulCommand`/`HelpfulGroup` in `cli/common.py`
