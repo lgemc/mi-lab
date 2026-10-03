@@ -6,7 +6,7 @@ from unittest import TestCase
 import torch
 from safetensors.torch import load_file, save_file
 
-from src.share.hub import HubError, plan, single_file, stage_name
+from src.share.hub import HubError, checkpoint_name, crosscoder_plan, plan, single_file, stage_name
 
 """
 The Hub layout is tested on a fake `runs/` tree laid out the way the
@@ -15,6 +15,9 @@ each model. What can go wrong is all naming and refusal: a stage published
 under its last dataset instead of its sequence, SDFT and SFT landing on one
 path, a half-finished stage shipped from its checkpoint, or one method pushed
 without the other. `push` itself is the Hub's client and is not exercised.
+
+Crosscoders are named through the configs they record, so those tests hand
+`crosscoder_plan` a resolver over the fake tree instead of `configs/`.
 """
 
 
@@ -110,3 +113,73 @@ class TestPlan(TestCase):
         merged = load_file(str(single_file(upload, self.root)))
         self.assertEqual(sorted(merged), ["a", "b"])
         self.assertTrue(torch.equal(merged["b"], torch.ones(4)))
+
+
+def _crosscoder(results: Path, directory: str, pre: str, post: str, json_too: bool = True) -> Path:
+    folder = results / directory
+    folder.mkdir(parents=True)
+    save_file({"W_dec": torch.zeros(2, 2, 3)}, str(folder / "phase2-crosscoder.safetensors"))
+    if json_too:
+        (folder / "phase2-crosscoder.json").write_text(json.dumps({"options": {"pre": pre, "post": post}, "layer": 22}))
+    return folder
+
+
+class TestCrosscoderPlan(TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.root = Path(self.directory.name)
+        self.runs = _runs(self.root)
+        self.results = self.root / "results"
+        self.configs = {
+            "base": "Qwen/Qwen3-0.6B",
+            "sdft-tooluse": str(self.runs / "seq-Qwen3-0.6B" / "1-tooluse"),
+            "sdft-science": str(self.runs / "seq-Qwen3-0.6B" / "2-science"),
+            "sft-science": str(self.runs / "sft-seq-Qwen3-0.6B" / "2-science"),
+        }
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def _plan(self):
+        return crosscoder_plan(self.results, resolve=self.configs.__getitem__)
+
+    def test_a_checkpoint_is_named_the_way_its_model_upload_is(self):
+        self.assertEqual(checkpoint_name("Qwen/Qwen3-0.6B"), ("qwen3-0.6b", None, "base"))
+        self.assertEqual(checkpoint_name(self.configs["sdft-science"]), ("qwen3-0.6b", "sdft", "tool-use-then-science"))
+
+    def test_each_crosscoder_gets_a_folder_named_by_its_pair(self):
+        _crosscoder(self.results, "diff-a", "base", "sdft-science")
+        _crosscoder(self.results, "diff-b", "sdft-tooluse", "sdft-science")
+        _crosscoder(self.results, "diff-c", "base", "sft-science")
+        self.assertEqual(
+            sorted(upload.path_in_repo for upload in self._plan()),
+            [
+                "crosscoders/qwen3-0.6b/sdft/base--tool-use-then-science/crosscoder.json",
+                "crosscoders/qwen3-0.6b/sdft/base--tool-use-then-science/crosscoder.safetensors",
+                "crosscoders/qwen3-0.6b/sdft/tool-use--tool-use-then-science/crosscoder.json",
+                "crosscoders/qwen3-0.6b/sdft/tool-use--tool-use-then-science/crosscoder.safetensors",
+                "crosscoders/qwen3-0.6b/sft/base--tool-use-then-science/crosscoder.json",
+                "crosscoders/qwen3-0.6b/sft/base--tool-use-then-science/crosscoder.safetensors",
+            ],
+        )
+
+    def test_weights_without_their_report_are_refused(self):
+        _crosscoder(self.results, "diff-a", "base", "sdft-science", json_too=False)
+        with self.assertRaisesRegex(HubError, "k are unknown"):
+            self._plan()
+
+    def test_a_pair_across_methods_is_refused(self):
+        _crosscoder(self.results, "diff-a", "sdft-tooluse", "sft-science")
+        with self.assertRaisesRegex(HubError, "across two methods"):
+            self._plan()
+
+    def test_two_crosscoders_for_one_pair_are_refused(self):
+        _crosscoder(self.results, "diff-a", "base", "sdft-science")
+        _crosscoder(self.results, "rerun/diff-a", "base", "sdft-science")
+        with self.assertRaisesRegex(HubError, "overwrite each other"):
+            self._plan()
+
+    def test_an_empty_results_root_is_refused(self):
+        self.results.mkdir()
+        with self.assertRaisesRegex(HubError, "holds no"):
+            self._plan()

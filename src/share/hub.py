@@ -3,7 +3,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Sequence
+from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 """
 The Self-Distillation runs, as files on the Hugging Face Hub.
@@ -30,10 +30,28 @@ The whole plan is refused if any stage is missing, rather than pushing the
 half that exists: a repository holding SDFT's final stage and not SFT's is a
 comparison with one side.
 
-A common pipe could be: plan | describe | push
+The crosscoders trained on pairs of those checkpoints (saved by the crosscoder
+training script, one per results directory) go to a folder of
+their own, named by the same stage names so a crosscoder and the two models it
+was trained on can be matched by eye:
+
+    crosscoders/qwen3-0.6b/sdft/base--tool-use-then-science/crosscoder.safetensors
+    crosscoders/qwen3-0.6b/sdft/tool-use--tool-use-then-science/crosscoder.json
+
+The JSON beside the weights is the run's own report, and it is not optional:
+it carries the layer, the width, the latent count and `k`, without which the
+weights are a set of tensors nobody can load into a `Crosscoder`.
+
+A common pipe could be: plan | crosscoder_plan | push
 """
 
 PREFIX = "self-distill-vs-sft"
+CROSSCODER_PREFIX = "crosscoders"
+#: The file stem the crosscoder training script saves under (`scripts/phase2_crosscoder.py`). Only
+#: used to find the files; on the Hub they are renamed `crosscoder.safetensors` / `crosscoder.json`.
+SAVED_CROSSCODER = "phase2-crosscoder"
+#: How a checkpoint that is not a Self-Distillation stage is named: the model it all starts from.
+BASE = "base"
 WEIGHTS = "model.safetensors"
 INDEX = "model.safetensors.index.json"
 
@@ -87,6 +105,41 @@ def _weights(stage: Path) -> List[Path]:
     raise HubError(f"{stage} has no {WEIGHTS}: the stage did not finish{hint}")
 
 
+def _stages(root: Path) -> List[Tuple[int, str, Path]]:
+    """A run's `<i>-<dataset>` directories in order, refusing a gap in the numbering"""
+    stages = sorted(
+        (int(match.group(1)), match.group(2), child)
+        for child in root.iterdir()
+        if child.is_dir() and (match := STAGE.match(child.name))
+    )
+    if not stages:
+        raise HubError(f"{root} holds no <i>-<dataset> stage directories")
+    indices = [index for index, _, _ in stages]
+    if indices != list(range(1, len(stages) + 1)):
+        raise HubError(f"{root} stages are numbered {indices}; a gap means a stage is missing")
+    return stages
+
+
+def checkpoint_name(hf_name: str) -> Tuple[str, Optional[str], str]:
+    """(model, method, stage) for what a config's `hf_name` points at
+
+    A Self-Distillation stage directory is named the way `plan` names it, which
+    takes its earlier siblings -- `2-science` is `tool-use-then-science` only
+    because `1-tooluse` came first. Anything else is a Hub id, and the one these
+    runs start from, so it is `base` with no method.
+    """
+    path = Path(hf_name).expanduser()
+    if not path.is_dir():
+        return Path(hf_name).name.lower(), None, BASE
+    match, root = STAGE.match(path.name), path.parent
+    key = next((key for key in METHODS if root.name.startswith(f"{key}-")), None)
+    if match is None or key is None:
+        raise HubError(f"{path} is a directory but not a <seq|sft-seq>-<model>/<i>-<dataset> stage")
+    index = int(match.group(1))
+    datasets = [dataset for i, dataset, _ in _stages(root) if i <= index]
+    return root.name[len(key) + 1 :].lower(), METHODS[key], stage_name(datasets)
+
+
 def plan(runs: Path, prefix: str = PREFIX) -> List[Upload]:
     """Every finished stage under a Self-Distillation `runs/` directory, named for the Hub
 
@@ -103,16 +156,7 @@ def plan(runs: Path, prefix: str = PREFIX) -> List[Upload]:
         if key is None or not root.is_dir():
             continue
         method, model = METHODS[key], root.name[len(key) + 1 :].lower()
-        stages = sorted(
-            (int(match.group(1)), match.group(2), child)
-            for child in root.iterdir()
-            if child.is_dir() and (match := STAGE.match(child.name))
-        )
-        if not stages:
-            raise HubError(f"{root} holds no <i>-<dataset> stage directories")
-        indices = [index for index, _, _ in stages]
-        if indices != list(range(1, len(stages) + 1)):
-            raise HubError(f"{root} stages are numbered {indices}; a gap means a stage is missing")
+        stages = _stages(root)
         datasets: List[str] = []
         for _, dataset, directory in stages:
             datasets.append(dataset)
@@ -136,6 +180,59 @@ def plan(runs: Path, prefix: str = PREFIX) -> List[Upload]:
     return uploads
 
 
+def _hf_name(config: str) -> str:
+    from ..core.config import ConfigError, load_config
+
+    try:
+        return load_config(config).hf_name
+    except ConfigError as error:
+        hint = "run from a checkout whose configs/ has it"
+        raise HubError(f"cannot resolve config '{config}': {error}; {hint}") from error
+
+
+def crosscoder_plan(
+    results: Path,
+    prefix: str = CROSSCODER_PREFIX,
+    resolve: Callable[[str], str] = _hf_name,
+) -> List[Upload]:
+    """Every trained crosscoder under a results root, with its report, named by the pair it was trained on
+
+    `resolve` turns a config name into its `hf_name`; it is a parameter so the
+    naming can be tested without the configs that point at real checkpoints.
+    """
+    results = Path(results)
+    if not results.is_dir():
+        raise HubError(f"{results} is not a directory; point this at the results root the crosscoders were written to")
+    uploads: List[Upload] = []
+    for weights in sorted(results.rglob(f"{SAVED_CROSSCODER}.safetensors")):
+        card = weights.with_suffix(".json")
+        if not card.is_file():
+            raise HubError(f"{weights} has no {card.name} beside it, and without it the layer, width and k are unknown")
+        options = json.loads(card.read_text())["options"]
+        (pre_model, pre_method, pre_stage), (post_model, post_method, post_stage) = (
+            checkpoint_name(resolve(options[side])) for side in ("pre", "post")
+        )
+        if post_method is None:
+            raise HubError(f"{weights}: post checkpoint '{options['post']}' is not a Self-Distillation stage")
+        if pre_method not in (None, post_method) or pre_model != post_model:
+            raise HubError(
+                f"{weights} pairs {pre_model}/{pre_method} with {post_model}/{post_method}; "
+                "a crosscoder across two methods or two models has no folder in this layout"
+            )
+        pair = f"{pre_stage}--{post_stage}"
+        folder = f"{prefix}/{post_model}/{post_method}/{pair}"
+        for source, name in ((weights, "crosscoder.safetensors"), (card, "crosscoder.json")):
+            uploads.append(Upload(post_method, post_model, pair, (str(source),), f"{folder}/{name}"))
+    if not uploads:
+        raise HubError(f"{results} holds no {SAVED_CROSSCODER}.safetensors")
+    destinations = [upload.path_in_repo for upload in uploads]
+    clashes = sorted({path for path in destinations if destinations.count(path) > 1})
+    if clashes:
+        sources = [u.sources[0] for u in uploads if u.path_in_repo in clashes]
+        raise HubError(f"two crosscoders for one pair would overwrite each other at {clashes}: {sources}")
+    return uploads
+
+
 def single_file(upload: Upload, directory: Path) -> Path:
     """The upload's weights as one file, merging shards into `directory` if there are several"""
     if len(upload.sources) == 1:
@@ -153,7 +250,7 @@ def single_file(upload: Upload, directory: Path) -> Path:
 def push(uploads: Sequence[Upload], repo: str, message: Optional[str] = None, revision: Optional[str] = None) -> str:
     """Upload every stage in one commit and return its URL
 
-    One commit, so the repository never holds one method's stages without
+    One commit, so the repository never holds one method's files without
     the other's -- an interrupted push leaves the previous state, not half of
     this one.
     """
@@ -170,7 +267,7 @@ def push(uploads: Sequence[Upload], repo: str, message: Optional[str] = None, re
         info = HfApi().create_commit(
             repo_id=repo,
             operations=operations,
-            commit_message=message or f"Add {len(uploads)} self-distillation vs SFT stages",
+            commit_message=message or f"Add {len(uploads)} files",
             revision=revision,
         )
     return info.commit_url
