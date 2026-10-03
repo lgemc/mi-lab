@@ -48,7 +48,7 @@ uv run python -m unittest tests.core.architecture tests.core.config tests.core.m
     tests.methods.wiring tests.methods.knockout tests.methods.cost tests.methods.span \
     tests.methods.neurons tests.methods.gates tests.methods.sheaves tests.methods.units \
     tests.domains.ioi tests.domains.quality tests.domains.study \
-    tests.share.artifact tests.serve.serve tests.serve.pool \
+    tests.share.artifact tests.share.hub tests.serve.serve tests.serve.pool \
     tests.experiment.spec tests.experiment.run tests.experiment.runner \
     tests.experiment.pipeline tests.ie.ie \
     tests.domains.workspacebench tests.domains.diffing tests.domains.attribution tests.domains.lens \
@@ -60,7 +60,7 @@ uv run python -m unittest tests.core.architecture tests.core.config tests.core.m
     tests.telemetry.journal tests.telemetry.observe tests.telemetry.results \
     tests.methods.components tests.methods.cost tests.methods.wiring tests.methods.span \
     tests.domains.quality tests.domains.study \
-    tests.share.artifact tests.serve.pool \
+    tests.share.artifact tests.share.hub tests.serve.pool \
     tests.experiment.spec tests.experiment.run tests.experiment.pipeline
 
 # one module / class / method
@@ -981,7 +981,8 @@ come back as a working object has shared nothing.
 ### CLI
 
 `src/cli/main.py` aggregates one Typer app per group: `model`, `capture`, `data`, `probe`, `steer`,
-`ioi`, `compare`, `artifact`, `run`, `viz`. `ioi` answers "which heads do this task"; `compare`
+`ioi`, `compare`, `artifact`, `hub`, `run`, `viz`. `hub push` publishes the Self-Distillation runs
+(`share/hub.py`): one file per stage, named by the sequence that produced it. `ioi` answers "which heads do this task"; `compare`
 answers the three that come after it, and its commands are ordered by what they cost — `compare
 list` loads no model at all. Command modules only format what `core` returns — anything doable from the shell must
 be doable by importing the same core function. `HelpfulCommand`/`HelpfulGroup` in `cli/common.py`
