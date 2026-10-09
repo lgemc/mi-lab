@@ -123,3 +123,16 @@ class TestDecomposition(TestCase):
         self.assertGreaterEqual(float(gate.min()), 0.0)
         self.assertLessEqual(float(gate.max()), 1.0)
         self.assertLessEqual(float(upper.max()), 1.0)
+
+    def test_merged_weights_are_the_reverted_model(self):
+        first = next(iter(self.maps))
+        chosen = [(first, 0), (first, 2)]
+        delta.revert(self.maps, chosen)
+        masked = logits(self.model, self.ids)
+        delta.set_masks(self.maps, None, None)
+        plain = copy.deepcopy(self.before)
+        weights = delta.merged(self.maps, chosen)
+        with torch.no_grad():
+            for name, module in delta.targets(plain).items():
+                module.weight.copy_(weights[name])
+        torch.testing.assert_close(logits(plain, self.ids), masked, atol=1e-4, rtol=1e-4)

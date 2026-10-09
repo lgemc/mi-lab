@@ -37,6 +37,7 @@ decomposed model has to reproduce the science model's next-token distribution
 
 Run: uv run python -m scripts.phase3_delta_pd qwen3-0.6b-sft-tooluse qwen3-0.6b-sft-science
      ... --stage=analyse    (reuse a trained decomposition)
+     ... --stage=export --export_n=256 --export_by=used    (a reverted checkpoint for `make eval`)
      ... --steps=200 --components=32    (a smoke run)
 """
 
@@ -65,6 +66,7 @@ DEFAULTS: Dict[str, Any] = {
     "stage": "all", "components": 128, "hidden": 32, "steps": 3000, "batch": 4, "seq": 512,
     "lr": 3e-4, "warmup": 100, "imp": 1e-4, "p_start": 2.0, "p_end": 0.5, "pgd": 1.0, "pgd_steps": 1,
     "pgd_lr": 0.5, "faith": 0.1, "log_every": 25, "later": 80, "seed": 0,
+    "export_n": 256, "export_by": "used",
 }
 
 
@@ -157,7 +159,7 @@ def train(model, maps, tokenizer, opts: Dict[str, Any], tracker, device) -> None
             gates[name], upper[name] = module.gates(module.captured)
         delta.capturing(maps, False)
 
-        def run(masks, rest):
+        def run(masks, rest, target=target, ids=ids, keep=keep):
             delta.set_masks(maps, masks, rest)
             return delta.kl(target, model(input_ids=ids, attention_mask=keep.long()).logits, keep)
 
@@ -219,18 +221,36 @@ def restore(maps, path) -> None:
         missing = module.load_state_dict(mine, strict=False)
         unexpected = [k for k in missing.missing_keys if not k.startswith("base.")]
         if unexpected or missing.unexpected_keys:
-            raise SystemExit(f"{path} does not match this decomposition at {name}: {unexpected or missing.unexpected_keys}")
+            raise SystemExit(f"{path} does not match this decomposition at {name}: "
+                             f"{unexpected or missing.unexpected_keys}")
 
 
-def gate_statistics(model, maps, sets) -> Dict[str, Any]:
-    """Per subcomponent: mean gate and share of positions with the gate past one half, per set"""
+def eval_groups(sets) -> Dict[str, List]:
+    """The scoring sets as (ids, first position) per group: answers only on the two tasks"""
+    return {"earlier": [(e.ids, e.start - 1) for e in sets.earlier],
+            "later": [(e.ids, e.start - 1) for e in sets.later],
+            "prose": [(ids, 0) for ids in sets.prose]}
+
+
+def ranking_groups(tokenizer, opts: Dict[str, Any], device, count: int = 64) -> Dict[str, List]:
+    """Training demonstrations the ranking reads, so the eval items stay out of the choice
+
+    Ranking subcomponents on the eval answers and then scoring the revert on
+    the same answers would select on the test set; these come from both tasks'
+    training splits and from wikitext past the scored passages.
+    """
+    generator = random.Random(opts["seed"] + 1)
+    sources = corpus(tokenizer, opts)
+    return {name: [(ids.unsqueeze(0).to(device), 0) for ids in generator.sample(pool, min(count, len(pool)))]
+            for name, pool in sources.items()}
+
+
+def gate_statistics(model, maps, groups: Dict[str, List]) -> Dict[str, Any]:
+    """Per subcomponent: mean gate and share of positions with the gate past one half, per group"""
     import torch
 
     names = delta.component_names(maps)
     out = {}
-    groups = {"earlier": [(e.ids, e.start - 1) for e in sets.earlier],
-              "later": [(e.ids, e.start - 1) for e in sets.later],
-              "prose": [(ids, 0) for ids in sets.prose]}
     delta.set_masks(maps, None, None)
     for group, rows in groups.items():
         total = torch.zeros(len(names), device=next(model.parameters()).device)
@@ -291,12 +311,13 @@ def analyse(model, maps, tokenizer, opts: Dict[str, Any], tracker, device) -> Di
     log(f"sets: {sets.meta}")
     names = delta.component_names(maps)
     with step("gate statistics"):
-        stats = gate_statistics(model, maps, sets)
+        stats = gate_statistics(model, maps, ranking_groups(tokenizer, opts, device))
+        held_out = gate_statistics(model, maps, eval_groups(sets))
     f_earlier = torch.tensor(stats["earlier"]["open"])
     f_later = torch.tensor(stats["later"]["open"])
     f_prose = torch.tensor(stats["prose"]["open"])
     alive = ((f_earlier + f_later + f_prose) > 0).nonzero().flatten().tolist()
-    log(f"alive on held-out text: {len(alive)} of {len(names)}; open per position: "
+    log(f"alive on ranking text: {len(alive)} of {len(names)}; open per position: "
         + ", ".join(f"{g} {sum(stats[g]['open']):.0f}" for g in stats))
 
     rows: Dict[str, Dict[str, List[float]]] = {}
@@ -378,7 +399,41 @@ def analyse(model, maps, tokenizer, opts: Dict[str, Any], tracker, device) -> Di
             "open_per_position": {g: sum(stats[g]["open"]) for g in stats},
             "variants": fractions, "reverted": reverts, "most_specific": table,
             "top256_specific_by_kind": by_kind, "top256_specific_by_layer": dict(sorted(by_layer.items())),
+            "open_per_position_held_out": {g: sum(held_out[g]["open"]) for g in held_out},
+            "ranked_on": "training demonstrations and unscored wikitext",
             "per_item": rows, "gate_open": {g: stats[g]["open"] for g in stats}}
+
+
+def export(model, maps, tokenizer, opts: Dict[str, Any], device) -> None:
+    """Write the decomposition with `export_n` subcomponents reverted as a checkpoint for `make eval`
+
+    Chosen on training text by `export_by`: "used" (most often open on the
+    earlier task) or "specific" (open on the earlier task more than on the later
+    one), the two rankings `analyse` compares.
+    """
+    from pathlib import Path
+
+    import torch
+
+    names = delta.component_names(maps)
+    with step("ranking on training text"):
+        stats = gate_statistics(model, maps, ranking_groups(tokenizer, opts, device))
+    f_earlier = torch.tensor(stats["earlier"]["open"])
+    score = f_earlier - torch.tensor(stats["later"]["open"]) if opts["export_by"] == "specific" else f_earlier
+    chosen = [names[i] for i in score.argsort(descending=True)[: opts["export_n"]].tolist()]
+    weights = delta.merged(maps, chosen)
+    plain = stage.load(opts["before"], str(device))
+    source = Path(load_config(opts["after"]).hf_name)
+    target = stage.SDFT_REPO / "runs" / "derived" / (
+        f"{source.parent.name}-{source.name}-pd-revert{opts['export_n']}-{opts['export_by']}")
+    with step(f"exporting to {target}"), torch.no_grad():
+        for name, module in delta.targets(plain).items():
+            module.weight.copy_(weights[name].to(module.weight.dtype))
+        plain.save_pretrained(target)
+        tokenizer.save_pretrained(target)
+    (target / "reverted.json").write_text(json.dumps([f"{n}:{c}" for n, c in chosen]))
+    log(f"evaluate with: make eval DATASET=tooluse CKPT={target.relative_to(stage.SDFT_REPO)} "
+        f"(and DATASET=science) in {stage.SDFT_REPO}")
 
 
 def main(argv: List[str]) -> int:
@@ -393,7 +448,7 @@ def main(argv: List[str]) -> int:
     artifact, weights = result("phase3-delta-pd.json"), result("phase3-delta-pd.safetensors")
     set_log_file(result("phase3-delta-pd.log"))
     guard(pair)
-    banner("phase 3 decomposing the update", {**{k: v for k, v in opts.items()}, "artifact": artifact})
+    banner("phase 3 decomposing the update", {**opts, "artifact": artifact})
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     started = time.time()
     with track(f"phase3_delta_pd {pair} {opts['stage']}", "mi-lab-diffing", params=opts,
@@ -406,6 +461,8 @@ def main(argv: List[str]) -> int:
             log(f"decomposition saved to {weights}")
         else:
             restore(maps, weights)
+        if opts["stage"] == "export":
+            export(model, maps, tokenizer, opts, device)
         if opts["stage"] in ("all", "analyse"):
             report = {"options": opts, **analyse(model, maps, tokenizer, opts, tracker, device)}
             artifact.parent.mkdir(parents=True, exist_ok=True)

@@ -24,6 +24,7 @@ energy, the leading singular values).
 
 Run: uv run python -m scripts.phase3_delta_rank qwen3-0.6b-sft-tooluse qwen3-0.6b-sft-science
      ... --export=8    (write that truncation as a checkpoint for `make eval`, and score nothing)
+     ... --export_scaled=0.5    (W_before + 0.5 D, the interpolation control)
 """
 
 import json
@@ -63,6 +64,25 @@ def export(work, tokenizer, base, factors, after_name: str, top: int) -> int:
     return 0
 
 
+def export_scaled(work, tokenizer, base, deltas, after_name: str, alpha: float) -> int:
+    """Write W_before + alpha * D for every block map: the interpolation control for a truncation
+
+    A truncation that restores the earlier task and keeps part of the later one
+    is only interesting if moving back along the straight line between the two
+    checkpoints, by the same amount, does worse.
+    """
+    import torch
+
+    source = Path(load_config(after_name).hf_name)
+    target = stage.SDFT_REPO / "runs" / "derived" / f"{source.parent.name}-{source.name}-scaled{alpha:g}"
+    with step(f"exporting W_before + {alpha:g} D to {target}"), torch.no_grad():
+        for name, module in delta.targets(work).items():
+            module.weight.copy_((base[name] + alpha * deltas[name]).to(module.weight.dtype))
+        work.save_pretrained(target)
+        tokenizer.save_pretrained(target)
+    return 0
+
+
 def main(argv: List[str]) -> int:
     import torch
     from transformers import AutoTokenizer
@@ -90,6 +110,8 @@ def main(argv: List[str]) -> int:
         factors = delta.Factors(deltas, str(device))
     if "export" in flags:
         return export(before, tokenizer, base, factors, after_name, int(flags["export"]))
+    if "export_scaled" in flags:
+        return export_scaled(before, tokenizer, base, deltas, after_name, float(flags["export_scaled"]))
     with step("scoring sets"):
         sets = stage.build(before_name, after_name, tokenizer, device, BUDGET,
                             later_limit=int(flags.get("later", 80)), prose=int(flags.get("prose", 16)))

@@ -343,3 +343,19 @@ def revert(maps: Dict[str, DeltaLinear], chosen: Sequence[Tuple[str, int]], rest
     for name, c in chosen:
         masks[name][..., c] = 0.0
     set_masks(maps, masks, rest)
+
+
+@torch.no_grad()
+def merged(maps: Dict[str, DeltaLinear], chosen: Sequence[Tuple[str, int]]) -> Dict[str, torch.Tensor]:
+    """Plain weights for the model with the chosen subcomponents reverted and everything else on
+
+    W_before + D - sum over the chosen of u_c v_c^T: the same model `revert`
+    builds with masks, as ordinary weight matrices a checkpoint can hold.
+    """
+    out = {}
+    for name, module in maps.items():
+        out[name] = module.base.weight.float() + module.update
+    for name, c in chosen:
+        module = maps[name]
+        out[name] -= torch.outer(module.U[c], module.V[:, c])
+    return out
