@@ -1,0 +1,69 @@
+{
+ "floor": 0.01,
+ "pairs": {
+  "SFT s42": {
+   "alive": 7787,
+   "open_per_position": {
+    "earlier": 56.73222860236274,
+    "later": 109.1227680236625,
+    "prose": 67.65761680547439
+   },
+   "used_on_tooluse": 105,
+   "shared_share": 1.0,
+   "jaccard_tooluse_science": 0.18453427065026362,
+   "top256_open": {
+    "tooluse": 0.1699861174747639,
+    "science": 0.26711754344614747,
+    "prose": 0.18928015718950064
+   },
+   "revert256_used": {
+    "forgetting": 0.1289834746029473,
+    "learning": 0.9252417247091208
+   },
+   "revert256_random": {
+    "forgetting": 0.9444905696830416,
+    "learning": 1.0101050413624886
+   },
+   "gated_with_leftover": {
+    "forgetting": 0.832866009533691,
+    "learning": 0.9854114193606631
+   },
+   "leftover_alone": {
+    "forgetting": 0.014116031409370662,
+    "learning": 0.5885482768155751
+   }
+  },
+  "SDFT s42": {
+   "alive": 7069,
+   "open_per_position": {
+    "earlier": 19.64547381040029,
+    "later": 37.74458383928868,
+    "prose": 23.649156059793313
+   },
+   "used_on_tooluse": 47,
+   "shared_share": 0.9787234042553191,
+   "jaccard_tooluse_science": 0.3821138211382114,
+   "top256_open": {
+    "tooluse": 0.027507520800099883,
+    "science": 0.08275165152099362,
+    "prose": 0.019032958267487743
+   },
+   "revert256_used": {
+    "forgetting": 0.49458017891723866,
+    "learning": 0.8883619805691306
+   },
+   "revert256_random": {
+    "forgetting": 0.9323960259457551,
+    "learning": 1.0300435812598026
+   },
+   "gated_with_leftover": {
+    "forgetting": 0.7964429713144194,
+    "learning": 0.8154757147358326
+   },
+   "leftover_alone": {
+    "forgetting": -0.017067298459456367,
+    "learning": 0.5234464320934464
+   }
+  }
+ }
+}
