@@ -54,3 +54,5 @@ docs/*.out
 
 # phase 2 diffing: crosscoder weights and stored mean differences, rebuilt by the scripts
 results/**/phase2-*.safetensors
+# decompositions of an update: 191 MB each, rebuilt by phase3_delta_pd --stage=train
+results/**/phase3-delta-*.safetensors
