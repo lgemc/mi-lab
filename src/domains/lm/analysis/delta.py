@@ -291,16 +291,21 @@ def faithfulness(maps: Dict[str, DeltaLinear]) -> torch.Tensor:
     return left / total
 
 
-def minimality(upper: Dict[str, torch.Tensor], p: float, keep: torch.Tensor) -> torch.Tensor:
+def minimality(upper: Dict[str, torch.Tensor], p: float, keep: torch.Tensor,
+               weight: Optional[torch.Tensor] = None) -> torch.Tensor:
     """sum_c |g_c|^p per position, summed over maps, averaged over the kept positions
 
     Taken on the upper-leaky gate (SPD's choice), so a gate pushed below zero
-    is not penalised for it.
+    is not penalised for it. `weight` [B, S] scales the penalty per position
+    without changing the average it is divided by: targeted decomposition
+    (tPD) doubles it on non-target rows, where nothing but the catch-all needs
+    to be on, and a weighted mean would have halved it on the target rows instead.
     """
     total = 0.0
     for gate in upper.values():
         total = total + (gate.clamp(min=0.0) + 1e-12).pow(p).sum(-1)
-    return (total * keep).sum() / keep.sum().clamp(min=1)
+    scaled = keep if weight is None else keep * weight
+    return (total * scaled).sum() / keep.sum().clamp(min=1)
 
 
 def mask_from(gate: torch.Tensor, source: torch.Tensor) -> torch.Tensor:

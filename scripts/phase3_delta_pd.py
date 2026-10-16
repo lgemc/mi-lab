@@ -35,6 +35,20 @@ decomposed model has to reproduce the science model's next-token distribution
   and these are the pieces that separate it;
 - for the most specific subcomponents, the tool-use tokens their gates open on.
 
+**--target=earlier** is targeted parameter decomposition (tPD, Vigouroux &
+Sharkey 2607.13047) on the update: the subcomponents only have to account for
+what the update does to the earlier task's text. Half of every batch is that
+text (the target) and half is the later task's and prose (the rest). On a
+target row the leftover is ablated like everything else, so the pieces must
+carry the update there; on the other rows the leftover stays fully on, so it
+absorbs whatever the update does that tool-use text never touches, and the
+importance penalty there is `nontarget_imp` times as strong. The pieces are
+then the update's tool-use mechanisms and nothing more, and "leftover alone"
+in `analyse` -- every piece reverted -- is the science model with exactly those
+taken out. Run it with `--faith=0`: tPD's pieces need not sum to the update,
+and the faithfulness pull is what made 04's pieces cover science too. Results
+go to `phase3-delta-tpd.*`, beside the untargeted ones.
+
 Run: uv run python -m scripts.phase3_delta_pd qwen3-0.6b-sft-tooluse qwen3-0.6b-sft-science
      ... --stage=analyse    (reuse a trained decomposition)
      ... --stage=export --export_n=256 --export_by=used    (a reverted checkpoint for `make eval`)
@@ -66,7 +80,7 @@ DEFAULTS: Dict[str, Any] = {
     "stage": "all", "components": 128, "hidden": 32, "steps": 3000, "batch": 4, "seq": 512,
     "lr": 3e-4, "warmup": 100, "imp": 1e-4, "p_start": 2.0, "p_end": 0.5, "pgd": 1.0, "pgd_steps": 1,
     "pgd_lr": 0.5, "faith": 0.1, "log_every": 25, "later": 80, "seed": 0,
-    "export_n": 256, "export_by": "used",
+    "export_n": 256, "export_by": "used", "target": "", "nontarget_imp": 2.0,
 }
 
 
@@ -129,6 +143,25 @@ def batches(sources: Dict[str, List[Any]], size: int, device, generator: random.
         yield ids.to(device), keep.to(device)
 
 
+def targeted_batches(sources: Dict[str, List[Any]], target: str, size: int, device, generator: random.Random):
+    """Batches whose even rows are the target source and odd rows the others in turn, and which rows are which"""
+    import torch
+
+    rest = [name for name in sources if name != target]
+    inner = batches({name: sources[name] for name in rest}, 1, "cpu", generator)
+    pick = batches({target: sources[target]}, 1, "cpu", generator)
+    is_target = torch.tensor([i % 2 == 0 for i in range(size)], device=device)
+    while True:
+        rows = [next(pick if i % 2 == 0 else inner)[0][0] for i in range(size)]
+        width = max(len(r) for r in rows)
+        ids = torch.zeros(len(rows), width, dtype=torch.long)
+        keep = torch.zeros(len(rows), width)
+        for i, r in enumerate(rows):
+            ids[i, : len(r)] = r
+            keep[i, : len(r)] = 1
+        yield ids.to(device), keep.to(device), is_target
+
+
 def train(model, maps, tokenizer, opts: Dict[str, Any], tracker, device) -> None:
     import torch
 
@@ -141,14 +174,30 @@ def train(model, maps, tokenizer, opts: Dict[str, Any], tracker, device) -> None
     log(f"trainable parameters: {sum(p.numel() for p in parameters) / 1e6:.1f}M over {len(maps)} maps, "
         f"{sum(m.components for m in maps.values())} subcomponents")
     optimizer = torch.optim.AdamW(parameters, lr=opts["lr"], weight_decay=0.0)
-    stream = batches(sources, opts["batch"], device, generator)
+    targeted = bool(opts["target"])
+    if targeted:
+        if opts["target"] not in sources:
+            raise SystemExit(f"--target={opts['target']}: the sources are {', '.join(sources)}")
+        stream = targeted_batches(sources, opts["target"], opts["batch"], device, generator)
+    else:
+        stream = batches(sources, opts["batch"], device, generator)
     started = time.time()
     for at in range(opts["steps"]):
         scale = delta.cosine_lr(at, opts["steps"], opts["warmup"], 0.1)
         for group in optimizer.param_groups:
             group["lr"] = opts["lr"] * scale
         p = delta.schedule(at, opts["steps"], opts["p_start"], opts["p_end"])
-        ids, keep = next(stream)
+        if targeted:
+            ids, keep, is_target = next(stream)
+        else:
+            ids, keep = next(stream)
+            is_target = torch.ones(ids.shape[0], dtype=torch.bool, device=device)
+        # The leftover may be ablated only on target rows; elsewhere it is the
+        # catch-all and stays fully on. Untargeted, every row is a target row.
+        rows = is_target[:, None]
+
+        def leftover(source, rows=rows):
+            return torch.where(rows, source, torch.ones_like(source))
 
         with torch.no_grad():
             delta.set_masks(maps, None, None)
@@ -165,22 +214,23 @@ def train(model, maps, tokenizer, opts: Dict[str, Any], tracker, device) -> None
 
         # Stochastic: closed gates take any mask in [g, 1], the leftover any in [0, 1].
         stochastic = run({n: delta.mask_from(g, torch.rand_like(g)) for n, g in gates.items()},
-                         {n: torch.rand(ids.shape, device=device) for n in maps})
+                         {n: leftover(torch.rand(ids.shape, device=device)) for n in maps})
 
         # Adversarial: one source per subcomponent, shared across batch and positions.
         sources_c = {n: torch.rand(m.components, device=device, requires_grad=True) for n, m in maps.items()}
         sources_r = {n: torch.rand(1, device=device, requires_grad=True) for n in maps}
         for _ in range(opts["pgd_steps"]):
             loss = run({n: delta.mask_from(g.detach(), sources_c[n]) for n, g in gates.items()},
-                       {n: sources_r[n].expand(ids.shape) for n in maps})
+                       {n: leftover(sources_r[n].expand(ids.shape)) for n in maps})
             grads = torch.autograd.grad(loss, [*sources_c.values(), *sources_r.values()])
             with torch.no_grad():
                 for source, grad in zip([*sources_c.values(), *sources_r.values()], grads, strict=True):
                     source.add_(opts["pgd_lr"] * grad.sign()).clamp_(0.0, 1.0)
         adversarial = run({n: delta.mask_from(g, sources_c[n].detach()) for n, g in gates.items()},
-                          {n: sources_r[n].detach().expand(ids.shape) for n in maps})
+                          {n: leftover(sources_r[n].detach().expand(ids.shape)) for n in maps})
 
-        importance = delta.minimality(upper, p, keep)
+        weight = torch.where(rows, 1.0, opts["nontarget_imp"]).expand_as(keep) if targeted else None
+        importance = delta.minimality(upper, p, keep, weight)
         faithful = delta.faithfulness(maps)
         total = stochastic + opts["pgd"] * adversarial + opts["imp"] * importance + opts["faith"] * faithful
         optimizer.zero_grad(set_to_none=True)
@@ -419,13 +469,19 @@ def export(model, maps, tokenizer, opts: Dict[str, Any], device) -> None:
     with step("ranking on training text"):
         stats = gate_statistics(model, maps, ranking_groups(tokenizer, opts, device))
     f_earlier = torch.tensor(stats["earlier"]["open"])
-    score = f_earlier - torch.tensor(stats["later"]["open"]) if opts["export_by"] == "specific" else f_earlier
-    chosen = [names[i] for i in score.argsort(descending=True)[: opts["export_n"]].tolist()]
+    if opts["export_by"] == "all":
+        # Every subcomponent reverted, the leftover kept: under --target, the
+        # later model with its earlier-task mechanisms taken out.
+        chosen, size = names, "all"
+    else:
+        score = f_earlier - torch.tensor(stats["later"]["open"]) if opts["export_by"] == "specific" else f_earlier
+        chosen = [names[i] for i in score.argsort(descending=True)[: opts["export_n"]].tolist()]
+        size = f"{opts['export_n']}-{opts['export_by']}"
     weights = delta.merged(maps, chosen)
     plain = stage.load(opts["before"], str(device))
     source = Path(load_config(opts["after"]).hf_name)
-    target = stage.SDFT_REPO / "runs" / "derived" / (
-        f"{source.parent.name}-{source.name}-pd-revert{opts['export_n']}-{opts['export_by']}")
+    kind = "tpd" if opts["target"] else "pd"
+    target = stage.SDFT_REPO / "runs" / "derived" / f"{source.parent.name}-{source.name}-{kind}-revert{size}"
     with step(f"exporting to {target}"), torch.no_grad():
         for name, module in delta.targets(plain).items():
             module.weight.copy_(weights[name].to(module.weight.dtype))
@@ -445,14 +501,17 @@ def main(argv: List[str]) -> int:
     # several times faster on this hardware.
     torch.backends.cuda.matmul.allow_tf32 = True
     pair = f"{opts['before']}..{opts['after']}"
-    artifact, weights = result("phase3-delta-pd.json"), result("phase3-delta-pd.safetensors")
-    set_log_file(result("phase3-delta-pd.log"))
+    if opts["export_by"] not in ("used", "specific", "all"):
+        raise SystemExit(f"--export_by={opts['export_by']}: one of used, specific, all")
+    stem = "phase3-delta-tpd" if opts["target"] else "phase3-delta-pd"
+    artifact, weights = result(f"{stem}.json"), result(f"{stem}.safetensors")
+    set_log_file(result(f"{stem}.log"))
     guard(pair)
     banner("phase 3 decomposing the update", {**opts, "artifact": artifact})
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     started = time.time()
-    with track(f"phase3_delta_pd {pair} {opts['stage']}", "mi-lab-diffing", params=opts,
-               outputs=[results_root()], tags={"script": "phase3_delta_pd"}) as tracker:
+    with track(f"phase3_delta_pd {pair} {opts['stage']}{' tpd' if opts['target'] else ''}", "mi-lab-diffing",
+               params=opts, outputs=[results_root()], tags={"script": "phase3_delta_pd"}) as tracker:
         with step("models and the update"):
             tokenizer, model, maps = build(opts, device)
         if opts["stage"] in ("all", "train"):

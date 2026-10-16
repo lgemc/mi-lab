@@ -136,3 +136,12 @@ class TestDecomposition(TestCase):
             for name, module in delta.targets(plain).items():
                 module.weight.copy_(weights[name])
         torch.testing.assert_close(logits(plain, self.ids), masked, atol=1e-4, rtol=1e-4)
+
+    def test_a_weighted_penalty_scales_rows_without_renormalising(self):
+        upper = {"a": torch.full((2, 3, 4), 0.5)}
+        keep = torch.ones(2, 3)
+        plain = delta.minimality(upper, 1.0, keep)
+        self.assertAlmostEqual(float(plain), 2.0, places=5)
+        weight = torch.tensor([[1.0], [2.0]]).expand_as(keep)
+        # Row 0 counts once and row 1 twice, still divided by the six positions.
+        self.assertAlmostEqual(float(delta.minimality(upper, 1.0, keep, weight)), 3.0, places=5)
